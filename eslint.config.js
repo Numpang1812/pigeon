@@ -7,22 +7,32 @@ import { defineConfig } from 'eslint/config';
 import globals from 'globals';
 import ts from 'typescript-eslint';
 import svelteConfig from './svelte.config.js';
+import { all_rules } from './eslint_rules/index.ts';
 
 const gitignorePath = path.resolve(import.meta.dirname, '.gitignore');
 
 export default defineConfig(
 	includeIgnoreFile(gitignorePath),
+	{
+		ignores: [
+			'src/app.d.ts',
+			'*.config.{js,ts,cjs,mjs}',
+			'src/routes/**/+layout.svelte',
+			'src/routes/**/+layout.ts',
+			'src/routes/demo/**/+page.svelte',
+			'src/hook.ts',
+			'eslint_rules/*.ts'
+		]
+	},
 	js.configs.recommended,
-	ts.configs.recommended,
-	svelte.configs.recommended,
+	...ts.configs.recommended,
+	...svelte.configs['flat/recommended'],
 	prettier,
-	svelte.configs.prettier,
+	...svelte.configs['flat/prettier'],
 	{
 		languageOptions: { globals: { ...globals.browser, ...globals.node } },
 		rules: {
-			// typescript-eslint strongly recommend that you do not use the no-undef lint rule on TypeScript projects.
-			// see: https://typescript-eslint.io/troubleshooting/faqs/eslint/#i-get-errors-from-the-no-undef-rule-about-global-variables-not-being-defined-even-though-there-are-no-typescript-errors
-			'no-undef': 'off'
+			...all_rules
 		}
 	},
 	{
