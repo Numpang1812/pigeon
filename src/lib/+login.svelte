@@ -1,15 +1,13 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import { goto } from '$app/navigation';
 	import SsoButton from '$lib/components/SsoButton.svelte';
+	import { auth_client } from '$lib/auth-client';
 
-	// NOTE: In production, auth should go through a SvelteKit API route (+server.ts)
-	// so secrets are never exposed to the client. This component calls that endpoint.
-
-	let username = $state('');
+	let email = $state('');
 	let password = $state('');
 	let error = $state<string | null>(null);
 	let loading = $state(false);
-	let success = $state(false);
 
 	async function handle_submit(e: SubmitEvent) {
 		e.preventDefault();
@@ -17,23 +15,41 @@
 		loading = true;
 
 		try {
-			const res = await fetch('/api/auth/login', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ username, password })
+			const { error: auth_error } = await auth_client.signIn.email({
+				email: email,
+				password: password,
+				callbackURL: resolve('/')
 			});
 
-			if (!res.ok) {
-				const data = await res.json().catch(() => ({}));
-				throw new Error(data.message ?? 'Login failed. Please try again.');
+			if (auth_error) {
+				throw new Error(auth_error.message);
 			}
 
-			success = true;
-			// SvelteKit will navigate on session; replace with goto("/") if needed
+			goto(resolve('/'));
 		} catch (err) {
-			error = err instanceof Error ? err.message : 'An unexpected error occurred.';
+			error = err instanceof Error ? err.message : 'Login failed. Please try again.';
 		} finally {
 			loading = false;
+		}
+	}
+
+	async function handle_google_sso() {
+		const { error } = await auth_client.signIn.social({
+			provider: 'google',
+			callbackURL: resolve('/')
+		});
+		if (error) {
+			console.error(error);
+		}
+	}
+
+	async function handle_github_sso() {
+		const { error } = await auth_client.signIn.social({
+			provider: 'github',
+			callbackURL: resolve('/')
+		});
+		if (error) {
+			console.error(error);
 		}
 	}
 </script>
@@ -194,74 +210,61 @@
 				</div>
 			{/if}
 
-			{#if success}
-				<div class="alert alert-success" role="status">
-					<svg viewBox="0 0 20 20" fill="currentColor" class="alert-icon">
-						<path
-							fill-rule="evenodd"
-							d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
-							clip-rule="evenodd"
-						/>
-					</svg>
-					Logged in! Redirecting…
+			<form id="login-form" onsubmit={handle_submit} novalidate>
+				<div class="field">
+					<label for="email" class="field-label">Email</label>
+					<input
+						id="email"
+						type="email"
+						class="field-input"
+						placeholder="example@mail.com"
+						autocomplete="email"
+						required
+						disabled={loading}
+						bind:value={email}
+					/>
 				</div>
-			{:else}
-				<form id="login-form" onsubmit={handle_submit} novalidate>
-					<div class="field">
-						<label for="username" class="field-label">Username</label>
-						<input
-							id="username"
-							type="text"
-							class="field-input"
-							placeholder="@handle"
-							autocomplete="username"
-							required
-							disabled={loading}
-							bind:value={username}
-						/>
-					</div>
 
-					<div class="field">
-						<label for="password" class="field-label">Password</label>
-						<input
-							id="password"
-							type="password"
-							class="field-input"
-							placeholder="••••••••"
-							autocomplete="current-password"
-							required
-							disabled={loading}
-							bind:value={password}
-						/>
-					</div>
+				<div class="field">
+					<label for="password" class="field-label">Password</label>
+					<input
+						id="password"
+						type="password"
+						class="field-input"
+						placeholder="••••••••"
+						autocomplete="current-password"
+						required
+						disabled={loading}
+						bind:value={password}
+					/>
+				</div>
 
-					<a href={resolve('/')} class="forgot-link">Forgot password?</a>
+				<a href={resolve('/')} class="forgot-link">Forgot password?</a>
 
-					<button
-						id="login-submit"
-						type="submit"
-						class="btn-primary"
-						disabled={loading || !username || !password}
-					>
-						{#if loading}
-							<span class="spinner" aria-hidden="true"></span>
-							Signing in…
-						{:else}
-							Sign in
-						{/if}
-					</button>
-				</form>
+				<button
+					id="login-submit"
+					type="submit"
+					class="btn-primary"
+					disabled={loading || !email || !password}
+				>
+					{#if loading}
+						<span class="spinner" aria-hidden="true"></span>
+						Signing in…
+					{:else}
+						Sign in
+					{/if}
+				</button>
+			</form>
 
-				<div class="divider"><span>or</span></div>
+			<div class="divider"><span>or</span></div>
 
-				<SsoButton provider="google" />
-				<SsoButton provider="github" />
+			<SsoButton provider="google" onclick={handle_google_sso} />
+			<SsoButton provider="github" onclick={handle_github_sso} />
 
-				<p class="signup-prompt">
-					Don't have an account?
-					<a href={resolve('/signup')} class="signup-link">Sign up</a>
-				</p>
-			{/if}
+			<p class="signup-prompt">
+				Don't have an account?
+				<a href={resolve('/signup')} class="signup-link">Sign up</a>
+			</p>
 		</div>
 	</section>
 </main>
@@ -447,12 +450,6 @@
 		background: #fff5f5;
 		border: 1px solid #feb2b2;
 		color: #c53030;
-	}
-
-	.alert-success {
-		background: #f0fff4;
-		border: 1px solid #9ae6b4;
-		color: #276749;
 	}
 
 	.alert-icon {
