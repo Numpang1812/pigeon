@@ -304,7 +304,7 @@
 				<div class="divider"><span>or</span></div>
 
 				<SsoButton provider="google" />
-				<SsoButton provider="apple" />
+				<SsoButton provider="github" />
 
 				<p class="login-prompt">
 					Already have an account?
