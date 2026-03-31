@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import SsoButton from './SsoButton.svelte';
+	import SsoButton from '$lib/components/SsoButton.svelte';
 
 	// NOTE: In production, auth should go through a SvelteKit API route (+server.ts)
 	// so secrets are never exposed to the client. This component calls that endpoint.
@@ -304,7 +304,7 @@
 				<div class="divider"><span>or</span></div>
 
 				<SsoButton provider="google" />
-				<SsoButton provider="apple" />
+				<SsoButton provider="github" />
 
 				<p class="login-prompt">
 					Already have an account?
