@@ -1,15 +1,26 @@
 <script lang="ts">
-	/* eslint-disable prefer-const */
-	let {
+	import { auth_client } from '$lib/auth-client';
+
+	const {
 		provider = 'google',
 		onclick
 	}: {
 		provider?: 'google' | 'github';
 		onclick?: (e: MouseEvent) => void;
 	} = $props();
+
+	async function handle_click(e: MouseEvent) {
+		onclick?.(e);
+		if (!e.defaultPrevented) {
+			await auth_client.signIn.social({
+				provider,
+				callbackURL: '/'
+			});
+		}
+	}
 </script>
 
-<button type="button" class="sso-btn" {onclick}>
+<button type="button" class="sso-btn" onclick={handle_click}>
 	{#if provider === 'google'}
 		<svg viewBox="0 0 24 24" class="sso-icon" aria-hidden="true">
 			<path
