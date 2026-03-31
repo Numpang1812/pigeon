@@ -1,3 +1,35 @@
 @import 'tailwindcss';
-@plugin '@tailwindcss/forms';
-@plugin '@tailwindcss/typography';
+
+.app-shell {
+	--sidebar-offset: 260px;
+	display: flex;
+	gap: 0;
+}
+
+.app-shell:has(.sidebar.collapsed) {
+	--sidebar-offset: 84px;
+}
+
+.page-content {
+	margin-left: var(--sidebar-offset);
+	flex: 1;
+	transition: margin-left 0.36s cubic-bezier(0.22, 1, 0.36, 1);
+	padding: 1.5rem;
+}
+
+.page-content :global(.navbar) {
+	left: var(--sidebar-offset);
+	transition: left 0.36s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Mobile responsive */
+@media (max-width: 900px) {
+	.app-shell {
+		--sidebar-offset: 0px;
+	}
+
+	.page-content {
+		margin-left: 0;
+		padding: 4rem 1rem 1rem 1rem;
+	}
+}
