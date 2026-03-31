@@ -2,8 +2,8 @@
 	background:
 		radial-gradient(circle at 12% 8%, rgba(14, 165, 233, 0.08), transparent 45%),
 		radial-gradient(circle at 92% 92%, rgba(59, 130, 246, 0.08), transparent 40%), #f3f6fb;
-	min-height: 100vh;
-	padding: 28px 20px;
+	min-height: 100dvh;
+	padding: 86px 20px 20px;
 	display: flex;
 	justify-content: center;
 }
@@ -142,10 +142,10 @@
 	.container {
 		border-radius: 14px;
 		padding: 14px;
-		height: calc(100vh - 24px);
+		height: calc(100dvh - 98px);
 	}
 
 	.page {
-		padding: 12px;
+		padding: 76px 12px 12px;
 	}
 }

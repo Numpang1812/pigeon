@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { Home, Search, Bell, User, Edit, LogOut } from 'lucide-svelte';
 	import './styles/sidebar.css';
 
@@ -108,12 +109,25 @@
 
 	<nav class="nav">
 		{#each nav_items as item, index (item.label)}
-			<button class="nav-item nav-item-{index}" type="button" aria-label={item.label}>
-				<span class="icon"><item.icon size={20} /></span>
+			{#if item.label === 'Notifications'}
+				<a
+					class="nav-item nav-item-{index}"
+					href={resolve('/notifications')}
+					aria-label={item.label}
+				>
+					<span class="icon"><item.icon size={20} /></span>
 
-				<span class="label">{item.label}</span>
-				<span class="hover-label" aria-hidden="true">{item.label}</span>
-			</button>
+					<span class="label">{item.label}</span>
+					<span class="hover-label" aria-hidden="true">{item.label}</span>
+				</a>
+			{:else}
+				<button class="nav-item nav-item-{index}" type="button" aria-label={item.label}>
+					<span class="icon"><item.icon size={20} /></span>
+
+					<span class="label">{item.label}</span>
+					<span class="hover-label" aria-hidden="true">{item.label}</span>
+				</button>
+			{/if}
 		{/each}
 	</nav>
 

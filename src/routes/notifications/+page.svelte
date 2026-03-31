@@ -1,5 +1,6 @@
 <script lang="ts">
 	import NotificationItem from './NotificationItem.svelte';
+	import Navbar from '$lib/component/Navbar.svelte';
 	import './notifications.css';
 
 	type Notification = {
@@ -102,6 +103,7 @@
 </script>
 
 <div class="page">
+	<Navbar />
 	<div class="container">
 		<div class="header">
 			<h2>Notifications</h2>
