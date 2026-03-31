@@ -11,10 +11,8 @@
 }
 
 .page-content {
-	margin-left: var(--sidebar-offset);
 	flex: 1;
 	transition: margin-left 0.36s cubic-bezier(0.22, 1, 0.36, 1);
-	padding: 1.5rem;
 }
 
 .page-content :global(.navbar) {
@@ -30,6 +28,5 @@
 
 	.page-content {
 		margin-left: 0;
-		padding: 4rem 1rem 1rem 1rem;
 	}
 }

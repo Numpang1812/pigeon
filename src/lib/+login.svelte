@@ -18,14 +18,14 @@
 			const { error: auth_error } = await auth_client.signIn.email({
 				email: email,
 				password: password,
-				callbackURL: resolve('/')
+				callbackURL: resolve('/home_page')
 			});
 
 			if (auth_error) {
 				throw new Error(auth_error.message);
 			}
 
-			goto(resolve('/'));
+			goto(resolve('/home_page'));
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Login failed. Please try again.';
 		} finally {
@@ -36,7 +36,7 @@
 	async function handle_google_sso() {
 		const { error } = await auth_client.signIn.social({
 			provider: 'google',
-			callbackURL: resolve('/')
+			callbackURL: resolve('/home_page')
 		});
 		if (error) {
 			console.error(error);
@@ -46,7 +46,7 @@
 	async function handle_github_sso() {
 		const { error } = await auth_client.signIn.social({
 			provider: 'github',
-			callbackURL: resolve('/')
+			callbackURL: resolve('/home_page')
 		});
 		if (error) {
 			console.error(error);
