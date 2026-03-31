@@ -1,5 +1,14 @@
 <script lang="ts">
-	import Login from '$lib/+login.svelte';
+	import Navbar from '$lib/component/Navbar.svelte';
 </script>
 
-<Login />
+<Navbar />
+
+<section class="feed-empty" aria-label="Feed preview"></section>
+
+<style>
+	.feed-empty {
+		min-height: calc(100vh - 64px);
+		margin-top: 64px;
+	}
+</style>

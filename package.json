@@ -47,6 +47,7 @@
 		"vitest-browser-svelte": "^2.0.2"
 	},
 	"dependencies": {
-		"@libsql/client": "^0.17.2"
+		"@libsql/client": "^0.17.2",
+		"lucide-svelte": "^1.0.1"
 	}
 }
