@@ -1,7 +1,9 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { Home, Search, Bell, User, Edit, LogOut } from 'lucide-svelte';
 	import './styles/sidebar.css';
+	import { auth_client } from '$lib/auth-client';
 
 	let is_collapsed = $state(false);
 	let mobile_open = $state(false);
@@ -12,6 +14,11 @@
 		{ label: 'Notifications', icon: Bell },
 		{ label: 'Profile', icon: User }
 	];
+
+	async function handle_logout() {
+		await auth_client.signOut();
+		goto(resolve('/'));
+	}
 
 	function toggle_sidebar(): void {
 		is_collapsed = !is_collapsed;
@@ -138,7 +145,7 @@
 			<span class="action-hover-label" aria-hidden="true">Compose</span>
 		</button>
 
-		<button class="logout" type="button" aria-label="Logout">
+		<button class="logout" type="button" aria-label="Logout" onclick={handle_logout}>
 			<LogOut size={20} />
 			<span class="action-label">Logout</span>
 			<span class="action-hover-label" aria-hidden="true">Logout</span>

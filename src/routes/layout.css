@@ -11,9 +11,13 @@
 }
 
 .page-content {
-	margin-left: var(--sidebar-offset);
-	min-height: 100dvh;
+	flex: 1;
 	transition: margin-left 0.36s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.page-content :global(.navbar) {
+	left: var(--sidebar-offset);
+	transition: left 0.36s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 @media (max-width: 900px) {
