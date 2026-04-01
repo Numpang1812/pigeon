@@ -1,0 +1,111 @@
+<script lang="ts">
+	import { PostTextbox } from '$lib';
+	import { PenTool, Sparkles } from 'lucide-svelte';
+</script>
+
+<main class="compose-page" aria-label="Compose page">
+	<section class="compose-container">
+		<div class="compose-card">
+			
+			<!-- Top Row -->
+			<div class="compose-top">
+				<div class="compose-title">
+					<div class="title-icon">
+						<PenTool size={20} />
+					</div>
+					<span>Create Post</span>
+				</div>
+			</div>
+
+			<!-- Textbox -->
+			<PostTextbox button_label="Post" isExpanded={true} />
+
+			<!-- Inline tip -->
+			<p class="compose-tip">
+				<Sparkles size={14} />
+				<span>Tip: Use #hashtags to reach more people</span>
+			</p>
+
+		</div>
+	</section>
+</main>
+
+<style>
+	.compose-page {
+		min-height: 100vh;
+		width: calc(100% + 3rem);
+		margin: -1.5rem;
+		background: #ffffff;
+	}
+
+	.compose-page {
+	min-height: 100vh;
+	background: #f8fafc; /* subtle contrast instead of pure white */
+	display: flex;
+	justify-content: center;
+	padding: 2rem 1rem;
+}
+
+	.compose-container {
+		width: 100%;
+		max-width: 640px;
+	}
+
+	.compose-top {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		margin-bottom: 0.75rem;
+	}
+
+	.compose-title {
+		display: flex;
+		align-items: center;
+		gap: 0.6rem;
+		font-size: 0.95rem;
+		font-weight: 600;
+		color: #334155;
+	}
+
+	.title-icon {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 1.8rem;
+		height: 1.8rem;
+		background: #f1f5f9;
+		border-radius: 0.4rem;
+		color: #64748b;
+	}
+
+	.compose-tip {
+		display: flex;
+		align-items: center;
+		gap: 0.4rem;
+		font-size: 0.8rem;
+		color: #64748b;
+		margin-top: 0.6rem;
+	}
+
+	.title-icon {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 2.4rem;
+		height: 2.4rem;
+		background: #f1f5f9;
+		border: 1px solid #e2e8f0;
+		border-radius: 0.5rem;
+		color: #64748b;
+		flex-shrink: 0;
+	}
+
+	@media (max-width: 900px) {
+		.compose-page {
+			width: calc(100% + 2rem);
+			margin: -1rem;
+		}
+
+	}
+
+</style>
