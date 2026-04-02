@@ -9,8 +9,6 @@
 
 <svelte:head><link rel="icon" href={favicon} /></svelte:head>
 
-<Navbar />
 <div class="app-shell">
-	<Sidebar />
 	<main class="page-content">{@render children()}</main>
 </div>
