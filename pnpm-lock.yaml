@@ -26,6 +26,9 @@ importers:
       kysely:
         specifier: ^0.28.15
         version: 0.28.15
+      lucide-svelte:
+        specifier: ^1.0.1
+        version: 1.0.1(svelte@5.55.0)
     devDependencies:
       '@eslint/compat':
         specifier: ^2.0.2
@@ -1801,6 +1804,11 @@ packages:
   lru-cache@11.2.7:
     resolution: {integrity: sha512-aY/R+aEsRelme17KGQa/1ZSIpLpNYYrhcrepKTZgE+W3WM16YMCaPwOHLHsmopZHELU0Ojin1lPVxKR0MihncA==}
     engines: {node: 20 || >=22}
+
+  lucide-svelte@1.0.1:
+    resolution: {integrity: sha512-WvzZgk0pqzgda+AErLvgWxHkfg/+GgUwqKMRHvzt0IqyMdmyEDzDCk3Z+Wo/3y753oIgx8u9Q4eUbWkghFa8Jg==}
+    peerDependencies:
+      svelte: ^3 || ^4 || ^5.0.0-next.42
 
   magic-string@0.30.21:
     resolution: {integrity: sha512-vd2F4YUyEXKGcLHoq+TEyCjxueSeHnFxyyjNp80yg0XV4vUhnDer/lvvlqM/arB5bXQN5K2/3oinyCRyx8T2CQ==}
@@ -3859,6 +3867,10 @@ snapshots:
   lodash.merge@4.6.2: {}
 
   lru-cache@11.2.7: {}
+
+  lucide-svelte@1.0.1(svelte@5.55.0):
+    dependencies:
+      svelte: 5.55.0
 
   magic-string@0.30.21:
     dependencies:
