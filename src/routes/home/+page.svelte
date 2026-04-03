@@ -149,7 +149,6 @@
 		min-height: 100vh;
 		width: calc(100% + 3rem);
 		margin: -1.5rem;
-		background: #f8fbff;
 
 	}
 
