@@ -32,23 +32,19 @@
 
 <style>
 	.compose-page {
-		min-height: 100vh;
+		min-height: 100svh;
 		width: calc(100% + 3rem);
 		margin: -1.5rem;
-		background: #ffffff;
+		display: flex;
+		justify-content: center;
+		padding: 2rem 1rem;
+		
 	}
-
-	.compose-page {
-	min-height: 100vh;
-	background: #f8fafc; /* subtle contrast instead of pure white */
-	display: flex;
-	justify-content: center;
-	padding: 2rem 1rem;
-}
 
 	.compose-container {
 		width: 100%;
 		max-width: 640px;
+		height: fit-content;
 	}
 
 	.compose-top {

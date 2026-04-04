@@ -87,4 +87,8 @@
 	.navbar {
 		left: 0;
 	}
+
+	.navbar .search-box input, .navbar .search-box {
+		width: 50vw;
+	}
 }

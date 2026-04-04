@@ -4,15 +4,12 @@
 	--navbar-height: 64px;
 }
 
-body {
-	/* padding-top: var(--navbar-height); */
-}
-
 .app-shell {
 	--sidebar-offset: 260px;
 	display: flex;
 	gap: 0;
-	min-height: calc(100vh - var(--navbar-height));
+	min-height: 100vh;
+	padding-top: var(--navbar-height);
 }
 
 .app-shell:has(.sidebar.collapsed) {
@@ -20,10 +17,16 @@ body {
 }
 
 .page-content {
-	/* margin-left: var(--sidebar-offset); */
+	margin-left: var(--sidebar-offset);
 	flex: 1;
 	transition: margin-left 0.36s cubic-bezier(0.22, 1, 0.36, 1);
-	/* padding: 1.5rem; */
+	padding: 1.5rem;
+	background: #f8fbff;
+
+}
+
+.page-content--flush {
+	padding: 0;
 }
 
 .page-content :global(.navbar) {
@@ -40,5 +43,9 @@ body {
 	.page-content {
 		margin-left: 0;
 		padding: 1rem;
+	}
+
+	.page-content--flush {
+		padding: 0;
 	}
 }

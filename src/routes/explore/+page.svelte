@@ -1,8 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { auth_client } from '$lib/auth-client';
-	import Sidebar from '$lib/component/Sidebar.svelte';
-	import Navbar from '$lib/component/Navbar.svelte';
 	import { Flame, Globe2, Music2, Sparkles, Trophy } from 'lucide-svelte';
 	import { Post } from '$lib';
 
@@ -111,59 +109,53 @@
 </svelte:head>
 
 {#if $session.data}
-	<div class="app-shell">
-		<Sidebar />
-		<main class="page-content">
-			<Navbar />
-			<div class="explore">
-				<header class="explore-header">
-					<div class="explore-title-block">
-						<h1 class="explore-title">Explore</h1>
-						<p class="explore-sub">
-							Posts from creators and moments around the world - trending, iconic, and unexpected.
-						</p>
-					</div>
-					<div class="filter-row" role="tablist" aria-label="Explore categories">
-						{#each filters as f (f.id)}
-							<button
-								type="button"
-								role="tab"
-								aria-selected={active_filter === f.id}
-								class="filter-chip"
-								class:active={active_filter === f.id}
-								onclick={() => (active_filter = f.id)}
-							>
-								<span class="filter-icon"><f.icon size={16} strokeWidth={2.25} /></span>
-								{f.label}
-							</button>
-						{/each}
-					</div>
-				</header>
-
-				<section class="feed-column" aria-label="Posts">
-					{#if filtered_posts.length > 0}
-						{#each filtered_posts as post (post.id)}
-							<Post
-								post_tag={post.post_tag}
-								post_tags={post.post_tags}
-								posted_at={post.posted_at}
-								content={post.content}
-								author_name={post.author_name}
-								author_handle={post.author_handle}
-								author_bio={post.author_bio}
-								avatar_url={post.avatar_url}
-								verified={post.verified}
-								metrics={post.metrics}
-							/>
-						{/each}
-					{:else}
-						<div class="empty-state">
-							<p>No posts found for this category at the moment.</p>
-						</div>
-					{/if}
-				</section>
+	<div class="explore">
+		<header class="explore-header">
+			<div class="explore-title-block">
+				<h1 class="explore-title">Explore</h1>
+				<p class="explore-sub">
+					Posts from creators and moments around the world - trending, iconic, and unexpected.
+				</p>
 			</div>
-		</main>
+			<div class="filter-row" role="tablist" aria-label="Explore categories">
+				{#each filters as f (f.id)}
+					<button
+						type="button"
+						role="tab"
+						aria-selected={active_filter === f.id}
+						class="filter-chip"
+						class:active={active_filter === f.id}
+						onclick={() => (active_filter = f.id)}
+					>
+						<span class="filter-icon"><f.icon size={16} strokeWidth={2.25} /></span>
+						{f.label}
+					</button>
+				{/each}
+			</div>
+		</header>
+
+		<section class="feed-column" aria-label="Posts">
+			{#if filtered_posts.length > 0}
+				{#each filtered_posts as post (post.id)}
+					<Post
+						post_tag={post.post_tag}
+						post_tags={post.post_tags}
+						posted_at={post.posted_at}
+						content={post.content}
+						author_name={post.author_name}
+						author_handle={post.author_handle}
+						author_bio={post.author_bio}
+						avatar_url={post.avatar_url}
+						verified={post.verified}
+						metrics={post.metrics}
+					/>
+				{/each}
+			{:else}
+				<div class="empty-state">
+					<p>No posts found for this category at the moment.</p>
+				</div>
+			{/if}
+		</section>
 	</div>
 {:else if !$session.isPending}
 	<main class="login-prompt">
@@ -178,28 +170,9 @@
 {/if}
 
 <style>
-	.app-shell {
-		--sidebar-offset: 260px;
-		display: flex;
-		gap: 0;
-		min-height: 100vh;
-	}
-
-	.page-content {
-		margin-left: var(--sidebar-offset);
-		flex: 1;
-		transition: margin-left 0.36s cubic-bezier(0.22, 1, 0.36, 1);
-	}
-
-	.page-content :global(.navbar) {
-		left: var(--sidebar-offset);
-		transition: left 0.36s cubic-bezier(0.22, 1, 0.36, 1);
-	}
-
 	.explore {
-		min-height: calc(100vh - 64px);
-		margin-top: 64px;
-		padding: 1.5rem clamp(1rem, 3vw, 2.5rem) 3rem;
+		min-height: calc(100vh - var(--navbar-height));
+		padding: 1.5rem 0 3rem;
 		font-family:
 			'Inter',
 			system-ui,
@@ -290,7 +263,7 @@
 	}
 
 	.login-prompt {
-		min-height: 100vh;
+		min-height: calc(100vh - var(--navbar-height));
 		display: flex;
 		flex-direction: column;
 		align-items: center;
@@ -314,7 +287,7 @@
 	}
 
 	.loading {
-		min-height: 100vh;
+		min-height: calc(100vh - var(--navbar-height));
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -326,12 +299,9 @@
 	}
 
 	@media (max-width: 900px) {
-		.app-shell {
+		.explore {
 			--sidebar-offset: 0px;
 		}
 
-		.page-content {
-			margin-left: 0;
-		}
 	}
 </style>

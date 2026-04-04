@@ -5,16 +5,22 @@
 	import './styles/sidebar.css';
 	import { auth_client } from '$lib/auth-client';
 
+	type AppRoute = string
+
 	let is_collapsed = $state(false);
 	let mobile_open = $state(false);
 
 	const nav_items = [
-		{ label: 'Home', icon: Home },
-		{ label: 'Explore', icon: Search },
-		{ label: 'Notifications', icon: Bell },
-		{ label: 'Profile', icon: User }
-	];
-
+		{ label: 'Home', icon: Home, href: '/home' },
+		{ label: 'Explore', icon: Search, href: '/explore' },
+		{ label: 'Notifications', icon: Bell, href: '/notifications' },
+		{ label: 'Profile', icon: User, href: '/profile' }
+	] as const satisfies ReadonlyArray<{
+		label: string;
+		icon: typeof Home;
+		href: AppRoute;
+	}>;
+	
 	async function handle_logout() {
 		await auth_client.signOut();
 		goto(resolve('/'));
@@ -116,21 +122,21 @@
 
 	<nav class="nav">
 		{#each nav_items as item, index (item.label)}
-			<button class="nav-item nav-item-{index}" type="button" aria-label={item.label}>
+			<a class="nav-item nav-item-{index}" href={resolve(item.href)} aria-label={item.label}>
 				<span class="icon"><item.icon size={20} /></span>
 
 				<span class="label">{item.label}</span>
 				<span class="hover-label" aria-hidden="true">{item.label}</span>
-			</button>
+			</a>
 		{/each}
 	</nav>
 
 	<div class="bottom">
-		<button class="compose" type="button" aria-label="Compose">
+		<a class="compose" href={resolve('/compose')} aria-label="Compose">
 			<Edit size={20} />
 			<span class="action-label">Compose</span>
 			<span class="action-hover-label" aria-hidden="true">Compose</span>
-		</button>
+		</a>
 
 		<button class="logout" type="button" aria-label="Logout" onclick={handle_logout}>
 			<LogOut size={20} />
