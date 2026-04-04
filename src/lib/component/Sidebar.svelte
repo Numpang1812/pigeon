@@ -20,10 +20,10 @@
 		icon: typeof Home;
 		href: AppRoute;
 	}>;
-
+	
 	async function handle_logout() {
 		await auth_client.signOut();
-		goto(resolve('/signup'));
+		goto(resolve('/'));
 	}
 
 	function toggle_sidebar(): void {
