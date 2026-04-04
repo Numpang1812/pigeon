@@ -8,7 +8,7 @@
 
 	$effect(() => {
 		if ($session.data) {
-			goto(resolve('/home_page'));
+			goto(resolve('/home'));
 		}
 	});
 </script>
