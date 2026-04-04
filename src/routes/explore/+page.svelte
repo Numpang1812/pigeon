@@ -29,8 +29,12 @@
 		verified?: boolean;
 		metrics?: {
 			likes?: number;
-			reports?: number;
+			dislikes?: number;
+			reposts?: number;
 		};
+		user_liked?: boolean;
+		user_disliked?: boolean;
+		user_reposted?: boolean;
 	};
 
 	const posts: ExploreFeedPost[] = [
@@ -44,7 +48,7 @@
 			content: 'Sunset over Santorini. The colors are unbelievable today.',
 			author_bio: 'Travel photographer roaming the world.',
 			verified: true,
-			metrics: { likes: 12400, reports: 2 },
+			metrics: { likes: 12400, dislikes: 20, reposts: 150 },
 			avatar_url: 'https://i.pravatar.cc/150?u=1'
 		},
 		{
@@ -56,7 +60,7 @@
 			author_handle: 'neoncity',
 			content: 'Shibuya crossing at night never gets old. So much energy.',
 			author_bio: 'Urban explorer.',
-			metrics: { likes: 28100, reports: 5 },
+			metrics: { likes: 28100, dislikes: 50, reposts: 300 },
 			avatar_url: 'https://i.pravatar.cc/150?u=2'
 		},
 		{
@@ -69,7 +73,7 @@
 			content: 'Desert dunes rally was intense. Sand everywhere!',
 			author_bio: 'Racing team driver.',
 			verified: true,
-			metrics: { likes: 15000, reports: 0 },
+			metrics: { likes: 15000, dislikes: 10, reposts: 200 },
 			avatar_url: 'https://i.pravatar.cc/150?u=3'
 		},
 		{
@@ -78,52 +82,30 @@
 			post_tags: ['music', 'festival'],
 			posted_at: '30m',
 			author_name: 'Harbor Lens',
-			author_handle: 'harborlens',
-			content: 'Opera House acoustics are unmatched. Incredible performance tonight.',
+			author_handle: 'harbor.lens',
+			content: 'New album dropping next week. Can\'t wait to share it with you all.',
 			author_bio: 'Music critic and producer.',
-			metrics: { likes: 7800, reports: 1 },
+			metrics: { likes: 7800, dislikes: 5, reposts: 80 },
 			avatar_url: 'https://i.pravatar.cc/150?u=4'
-		},
-		{
-			id: '5',
-			post_tag: 'trending',
-			post_tags: ['trending', 'culture'],
-			posted_at: '10m',
-			author_name: 'Street Pulse',
-			author_handle: 'streetpulse',
-			content: 'Carnival in Rio! The costumes, the music, the vibes are absolutely immaculate.',
-			author_bio: 'Capturing culture on the streets.',
-			verified: false,
-			metrics: { likes: 41000 },
-			avatar_url: 'https://i.pravatar.cc/150?u=5'
 		}
 	];
 
-	const filtered_posts = $derived(
-		active_filter === 'foryou' ? posts : posts.filter((p) => p.post_tags.includes(active_filter))
+	let filtered_posts = $derived(
+		posts.filter((post) => {
+			if (active_filter === 'foryou') return true;
+			return post.post_tags.includes(active_filter);
+		})
 	);
 </script>
 
-<svelte:head>
-	<title>Explore · Pigeon</title>
-</svelte:head>
-
 {#if $session.data}
-	<div class="explore">
+	<div class="explore-page">
 		<header class="explore-header">
-			<div class="explore-title-block">
-				<h1 class="explore-title">Explore</h1>
-				<p class="explore-sub">
-					Posts from creators and moments around the world - trending, iconic, and unexpected.
-				</p>
-			</div>
-			<div class="filter-row" role="tablist" aria-label="Explore categories">
+			<h1 class="page-title">Explore</h1>
+			<div class="filter-pills">
 				{#each filters as f (f.id)}
 					<button
-						type="button"
-						role="tab"
-						aria-selected={active_filter === f.id}
-						class="filter-chip"
+						class="pill"
 						class:active={active_filter === f.id}
 						onclick={() => (active_filter = f.id)}
 					>
@@ -138,6 +120,7 @@
 			{#if filtered_posts.length > 0}
 				{#each filtered_posts as post (post.id)}
 					<Post
+						post_id={post.id}
 						post_tag={post.post_tag}
 						post_tags={post.post_tags}
 						posted_at={post.posted_at}
@@ -148,6 +131,9 @@
 						avatar_url={post.avatar_url}
 						verified={post.verified}
 						metrics={post.metrics}
+						user_liked={post.user_liked}
+						user_disliked={post.user_disliked}
+						user_reposted={post.user_reposted}
 					/>
 				{/each}
 			{:else}
@@ -170,110 +156,87 @@
 {/if}
 
 <style>
-	.explore {
-		min-height: calc(100vh - var(--navbar-height));
-		padding: 1.5rem 0 3rem;
-		font-family:
-			'Inter',
-			system-ui,
-			-apple-system,
-			sans-serif;
-		background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 38%, #ffffff 100%);
-		color: #0f172a;
+	.explore-page {
+		min-height: 100vh;
+		width: calc(100% + 3rem);
+		margin: -1.5rem;
 	}
 
 	.explore-header {
+		width: 100%;
 		max-width: 980px;
-		margin: 0 auto 1.75rem;
+		margin: 0 auto;
+		padding: 1.25rem 1.25rem 0;
+		box-sizing: border-box;
 	}
 
-	.explore-title-block {
-		margin-bottom: 1.25rem;
-	}
-
-	.explore-title {
-		margin: 0 0 0.35rem;
-		font-size: clamp(1.65rem, 3vw, 2rem);
+	.page-title {
+		font-size: 1.5rem;
 		font-weight: 800;
-		letter-spacing: -0.03em;
+		color: #0f172a;
+		margin: 0 0 1rem 0;
 	}
 
-	.explore-sub {
-		margin: 0;
-		max-width: 42rem;
-		font-size: 0.95rem;
-		line-height: 1.55;
-		color: #64748b;
-	}
-
-	.filter-row {
+	.filter-pills {
 		display: flex;
-		flex-wrap: wrap;
 		gap: 0.5rem;
+		overflow-x: auto;
+		padding-bottom: 0.5rem;
 	}
 
-	.filter-chip {
+	.pill {
 		display: inline-flex;
 		align-items: center;
-		gap: 0.4rem;
-		padding: 0.45rem 0.85rem;
+		gap: 0.35rem;
+		padding: 0.4rem 0.85rem;
+		border: 1px solid #d0d7e2;
 		border-radius: 999px;
-		border: 1px solid #e2e8f0;
-		background: #fff;
-		color: #475569;
-		font-size: 0.82rem;
+		background: #f7f9fc;
+		color: #334155;
+		font-size: 0.85rem;
 		font-weight: 600;
 		cursor: pointer;
-		transition:
-			background 0.18s ease,
-			border-color 0.18s ease,
-			color 0.18s ease,
-			box-shadow 0.18s ease;
+		white-space: nowrap;
+		transition: all 150ms ease;
 	}
 
-	.filter-chip:hover {
-		border-color: #cbd5e1;
-		background: #f8fafc;
+	.pill:hover {
+		background: #eef3fb;
 	}
 
-	.filter-chip.active {
-		background: linear-gradient(135deg, #0ea5e9 0%, #1da1f2 100%);
-		border-color: transparent;
-		color: #fff;
-		box-shadow: 0 4px 14px rgba(14, 165, 233, 0.35);
+	.pill.active {
+		background: #0ea5e9;
+		color: #ffffff;
+		border-color: #0ea5e9;
 	}
 
 	.filter-icon {
 		display: inline-flex;
-		opacity: 0.9;
+		align-items: center;
+		justify-content: center;
 	}
 
 	.feed-column {
 		width: 100%;
 		max-width: 980px;
 		margin: 0 auto;
+		padding: 1rem 1.25rem 0 1.25rem;
 		box-sizing: border-box;
 	}
 
 	.empty-state {
+		padding: 60px 20px;
 		text-align: center;
-		padding: 3rem 1rem;
 		color: #64748b;
-		font-size: 1.1rem;
 	}
 
-	.login-prompt {
-		min-height: calc(100vh - var(--navbar-height));
+	.login-prompt,
+	.loading {
+		min-height: 100vh;
 		display: flex;
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
-		font-family:
-			'Inter',
-			system-ui,
-			-apple-system,
-			sans-serif;
-		gap: 1rem;
 	}
 
 	.login-link {
@@ -282,26 +245,14 @@
 		text-decoration: none;
 	}
 
-	.login-link:hover {
-		text-decoration: underline;
-	}
-
-	.loading {
-		min-height: calc(100vh - var(--navbar-height));
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		font-family:
-			'Inter',
-			system-ui,
-			-apple-system,
-			sans-serif;
-	}
-
 	@media (max-width: 900px) {
-		.explore {
-			--sidebar-offset: 0px;
+		.explore-page {
+			width: calc(100% + 2rem);
+			margin: -1rem;
 		}
 
+		.feed-column {
+			padding: 0.85rem 1rem 0 1rem;
+		}
 	}
 </style>

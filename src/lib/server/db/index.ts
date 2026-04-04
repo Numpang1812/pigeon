@@ -11,6 +11,8 @@ import type {
 	PostMedia,
 	Comment,
 	Like,
+	Dislike,
+	Repost,
 	Follow,
 	Notification,
 	Hashtag,
@@ -27,6 +29,8 @@ export interface Database {
 	post_media: PostMedia;
 	comment: Comment;
 	like: Like;
+	dislike: Dislike;
+	repost: Repost;
 	follow: Follow;
 	notification: Notification;
 	hashtag: Hashtag;

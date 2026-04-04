@@ -55,6 +55,7 @@
 		"browser-image-compression": "^2.0.2",
 		"cloudinary": "^2.9.0",
 		"kysely": "^0.28.15",
-		"lucide-svelte": "^1.0.1"
+		"lucide-svelte": "^1.0.1",
+		"nanoid": "^5.1.7"
 	}
 }

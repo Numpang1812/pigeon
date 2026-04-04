@@ -4,7 +4,6 @@
 	import { resolve } from '$app/paths';
 	import { ArrowLeft, Camera, Lock } from 'lucide-svelte';
 	import AvatarUploader from '$lib/components/AvatarUploader.svelte';
-	import { invalidateAll } from '$app/navigation';
 
 	const { data, form } = $props<{ data: PageData; form: ActionData }>();
 
@@ -14,10 +13,9 @@
 	// Avatar uploader
 	let show_avatar_uploader = $state(false);
 
-	async function handle_avatar_success(new_url: string) {
-		profile.avatar = new_url;
+	function handle_avatar_success(newUrl: string) {
+		profile.avatar = newUrl;
 		show_avatar_uploader = false;
-		await invalidateAll();
 	}
 </script>
 
@@ -157,9 +155,9 @@
 		<div class="modal-backdrop" onclick={() => (show_avatar_uploader = false)}>
 			<div class="modal-content" onclick={(e) => e.stopPropagation()}>
 				<AvatarUploader
-					current_avatar_url={profile.avatar}
-					on_success={handle_avatar_success}
-					on_close={() => (show_avatar_uploader = false)}
+					currentAvatarUrl={profile.avatar}
+					onSuccess={handle_avatar_success}
+					onClose={() => (show_avatar_uploader = false)}
 				/>
 			</div>
 		</div>

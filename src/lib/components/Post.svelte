@@ -1,12 +1,14 @@
 <script lang="ts">
-	import { BadgeCheck, Check, Repeat2, Heart } from 'lucide-svelte';
+	import { BadgeCheck, Check, Repeat2, Heart, ThumbsDown } from 'lucide-svelte';
 
 	type PostMetrics = {
-		reports?: number;
 		likes?: number;
+		dislikes?: number;
+		reposts?: number;
 	};
 
 	interface PostProps {
+		post_id: string;
 		post_tag: string;
 		post_tags?: string[];
 		posted_at: string;
@@ -18,17 +20,29 @@
 		avatar_url?: string;
 		verified?: boolean;
 		metrics?: PostMetrics;
-		on_report?: () => void;
-		on_like?: () => void;
+		user_liked?: boolean;
+		user_disliked?: boolean;
+		user_reposted?: boolean;
 	}
 
 	const props: PostProps = $props();
 
-	let liked = $state(false);
-	let reported = $state(false);
+	const liked = $derived(props.user_liked ?? false);
+	const disliked = $derived(props.user_disliked ?? false);
+	const reposted = $derived(props.user_reposted ?? false);
 
-	const like_count = $derived((props.metrics?.likes ?? 0) + (liked ? 1 : 0));
-	const report_count = $derived((props.metrics?.reports ?? 0) + (reported ? 1 : 0));
+	const like_count = $derived(
+		(props.metrics?.likes ?? 0) + (liked ? 1 : 0)
+	);
+	
+	const dislike_count = $derived(
+		(props.metrics?.dislikes ?? 0) + (disliked ? 1 : 0)
+	);
+	
+	const repost_count = $derived(
+		(props.metrics?.reposts ?? 0) + (reposted ? 1 : 0)
+	);
+	
 	const normalized_tags = $derived.by(() => {
 		const source_tags = props.post_tags?.length ? props.post_tags : [props.post_tag];
 		const normalized = source_tags
@@ -76,14 +90,49 @@
 		return `${value}`;
 	}
 
-	function toggle_like(): void {
-		liked = !liked;
-		props.on_like?.();
+	async function toggle_like(): Promise<void> {
+		try {
+			const response = await fetch(`/api/posts/${props.post_id}/like`, {
+				method: 'POST'
+			});
+			
+			if (response.ok) {
+				const { invalidateAll: invalidate_all } = await import('$app/navigation');
+				await invalidate_all();
+			}
+		} catch (error) {
+			console.error('Failed to toggle like:', error);
+		}
 	}
 
-	function toggle_report(): void {
-		reported = !reported;
-		props.on_report?.();
+	async function toggle_dislike(): Promise<void> {
+		try {
+			const response = await fetch(`/api/posts/${props.post_id}/dislike`, {
+				method: 'POST'
+			});
+			
+			if (response.ok) {
+				const { invalidateAll: invalidate_all } = await import('$app/navigation');
+				await invalidate_all();
+			}
+		} catch (error) {
+			console.error('Failed to toggle dislike:', error);
+		}
+	}
+
+	async function toggle_repost(): Promise<void> {
+		try {
+			const response = await fetch(`/api/posts/${props.post_id}/repost`, {
+				method: 'POST'
+			});
+			
+			if (response.ok) {
+				const { invalidateAll: invalidate_all } = await import('$app/navigation');
+				await invalidate_all();
+			}
+		} catch (error) {
+			console.error('Failed to toggle repost:', error);
+		}
 	}
 </script>
 
@@ -123,24 +172,30 @@
 
 				<button
 					type="button"
-					class={`metric action-report ${reported ? 'active' : ''}`}
-					onclick={toggle_report}
-					aria-pressed={reported}
-					aria-label="Toggle report"
+					class={`metric action-dislike ${disliked ? 'active' : ''}`}
+					onclick={toggle_dislike}
+					aria-pressed={disliked}
+					aria-label="Toggle dislike"
 				>
-					{#if reported}
-                        <Repeat2 size={18}>
+					<ThumbsDown size={16} fill={disliked ? 'currentColor' : 'none'} />
+					<span>{compact_count(dislike_count)}</span>
+				</button>
 
-                            <Check size ="12"
-                            x="6"
-                            y="6"
-                            
-                            />
-                        </Repeat2>
+				<button
+					type="button"
+					class={`metric action-repost ${reposted ? 'active' : ''}`}
+					onclick={toggle_repost}
+					aria-pressed={reposted}
+					aria-label="Toggle repost"
+				>
+					{#if reposted}
+						<Repeat2 size={18}>
+							<Check size="12" x="6" y="6" />
+						</Repeat2>
 					{:else}
 						<Repeat2 size={16} />
 					{/if}
-					<span>{compact_count(report_count)}</span>
+					<span>{compact_count(repost_count)}</span>
 				</button>
 			</footer>
 		</section>
@@ -270,7 +325,13 @@
 		border-color: #fecaca;
 	}
 
-	.action-report.active {
+	.action-dislike.active {
+		color: #6b7280;
+		background: #f3f4f6;
+		border-color: #d1d5db;
+	}
+
+	.action-repost.active {
 		color: #16a34a;
 		background: #dcfce7;
 		border-color: #bbf7d0;

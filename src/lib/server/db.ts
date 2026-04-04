@@ -1,7 +1,9 @@
 import { createClient, type Client } from '@libsql/client';
 import { env } from '$env/dynamic/private';
+import { create_tables_sql, create_indexes_sql } from './db/schema';
 
 let db_client: Client | null = null;
+let init_promise: Promise<void> | null = null;
 
 export function get_client() {
 	if (!db_client) {
@@ -37,3 +39,61 @@ export const db = new Proxy({} as Client, {
 		return value;
 	}
 });
+
+/**
+ * Ensure database schema is initialized
+ * Call this before running queries that depend on application tables
+ */
+export async function ensure_schema(): Promise<void> {
+	if (init_promise) {
+		return init_promise;
+	}
+
+	init_promise = (async () => {
+		console.info('[DB Schema] ========== STARTING SCHEMA INITIALIZATION ==========');
+		console.info('[DB Schema] Tables to create:', Object.keys(create_tables_sql).join(', '));
+
+		try {
+			// Create application tables
+			const table_entries = Object.entries(create_tables_sql);
+			for (const [name, sql] of table_entries) {
+				console.info(`[DB Schema] ${sql.startsWith('CREATE TABLE') ? 'Creating table' : 'Altering table'}: ${name}...`);
+				try {
+					await db.execute({ sql, args: [] });
+					console.info(`[DB Schema] ✅ Success: ${name}`);
+				} catch (table_error: any) {
+					const msg = table_error.message?.toLowerCase() || '';
+					// Ignore "already exists" or "duplicate column" errors
+					if (msg.includes('already exists') || msg.includes('duplicate column')) {
+						console.info(`[DB Schema] ℹ️  Already exists: ${name}`);
+					} else {
+						console.error(`[DB Schema] ❌ Error on ${name}:`, table_error.message);
+						throw table_error;
+					}
+				}
+			}
+			console.info('[DB Schema] All application tables verified');
+
+			// Create indexes
+			console.info('[DB Schema] Creating indexes...');
+			for (const sql of create_indexes_sql) {
+				try {
+					await db.execute({ sql, args: [] });
+				} catch (index_error: any) {
+					// Index might already exist, which is fine
+					if (!index_error.message?.includes('already exists')) {
+						console.error('[DB Schema] Index error:', index_error.message);
+					}
+				}
+			}
+			console.info('[DB Schema] All indexes verified');
+			console.info('[DB Schema] ========== DATABASE INITIALIZATION COMPLETE ✅ ==========');
+		} catch (error) {
+			console.error('[DB Schema] ========== FATAL SCHEMA INITIALIZATION ERROR ==========');
+			console.error('[DB Schema] Error:', error);
+			throw error;
+		}
+	})();
+
+	return init_promise;
+}

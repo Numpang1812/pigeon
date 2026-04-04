@@ -5,7 +5,7 @@
 	import './styles/sidebar.css';
 	import { auth_client } from '$lib/auth-client';
 
-	type AppRoute = string
+	type AppRoute = '/' | '/home' | '/explore' | '/profile' | '/notifications' | '/compose';
 
 	let is_collapsed = $state(false);
 	let mobile_open = $state(false);
@@ -122,7 +122,7 @@
 
 	<nav class="nav">
 		{#each nav_items as item, index (item.label)}
-			<a class="nav-item nav-item-{index}" href={resolve(item.href)} aria-label={item.label}>
+			<a class="nav-item nav-item-{index}" href={item.href} aria-label={item.label}>
 				<span class="icon"><item.icon size={20} /></span>
 
 				<span class="label">{item.label}</span>

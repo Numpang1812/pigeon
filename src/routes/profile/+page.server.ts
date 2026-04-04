@@ -1,9 +1,12 @@
 import type { PageServerLoad } from './$types';
-import { db } from '$lib/server/db';
+import { db, ensure_schema } from '$lib/server/db';
 import { redirect } from '@sveltejs/kit';
 import { auth } from '$lib/auth';
 
 export const load: PageServerLoad = async ({ request }) => {
+	// Ensure database schema is initialized
+	await ensure_schema();
+
 	const session = await auth.api.getSession({
 		headers: request.headers
 	});
@@ -37,8 +40,10 @@ export const load: PageServerLoad = async ({ request }) => {
 
 	// Fetch user's posts
 	const posts_result = await db.execute({
-		sql: `SELECT p.id, p.content, p.post_tag, p.created_at,
-			(SELECT COUNT(*) FROM like WHERE post_id = p.id) as like_count
+		sql: `SELECT p.id, p.content, p.post_tag, p.audience, p.created_at,
+			(SELECT COUNT(*) FROM like WHERE post_id = p.id) as like_count,
+			(SELECT COUNT(*) FROM dislike WHERE post_id = p.id) as dislike_count,
+			(SELECT COUNT(*) FROM repost WHERE post_id = p.id) as repost_count
 			FROM post p
 			WHERE p.author_id = ?
 			ORDER BY p.created_at DESC
@@ -71,9 +76,14 @@ export const load: PageServerLoad = async ({ request }) => {
 			author_name: (user.name as string) || 'Unknown',
 			author_handle: (user.username as string) || 'user',
 			content: row.content as string,
+			audience: row.audience as string,
 			author_bio: (user.bio as string) || '',
 			verified: false,
-			metrics: { likes: Number(row.like_count ?? 0), reports: 0 },
+			metrics: { 
+				likes: Number(row.like_count ?? 0), 
+				dislikes: Number(row.dislike_count ?? 0),
+				reposts: Number(row.repost_count ?? 0)
+			},
 			avatar_url: (user.image as string) || ''
 		}))
 	};

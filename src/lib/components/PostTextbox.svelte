@@ -60,6 +60,7 @@
 	let text_content = $state('');
 	let selected_audience = $state<string>(audience_options[0].value);
 	let is_audience_menu_open = $state(false);
+	let is_submitting = $state(false);
 	const hashtag_pattern = /(^|[^a-z0-9_])#([a-z0-9_]{2,24})\b/gi;
 	const sanitized_text_content = $derived.by(() =>
 		text_content
@@ -68,7 +69,7 @@
 			.replace(/\s+([.,!?;:])/g, '$1')
 			.trim()
 	);
-	const can_submit = $derived(sanitized_text_content.length > 0);
+	const can_submit = $derived(sanitized_text_content.length > 0 && !is_submitting);
 	const selected_audience_option = $derived(
 		audience_options.find((option) => option.value === selected_audience) ?? audience_options[0]
 	);
@@ -77,21 +78,55 @@
 		const tags = Array.from(matches, (match) => match[2].toLowerCase());
 		return Array.from(new Set(tags)).slice(0, 6);
 	});
-	const primary_post_tag = $derived(detected_hashtags[0] ?? 'general');
+	const primary_post_tag = $derived(detected_hashtags[0] ?? 'other');
 	const has_detected_hashtags = $derived(detected_hashtags.length > 0);
 
-	function submit_post(event: SubmitEvent): void {
+	async function submit_post(event: SubmitEvent): Promise<void> {
 		event.preventDefault();
 		if (!can_submit) return;
 
-		props.on_submit?.({
-			content: sanitized_text_content,
-			audience: selected_audience_option.label,
-			post_tag: primary_post_tag,
-			post_tags: has_detected_hashtags ? [...detected_hashtags] : ['general']
-		});
-		text_content = '';
-		is_audience_menu_open = false;
+		is_submitting = true;
+
+		try {
+			const response = await fetch('/api/posts', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					content: sanitized_text_content,
+					audience: selected_audience,
+					post_tag: primary_post_tag,
+					post_tags: has_detected_hashtags ? [...detected_hashtags] : ['other']
+				})
+			});
+
+			if (response.ok) {
+				await response.json();
+				
+				// Call the callback if provided
+				props.on_submit?.({
+					content: sanitized_text_content,
+					audience: selected_audience_option.label,
+					post_tag: primary_post_tag,
+					post_tags: has_detected_hashtags ? [...detected_hashtags] : ['other']
+				});
+				
+				text_content = '';
+				is_audience_menu_open = false;
+				
+				// Reload the page data to show the new post
+				const { invalidateAll: invalidate_all } = await import('$app/navigation');
+				await invalidate_all();
+			} else {
+				const error = await response.json();
+				console.error('Failed to create post:', error.error);
+			}
+		} catch (error) {
+			console.error('Error creating post:', error);
+		} finally {
+			is_submitting = false;
+		}
 	}
 
 	function toggle_audience_menu(): void {
@@ -194,7 +229,15 @@
 	<footer class="composer-footer">
 		<span class="counter" aria-live="polite">{text_content.length}/280</span>
 		<button type="submit" disabled={!can_submit}>
-			<SendHorizontal size={16} />
+			{#if is_submitting}
+				<svg class="spinner" viewBox="0 0 24 24" fill="none">
+					<circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-dasharray="31.4 31.4" stroke-dashoffset="0">
+						<animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="1s" repeatCount="indefinite"/>
+					</circle>
+				</svg>
+			{:else}
+				<SendHorizontal size={16} />
+			{/if}
 			<span>{props.button_label ?? 'Post'}</span>
 		</button>
 	</footer>
@@ -397,5 +440,20 @@
 	.composer-footer button:disabled {
 		opacity: 0.5;
 		cursor: not-allowed;
+	}
+
+	.spinner {
+		width: 16px;
+		height: 16px;
+	}
+
+	.spinner circle {
+		animation: spin 1s linear infinite;
+	}
+
+	@keyframes spin {
+		to {
+			transform: rotate(360deg);
+		}
 	}
 </style>

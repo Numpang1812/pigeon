@@ -9,6 +9,7 @@
 
 	const { data } = $props<{ data: PageData }>();
 
+
 	const session = auth_client.useSession();
 
 	// Tabs for profile
@@ -113,10 +114,12 @@
 						{#if active_tab === 'Posts'}
 							{#each posts as post (post.id)}
 								<Post
+									post_id={post.id}
 									post_tag={post.post_tag}
 									post_tags={post.post_tags}
 									posted_at={post.posted_at}
 									content={post.content}
+									audience={post.audience}
 									author_name={post.author_name}
 									author_handle={post.author_handle}
 									author_bio={post.author_bio}

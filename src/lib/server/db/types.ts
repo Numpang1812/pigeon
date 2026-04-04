@@ -87,6 +87,28 @@ export interface Like {
 }
 
 // ==========================================
+// Dislike
+// ==========================================
+
+export interface Dislike {
+	id: string;
+	userId: string;
+	postId: string;
+	createdAt: GeneratedDate;
+}
+
+// ==========================================
+// Repost
+// ==========================================
+
+export interface Repost {
+	id: string;
+	userId: string;
+	postId: string;
+	createdAt: GeneratedDate;
+}
+
+// ==========================================
 // Follow
 // ==========================================
 

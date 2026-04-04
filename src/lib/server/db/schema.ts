@@ -75,6 +75,28 @@ export const create_tables_sql = {
 		)
 	`,
 
+	// Dislikes (many-to-many relationship)
+	dislike: `
+		CREATE TABLE IF NOT EXISTS dislike (
+			id TEXT PRIMARY KEY,
+			user_id TEXT NOT NULL REFERENCES user(id) ON DELETE CASCADE,
+			post_id TEXT NOT NULL REFERENCES post(id) ON DELETE CASCADE,
+			created_at TEXT NOT NULL DEFAULT (datetime('now')),
+			UNIQUE(user_id, post_id)
+		)
+	`,
+
+	// Reposts/Retweets (many-to-many relationship)
+	repost: `
+		CREATE TABLE IF NOT EXISTS repost (
+			id TEXT PRIMARY KEY,
+			user_id TEXT NOT NULL REFERENCES user(id) ON DELETE CASCADE,
+			post_id TEXT NOT NULL REFERENCES post(id) ON DELETE CASCADE,
+			created_at TEXT NOT NULL DEFAULT (datetime('now')),
+			UNIQUE(user_id, post_id)
+		)
+	`,
+
 	// Follow relationships (many-to-many)
 	follow: `
 		CREATE TABLE IF NOT EXISTS follow (
@@ -150,6 +172,14 @@ export const create_indexes_sql = [
 	`CREATE INDEX IF NOT EXISTS idx_like_user_id ON like(user_id)`,
 	`CREATE INDEX IF NOT EXISTS idx_like_post_id ON like(post_id)`,
 
+	// Dislike indexes
+	`CREATE INDEX IF NOT EXISTS idx_dislike_user_id ON dislike(user_id)`,
+	`CREATE INDEX IF NOT EXISTS idx_dislike_post_id ON dislike(post_id)`,
+
+	// Repost indexes
+	`CREATE INDEX IF NOT EXISTS idx_repost_user_id ON repost(user_id)`,
+	`CREATE INDEX IF NOT EXISTS idx_repost_post_id ON repost(post_id)`,
+
 	// Follow indexes
 	`CREATE INDEX IF NOT EXISTS idx_follow_follower ON follow(follower_id)`,
 	`CREATE INDEX IF NOT EXISTS idx_follow_following ON follow(following_id)`,
@@ -175,6 +205,8 @@ export const table_names = {
 	postMedia: 'post_media',
 	comment: 'comment',
 	like: 'like',
+	dislike: 'dislike',
+	repost: 'repost',
 	follow: 'follow',
 	notification: 'notification',
 	hashtag: 'hashtag',
