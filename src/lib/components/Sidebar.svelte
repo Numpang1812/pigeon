@@ -5,22 +5,9 @@
 	import './styles/sidebar.css';
 	import { auth_client } from '$lib/auth-client';
 
-	type AppRoute = string
-
 	let is_collapsed = $state(false);
 	let mobile_open = $state(false);
 
-	const nav_items = [
-		{ label: 'Home', icon: Home, href: '/home' },
-		{ label: 'Explore', icon: Search, href: '/explore' },
-		{ label: 'Notifications', icon: Bell, href: '/notifications' },
-		{ label: 'Profile', icon: User, href: '/profile' }
-	] as const satisfies ReadonlyArray<{
-		label: string;
-		icon: typeof Home;
-		href: AppRoute;
-	}>;
-	
 	async function handle_logout() {
 		await auth_client.signOut();
 		goto(resolve('/'));
@@ -121,14 +108,29 @@
 	</div>
 
 	<nav class="nav">
-		{#each nav_items as item, index (item.label)}
-			<a class="nav-item nav-item-{index}" href={resolve(item.href)} aria-label={item.label}>
-				<span class="icon"><item.icon size={20} /></span>
+		<a class="nav-item nav-item-0" href={resolve('/home')} aria-label="Home">
+			<span class="icon"><Home size={20} /></span>
+			<span class="label">Home</span>
+			<span class="hover-label" aria-hidden="true">Home</span>
+		</a>
 
-				<span class="label">{item.label}</span>
-				<span class="hover-label" aria-hidden="true">{item.label}</span>
-			</a>
-		{/each}
+		<a class="nav-item nav-item-1" href={resolve('/explore')} aria-label="Explore">
+			<span class="icon"><Search size={20} /></span>
+			<span class="label">Explore</span>
+			<span class="hover-label" aria-hidden="true">Explore</span>
+		</a>
+
+		<a class="nav-item nav-item-2" href={resolve('/notifications')} aria-label="Notifications">
+			<span class="icon"><Bell size={20} /></span>
+			<span class="label">Notifications</span>
+			<span class="hover-label" aria-hidden="true">Notifications</span>
+		</a>
+
+		<a class="nav-item nav-item-3" href={resolve('/profile')} aria-label="Profile">
+			<span class="icon"><User size={20} /></span>
+			<span class="label">Profile</span>
+			<span class="hover-label" aria-hidden="true">Profile</span>
+		</a>
 	</nav>
 
 	<div class="bottom">
@@ -143,6 +145,5 @@
 			<span class="action-label">Logout</span>
 			<span class="action-hover-label" aria-hidden="true">Logout</span>
 		</button>
-
 	</div>
 </aside>
