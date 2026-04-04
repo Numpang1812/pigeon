@@ -1,9 +1,29 @@
 import { building } from '$app/environment';
 import { isRedirect, redirect, type Handle } from '@sveltejs/kit';
 
+// Initialize database schema on server start
+let db_initialized = false;
+
+async function ensure_db_ready() {
+	if (db_initialized) return;
+	try {
+		const { ensure_schema } = await import('$lib/server/db');
+		await ensure_schema();
+		db_initialized = true;
+	} catch (error) {
+		console.error('[Hooks] Database initialization failed:', error);
+		// Don't block requests, will retry on next request
+	}
+}
+
 export const handle: Handle = async ({ event, resolve }) => {
 	if (building) {
 		return resolve(event);
+	}
+
+	// Ensure database schema is initialized before first request
+	if (!db_initialized) {
+		await ensure_db_ready();
 	}
 
 	try {
