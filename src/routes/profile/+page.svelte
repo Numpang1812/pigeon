@@ -1,8 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { auth_client } from '$lib/auth-client';
-	import Sidebar from '$lib/component/Sidebar.svelte';
-	import Navbar from '$lib/component/Navbar.svelte';
 	import { Post } from '$lib';
 	import { Calendar } from 'lucide-svelte';
 
@@ -73,12 +71,8 @@
 </svelte:head>
 
 {#if $session.data}
-	<div class="app-shell">
-		<Sidebar />
-		<main class="page-content">
-			<Navbar />
-			<div class="profile-layout">
-				<div class="main-feed border-x">
+	<div class="profile-layout">
+		<div class="main-feed border-x">
 					<!-- Profile Header -->
 					<div class="profile-header">
 						<!-- Cover -->
@@ -163,9 +157,7 @@
 							</div>
 						{/if}
 					</section>
-				</div>
-			</div>
-		</main>
+		</div>
 	</div>
 {:else if !$session.isPending}
 	<main class="login-prompt">
@@ -180,31 +172,15 @@
 {/if}
 
 <style>
-	.app-shell {
-		--sidebar-offset: 260px;
-		display: flex;
-		gap: 0;
-		min-height: 100vh;
-	}
-
-	.page-content {
-		margin-left: var(--sidebar-offset);
-		flex: 1;
-		transition: margin-left 0.36s cubic-bezier(0.22, 1, 0.36, 1);
-		background-color: #FFFFFF;
-	}
-
-	.page-content :global(.navbar) {
-		left: var(--sidebar-offset);
-		transition: left 0.36s cubic-bezier(0.22, 1, 0.36, 1);
-	}
-
+    
 	.profile-layout {
-		min-height: calc(100vh - 64px);
-		margin-top: 64px;
+		min-height: 100%;
+		width: 100%;
+		/* margin: -1.5rem; */
 		display: flex;
 		justify-content: center;
 		font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        
 	}
 
 	.main-feed {
@@ -214,14 +190,16 @@
 	}
 
 	.border-x {
-		border-left: 1px solid #E1E8ED;
-		border-right: 1px solid #E1E8ED;
+		border-left: none;
+		border-right: none;
 	}
 
 	.profile-header {
 		display: flex;
 		flex-direction: column;
 		border-bottom: 1px solid #E1E8ED;
+		padding: 1.5rem 1.5rem 0;
+        background-color: white;
 	}
 
 	.cover-image-container {
@@ -399,6 +377,8 @@
 	.feed-column {
 		display: flex;
 		flex-direction: column;
+		padding: 1.5rem;
+
 	}
 
 	.empty-state {
@@ -436,12 +416,9 @@
 	}
 
 	@media (max-width: 900px) {
-		.app-shell {
-			--sidebar-offset: 0px;
-		}
-
-		.page-content {
-			margin-left: 0;
+		.profile-layout {
+			width: calc(100% + 2rem);
+			margin: -1rem;
 		}
 
 		.border-x {
