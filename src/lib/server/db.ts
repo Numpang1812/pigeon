@@ -29,6 +29,11 @@ export function get_client() {
 export const db = new Proxy({} as Client, {
 	get(_target, prop) {
 		const client = get_client();
-		return Reflect.get(client, prop);
+		const value = Reflect.get(client, prop);
+		// Bind methods to the real client so private fields (#promiseLimitFunction etc.) work
+		if (typeof value === 'function') {
+			return value.bind(client);
+		}
+		return value;
 	}
 });

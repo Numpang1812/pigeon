@@ -2,7 +2,12 @@
 	import { resolve } from '$app/paths';
 	import { auth_client } from '$lib/auth-client';
 	import { Post } from '$lib';
-	import { Calendar } from 'lucide-svelte';
+	import { Calendar, Camera } from 'lucide-svelte';
+	import AvatarUploader from '$lib/components/AvatarUploader.svelte';
+	import type { PageData } from './$types';
+	import { invalidateAll } from '$app/navigation';
+
+	const { data } = $props<{ data: PageData }>();
 
 	const session = auth_client.useSession();
 
@@ -10,60 +15,27 @@
 	const tabs = ['Posts', 'Replies', 'Media', 'Likes'] as const;
 	let active_tab = $state<(typeof tabs)[number]>('Posts');
 
-	// Dummy user profile data
-	const profile = {
-		name: 'Jane Doe',
-		handle: 'janedoe',
-		bio: 'Digital creator & software engineer. Exploring the intersection of design and code. 🚀',
-		joined: 'Joined January 2024',
-		avatar: 'https://i.pravatar.cc/150?u=jane',
-		cover: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80',
-		following: 428,
-		followers: 12400
-	};
+	// Avatar uploader state
+	let show_avatar_uploader = $state(false);
+	let avatar_url = $state<string | null>(null);
 
-	// Dummy posts using ExploreFeedPost schema
-	const posts = [
-		{
-			id: '1',
-			post_tag: 'tech',
-			post_tags: ['tech', 'design'],
-			posted_at: '2h',
-			author_name: profile.name,
-			author_handle: profile.handle,
-			content: 'Just launched my new portfolio! Built with Svelte 5 and so much coffee ☕️✨',
-			author_bio: profile.bio,
-			verified: true,
-			metrics: { likes: 1240, reports: 0 },
-			avatar_url: profile.avatar
-		},
-		{
-			id: '2',
-			post_tag: 'life',
-			post_tags: ['life', 'update'],
-			posted_at: '1d',
-			author_name: profile.name,
-			author_handle: profile.handle,
-			content: 'Sometimes the best debugging tool is just stepping away from the keyboard for a walk.',
-			author_bio: profile.bio,
-			verified: true,
-			metrics: { likes: 856, reports: 1 },
-			avatar_url: profile.avatar
-		},
-		{
-			id: '3',
-			post_tag: 'design',
-			post_tags: ['design', 'ui'],
-			posted_at: '3d',
-			author_name: profile.name,
-			author_handle: profile.handle,
-			content: 'Minimalism isn\'t about taking things away until there\'s nothing left, but about removing distractions so the main content shines.',
-			author_bio: profile.bio,
-			verified: true,
-			metrics: { likes: 2045, reports: 0 },
-			avatar_url: profile.avatar
-		}
-	];
+	// Use server-loaded data
+	const profile = $derived(data.profile);
+	const posts = $derived(data.posts);
+
+	async function handle_avatar_success(new_url: string) {
+		avatar_url = new_url;
+		show_avatar_uploader = false;
+		await invalidateAll();
+	}
+
+	function handle_avatar_click() {
+		show_avatar_uploader = true;
+	}
+
+	function close_avatar_uploader() {
+		show_avatar_uploader = false;
+	}
 </script>
 
 <svelte:head>
@@ -82,11 +54,14 @@
 
 						<!-- Avatar & Actions -->
 						<div class="profile-actions-row">
-							<div class="avatar-container">
-								<img src={profile.avatar} alt="Avatar" class="avatar-image" />
-							</div>
+							<button class="avatar-container" onclick={handle_avatar_click} aria-label="Change avatar">
+								<img src={avatar_url || profile.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name)}&size=256&background=1DA1F2&color=fff`} alt="Avatar" class="avatar-image" />
+								<div class="avatar-overlay">
+									<Camera size={32} />
+								</div>
+							</button>
 							<div class="action-buttons">
-								<button class="btn btn-outline">Edit profile</button>
+								<a href={resolve('/profile/edit')} class="btn btn-outline">Edit profile</a>
 							</div>
 						</div>
 
@@ -110,7 +85,7 @@
 									<span class="stat-label">Following</span>
 								</a>
 								<a href="#followers" class="stat-link">
-									<span class="stat-value">{(profile.followers / 1000).toFixed(1)}K</span>
+									<span class="stat-value">{profile.followers >= 1000 ? `${(profile.followers / 1000).toFixed(1)}K` : profile.followers}</span>
 									<span class="stat-label">Followers</span>
 								</a>
 							</div>
@@ -158,6 +133,21 @@
 						{/if}
 					</section>
 		</div>
+
+		<!-- Avatar uploader modal -->
+		{#if show_avatar_uploader}
+			<!-- svelte-ignore a11y_click_events_have_key_events -->
+			<!-- svelte-ignore a11y_no_static_element_interactions -->
+			<div class="modal-backdrop" onclick={close_avatar_uploader}>
+				<div class="modal-content" onclick={(e) => e.stopPropagation()}>
+					<AvatarUploader
+						current_avatar_url={avatar_url || profile.avatar}
+						on_success={handle_avatar_success}
+						on_close={close_avatar_uploader}
+					/>
+				</div>
+			</div>
+		{/if}
 	</div>
 {:else if !$session.isPending}
 	<main class="login-prompt">
@@ -229,6 +219,33 @@
 		border: 4px solid #FFFFFF;
 		background-color: #FFFFFF;
 		overflow: hidden;
+		position: relative;
+		cursor: pointer;
+		transition: transform 0.2s;
+        padding: 0;
+	}
+
+	.avatar-container:hover {
+		transform: scale(1.02);
+	}
+
+	.avatar-overlay {
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: 100%;
+		height: 100%;
+		background: rgba(0, 0, 0, 0.5);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		color: white;
+		opacity: 0;
+		transition: opacity 0.2s;
+	}
+
+	.avatar-container:hover .avatar-overlay {
+		opacity: 1;
 	}
 
 	.avatar-image {
@@ -424,6 +441,39 @@
 		.border-x {
 			border-left: none;
 			border-right: none;
+		}
+	}
+
+	/* Modal Styles */
+	.modal-backdrop {
+		position: fixed;
+		top: 0;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		background: rgba(0, 0, 0, 0.7);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		z-index: 1000;
+		padding: 20px;
+	}
+
+	.modal-content {
+		position: relative;
+		max-width: 500px;
+		width: 100%;
+		animation: modalSlideIn 0.3s ease-out;
+	}
+
+	@keyframes modalSlideIn {
+		from {
+			opacity: 0;
+			transform: translateY(-20px);
+		}
+		to {
+			opacity: 1;
+			transform: translateY(0);
 		}
 	}
 </style>

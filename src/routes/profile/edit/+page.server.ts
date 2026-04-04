@@ -1,0 +1,98 @@
+import type { PageServerLoad, Actions } from './$types';
+import { db } from '$lib/server/db';
+import { fail, redirect } from '@sveltejs/kit';
+import { auth } from '$lib/auth';
+
+export const load: PageServerLoad = async ({ request }) => {
+	const session = await auth.api.getSession({
+		headers: request.headers
+	});
+
+	if (!session) {
+		throw redirect(302, '/');
+	}
+
+	// Fetch current user data from Turso
+	const result = await db.execute({
+		sql: 'SELECT id, name, username, bio, image, email FROM user WHERE id = ?',
+		args: [session.user.id]
+	});
+
+	if (result.rows.length === 0) {
+		throw redirect(302, '/');
+	}
+
+	const user = result.rows[0];
+
+	return {
+		profile: {
+			id: user.id as string,
+			name: user.name as string,
+			username: (user.username as string) || '',
+			bio: (user.bio as string) || '',
+			avatar: user.image as string,
+			email: user.email as string
+		}
+	};
+};
+
+export const actions: Actions = {
+	profile: async ({ request }) => {
+		const session = await auth.api.getSession({
+			headers: request.headers
+		});
+
+		if (!session) {
+			return fail(401, { message: 'Unauthorized' });
+		}
+
+		const data = await request.formData();
+		const name = data.get('name')?.toString() || '';
+		const username = data.get('username')?.toString() || '';
+		const bio = data.get('bio')?.toString() || '';
+
+		try {
+			await db.execute({
+				sql: 'UPDATE user SET name = ?, username = ?, bio = ? WHERE id = ?',
+				args: [name, username, bio, session.user.id]
+			});
+
+			return { success: true, message: 'Profile updated successfully' };
+		} catch (e: unknown) {
+			console.error('Error updating profile:', e);
+			return fail(500, { message: 'Failed to update profile' });
+		}
+	},
+	password: async ({ request }) => {
+		const session = await auth.api.getSession({
+			headers: request.headers
+		});
+
+		if (!session) {
+			return fail(401, { message: 'Unauthorized' });
+		}
+
+		const data = await request.formData();
+		const current_password = data.get('currentPassword')?.toString() || '';
+		const new_password = data.get('newPassword')?.toString() || '';
+
+		if (!current_password || !new_password) {
+			return fail(400, { message: 'Passwords are required' });
+		}
+
+		try {
+			await auth.api.changePassword({
+				body: {
+					newPassword: new_password,
+					currentPassword: current_password
+				},
+				headers: request.headers
+			});
+			return { success: true, message: 'Password updated successfully' };
+		} catch (e: unknown) {
+			const message = e instanceof Error ? e.message : 'Failed to change password';
+			console.error('Error changing password:', e);
+			return fail(500, { message });
+		}
+	}
+};

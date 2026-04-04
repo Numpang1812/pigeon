@@ -140,7 +140,6 @@
 					<selected_audience_option.icon size={15} />
 					<div>
 						<strong>{selected_audience_option.label}</strong>
-						<small>{selected_audience_option.hint}</small>
 					</div>
 				</div>
 				<ChevronDown size={14} aria-hidden="true" />
@@ -228,13 +227,6 @@
 		min-height: 14rem;
 	}
 
-	/* textarea:focus {
-		outline: none;
-		border-color: #0ea5e9;
-		box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.15);
-		background: #ffffff;
-	} */
-
 	textarea::placeholder {
 		color: #94a3b8;
 	}
@@ -260,7 +252,6 @@
 		padding: 0.55rem 0.75rem;
 		background: #f7f9fc;
 		cursor: pointer;
-		width: 100%;
 	}
 
 	.privacy-pill:hover {
@@ -365,15 +356,6 @@
 		font-size: 0.84rem;
 		line-height: 1.15;
 		color: #1e293b;
-	}
-
-	.pill-content small {
-		font-size: 0.73rem;
-		line-height: 1.2;
-		color: #64748b;
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
 	}
 
 	.composer-footer {
