@@ -20,7 +20,7 @@
 		icon: typeof Home;
 		href: AppRoute;
 	}>;
-	
+
 	async function handle_logout() {
 		await auth_client.signOut();
 		goto(resolve('/'));
@@ -122,7 +122,7 @@
 
 	<nav class="nav">
 		{#each nav_items as item, index (item.label)}
-			<a class="nav-item nav-item-{index}" href={item.href} aria-label={item.label}>
+			<a class="nav-item nav-item-{index}" href={resolve(item.href)} aria-label={item.label}>
 				<span class="icon"><item.icon size={20} /></span>
 
 				<span class="label">{item.label}</span>
@@ -143,6 +143,5 @@
 			<span class="action-label">Logout</span>
 			<span class="action-hover-label" aria-hidden="true">Logout</span>
 		</button>
-
 	</div>
 </aside>
