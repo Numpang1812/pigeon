@@ -53,6 +53,73 @@
 		() => `/profile/${encodeURIComponent(author_handle_safe || 'user')}` as `/profile/${string}`
 	);
 
+	type ContentSegment =
+		| { type: 'text'; value: string }
+		| { type: 'mention'; value: string; profile_path: `/profile/${string}` };
+
+	function parse_content_segments(content: string): ContentSegment[] {
+		const segments: ContentSegment[] = [];
+		const mention_pattern = /@([a-zA-Z0-9_]{2,24})/g;
+		let cursor = 0;
+
+		for (const match of content.matchAll(mention_pattern)) {
+			const full_match = match[0];
+			const mention_handle = match[1];
+			const match_index = match.index ?? -1;
+
+			if (match_index < 0) {
+				continue;
+			}
+
+			const prev_char = match_index > 0 ? content[match_index - 1] : '';
+			const is_word_char_before = /[a-zA-Z0-9_.]/.test(prev_char);
+			if (is_word_char_before) {
+				continue;
+			}
+
+			if (match_index > cursor) {
+				segments.push({
+					type: 'text',
+					value: content.slice(cursor, match_index)
+				});
+			}
+
+			const normalized_mention = normalize_handle(mention_handle);
+			if (normalized_mention) {
+				segments.push({
+					type: 'mention',
+					value: full_match,
+					profile_path: `/profile/${encodeURIComponent(normalized_mention)}` as `/profile/${string}`
+				});
+			} else {
+				segments.push({
+					type: 'text',
+					value: full_match
+				});
+			}
+
+			cursor = match_index + full_match.length;
+		}
+
+		if (cursor < content.length) {
+			segments.push({
+				type: 'text',
+				value: content.slice(cursor)
+			});
+		}
+
+		if (segments.length === 0) {
+			segments.push({
+				type: 'text',
+				value: content
+			});
+		}
+
+		return segments;
+	}
+
+	const content_segments = $derived.by(() => parse_content_segments(props.content));
+
 	// Metrics come from the API already accurate, just use them directly
 	const like_count = $derived(props.metrics?.likes ?? 0);
 	const dislike_count = $derived(props.metrics?.dislikes ?? 0);
@@ -334,18 +401,18 @@
 						disabled={is_saving}
 					></textarea>
 					<div class="edit-actions">
-						<button 
-							type="button" 
-							class="edit-action-btn cancel-btn" 
+						<button
+							type="button"
+							class="edit-action-btn cancel-btn"
 							onclick={cancel_edit}
 							disabled={is_saving}
 						>
 							<X size={16} />
 							<span>Cancel</span>
 						</button>
-						<button 
-							type="button" 
-							class="edit-action-btn save-btn" 
+						<button
+							type="button"
+							class="edit-action-btn save-btn"
 							onclick={save_edit}
 							disabled={is_saving || edited_content.trim() === ''}
 						>
@@ -355,7 +422,15 @@
 					</div>
 				</div>
 			{:else}
-				<p class="body-text">{props.content}</p>
+				<p class="body-text">
+					{#each content_segments as segment, index (`${segment.type}-${index}-${segment.value}`)}
+						{#if segment.type === 'mention'}
+							<a class="mention-link" href={resolve(segment.profile_path)}>{segment.value}</a>
+						{:else}
+							{segment.value}
+						{/if}
+					{/each}
+				</p>
 			{/if}
 
 			<footer class="metrics">
@@ -555,6 +630,16 @@
 		line-height: 1.55;
 		color: #334155;
 		margin: 0;
+	}
+
+	.mention-link {
+		color: #0284c7;
+		font-weight: 700;
+		text-decoration: none;
+	}
+
+	.mention-link:hover {
+		text-decoration: underline;
 	}
 
 	.metrics {
