@@ -12,7 +12,7 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { auth } from '$lib/auth';
-import { upload_profile_picture, delete_from_cloudinary, extract_public_id } from '$lib/server/cloudinary';
+import { upload_profile_picture } from '$lib/server/cloudinary';
 import { db } from '$lib/server/db';
 
 // ==========================================
@@ -25,13 +25,6 @@ const allowed_mime_types = ['image/jpeg', 'image/png', 'image/webp'];
 // ==========================================
 // Helpers
 // ==========================================
-
-async function delete_old_avatar(user_image: string) {
-	const old_id = extract_public_id(user_image);
-	if (old_id && old_id.startsWith('pigeon/avatars/')) {
-		await delete_from_cloudinary(old_id);
-	}
-}
 
 function validate_file(file: File) {
 	if (file.size > max_file_size) {
@@ -76,22 +69,15 @@ export const POST: RequestHandler = async ({ request }) => {
 		const file_buffer = Buffer.from(array_buffer);
 		const new_avatar_url = await upload_profile_picture(user_id, file_buffer);
 
-		// 5. Delete old avatar if exists
-		if (session.user.image) {
-			try {
-				await delete_old_avatar(session.user.image);
-			} catch (delete_error) {
-				console.error('Failed to delete old avatar:', delete_error);
-			}
-		}
-
-		// 6. Update user's image in database
+		// 5. Update user's image in database
+		// Note: No need to delete old avatar - Cloudinary's overwrite: true
+		// automatically replaces the old image with the new one at the same public_id
 		await db.execute({
 			sql: 'UPDATE user SET image = ?, updatedAt = datetime(\'now\') WHERE id = ?',
 			args: [new_avatar_url, user_id]
 		});
 
-		// 7. Return success with new URL
+		// 6. Return success with new URL
 		return json({
 			success: true,
 			message: 'Avatar uploaded successfully',

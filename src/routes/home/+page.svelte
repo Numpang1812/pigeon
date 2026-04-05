@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { Post, PostTextbox } from '$lib';
 	import type { PageData } from './$types';
-	import { invalidateAll } from '$app/navigation';
 
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	const { data } = $props<{ data: PageData }>();
 
 	type FeedPost = {
@@ -43,16 +43,44 @@
 			loading = false;
 		}
 	}
-
-	async function handle_post_submit(payload: {
-		content: string;
-		audience: string;
-		post_tag: string;
-		post_tags: string[];
-	}): Promise<void> {
+	async function handle_post_submit(): Promise<void> {
 		// The PostTextbox component now handles the API call
 		// Just reload the feed
 		await load_posts();
+	}
+
+	function handle_metric_change(
+		post_id: string,
+		type: 'like' | 'dislike' | 'repost',
+		new_metrics: {
+			likes: number;
+			dislikes: number;
+			reposts: number;
+			user_liked: boolean;
+			user_disliked: boolean;
+			user_reposted: boolean;
+		}
+	): void {
+		const post_index = feed_posts.findIndex((p) => p.id === post_id);
+		if (post_index === -1) return;
+
+		const updated_post = {
+			...feed_posts[post_index],
+			metrics: {
+				likes: new_metrics.likes,
+				dislikes: new_metrics.dislikes,
+				reposts: new_metrics.reposts
+			},
+			user_liked: new_metrics.user_liked,
+			user_disliked: new_metrics.user_disliked,
+			user_reposted: new_metrics.user_reposted
+		};
+
+		feed_posts = [
+			...feed_posts.slice(0, post_index),
+			updated_post,
+			...feed_posts.slice(post_index + 1)
+		];
 	}
 
 	// Load posts on mount
@@ -95,6 +123,7 @@
 					user_liked={post.user_liked}
 					user_disliked={post.user_disliked}
 					user_reposted={post.user_reposted}
+					on_metric_change={handle_metric_change}
 				/>
 			{/each}
 		{/if}
