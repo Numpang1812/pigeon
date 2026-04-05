@@ -43,12 +43,15 @@ export const load: PageServerLoad = async ({ request }) => {
 		sql: `SELECT p.id, p.content, p.post_tag, p.audience, p.created_at,
 			(SELECT COUNT(*) FROM like WHERE post_id = p.id) as like_count,
 			(SELECT COUNT(*) FROM dislike WHERE post_id = p.id) as dislike_count,
-			(SELECT COUNT(*) FROM repost WHERE post_id = p.id) as repost_count
+			(SELECT COUNT(*) FROM repost WHERE post_id = p.id) as repost_count,
+			(SELECT COUNT(*) > 0 FROM like WHERE post_id = p.id AND user_id = ?) as user_liked,
+			(SELECT COUNT(*) > 0 FROM dislike WHERE post_id = p.id AND user_id = ?) as user_disliked,
+			(SELECT COUNT(*) > 0 FROM repost WHERE post_id = p.id AND user_id = ?) as user_reposted
 			FROM post p
 			WHERE p.author_id = ?
 			ORDER BY p.created_at DESC
 			LIMIT 50`,
-		args: [session.user.id]
+		args: [session.user.id, session.user.id, session.user.id, session.user.id]
 	});
 
 	const created_at = user.createdAt as string;
@@ -79,11 +82,14 @@ export const load: PageServerLoad = async ({ request }) => {
 			audience: row.audience as string,
 			author_bio: (user.bio as string) || '',
 			verified: false,
-			metrics: { 
-				likes: Number(row.like_count ?? 0), 
+			metrics: {
+				likes: Number(row.like_count ?? 0),
 				dislikes: Number(row.dislike_count ?? 0),
 				reposts: Number(row.repost_count ?? 0)
 			},
+			user_liked: Boolean(row.user_liked),
+			user_disliked: Boolean(row.user_disliked),
+			user_reposted: Boolean(row.user_reposted),
 			avatar_url: (user.image as string) || ''
 		}))
 	};

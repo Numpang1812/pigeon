@@ -20,9 +20,35 @@
 	let show_avatar_uploader = $state(false);
 	let avatar_url = $state<string | null>(null);
 
+	// Define post type locally to avoid 'any'
+	type ProfilePost = {
+		id: string;
+		post_tag: string;
+		post_tags: string[];
+		posted_at: string;
+		author_name: string;
+		author_handle: string;
+		content: string;
+		audience: string;
+		author_bio: string;
+		verified: boolean;
+		metrics: {
+			likes: number;
+			dislikes: number;
+			reposts: number;
+		};
+		user_liked: boolean;
+		user_disliked: boolean;
+		user_reposted: boolean;
+		avatar_url: string;
+	};
+
 	// Use server-loaded data
 	const profile = $derived(data.profile);
-	const posts = $derived(data.posts);
+	const posts_source = $derived(data.posts as unknown as ProfilePost[]);
+	const post_overrides = $state<Record<string, ProfilePost>>({});
+	
+	const local_posts = $derived(posts_source.map(p => post_overrides[p.id] ?? p));
 
 	async function handle_avatar_success(new_url: string) {
 		avatar_url = new_url;
@@ -36,6 +62,36 @@
 
 	function close_avatar_uploader() {
 		show_avatar_uploader = false;
+	}
+
+	function handle_metric_change(
+		post_id: string,
+		type: 'like' | 'dislike' | 'repost',
+		new_metrics: {
+			likes: number;
+			dislikes: number;
+			reposts: number;
+			user_liked: boolean;
+			user_disliked: boolean;
+			user_reposted: boolean;
+		}
+	): void {
+		const post_index = local_posts.findIndex((p) => p.id === post_id);
+		if (post_index === -1) return;
+
+		const updated_post = {
+			...local_posts[post_index],
+			metrics: {
+				likes: new_metrics.likes,
+				dislikes: new_metrics.dislikes,
+				reposts: new_metrics.reposts
+			},
+			user_liked: new_metrics.user_liked,
+			user_disliked: new_metrics.user_disliked,
+			user_reposted: new_metrics.user_reposted
+		};
+
+		post_overrides[post_id] = updated_post;
 	}
 </script>
 
@@ -112,7 +168,7 @@
 					<!-- Feed Column -->
 					<section class="feed-column" aria-label="Posts">
 						{#if active_tab === 'Posts'}
-							{#each posts as post (post.id)}
+							{#each local_posts as post (post.id)}
 								<Post
 									post_id={post.id}
 									post_tag={post.post_tag}
@@ -126,6 +182,10 @@
 									avatar_url={post.avatar_url}
 									verified={post.verified}
 									metrics={post.metrics}
+									user_liked={post.user_liked}
+									user_disliked={post.user_disliked}
+									user_reposted={post.user_reposted}
+									on_metric_change={handle_metric_change}
 								/>
 							{/each}
 						{:else}

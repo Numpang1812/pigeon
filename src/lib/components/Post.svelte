@@ -23,6 +23,14 @@
 		user_liked?: boolean;
 		user_disliked?: boolean;
 		user_reposted?: boolean;
+		on_metric_change?: (post_id: string, type: 'like' | 'dislike' | 'repost', new_metrics: {
+			likes: number;
+			dislikes: number;
+			reposts: number;
+			user_liked: boolean;
+			user_disliked: boolean;
+			user_reposted: boolean;
+		}) => void;
 	}
 
 	const props: PostProps = $props();
@@ -31,17 +39,10 @@
 	const disliked = $derived(props.user_disliked ?? false);
 	const reposted = $derived(props.user_reposted ?? false);
 
-	const like_count = $derived(
-		(props.metrics?.likes ?? 0) + (liked ? 1 : 0)
-	);
-	
-	const dislike_count = $derived(
-		(props.metrics?.dislikes ?? 0) + (disliked ? 1 : 0)
-	);
-	
-	const repost_count = $derived(
-		(props.metrics?.reposts ?? 0) + (reposted ? 1 : 0)
-	);
+	// Metrics come from the API already accurate, just use them directly
+	const like_count = $derived(props.metrics?.likes ?? 0);
+	const dislike_count = $derived(props.metrics?.dislikes ?? 0);
+	const repost_count = $derived(props.metrics?.reposts ?? 0);
 	
 	const normalized_tags = $derived.by(() => {
 		const source_tags = props.post_tags?.length ? props.post_tags : [props.post_tag];
@@ -95,10 +96,17 @@
 			const response = await fetch(`/api/posts/${props.post_id}/like`, {
 				method: 'POST'
 			});
-			
+
 			if (response.ok) {
-				const { invalidateAll: invalidate_all } = await import('$app/navigation');
-				await invalidate_all();
+				const data = await response.json();
+				props.on_metric_change?.(props.post_id, 'like', {
+					likes: data.like_count,
+					dislikes: data.dislike_count,
+					reposts: data.repost_count,
+					user_liked: data.user_liked,
+					user_disliked: data.user_disliked,
+					user_reposted: data.user_reposted
+				});
 			}
 		} catch (error) {
 			console.error('Failed to toggle like:', error);
@@ -110,10 +118,17 @@
 			const response = await fetch(`/api/posts/${props.post_id}/dislike`, {
 				method: 'POST'
 			});
-			
+
 			if (response.ok) {
-				const { invalidateAll: invalidate_all } = await import('$app/navigation');
-				await invalidate_all();
+				const data = await response.json();
+				props.on_metric_change?.(props.post_id, 'dislike', {
+					likes: data.like_count,
+					dislikes: data.dislike_count,
+					reposts: data.repost_count,
+					user_liked: data.user_liked,
+					user_disliked: data.user_disliked,
+					user_reposted: data.user_reposted
+				});
 			}
 		} catch (error) {
 			console.error('Failed to toggle dislike:', error);
@@ -125,10 +140,17 @@
 			const response = await fetch(`/api/posts/${props.post_id}/repost`, {
 				method: 'POST'
 			});
-			
+
 			if (response.ok) {
-				const { invalidateAll: invalidate_all } = await import('$app/navigation');
-				await invalidate_all();
+				const data = await response.json();
+				props.on_metric_change?.(props.post_id, 'repost', {
+					likes: data.like_count,
+					dislikes: data.dislike_count,
+					reposts: data.repost_count,
+					user_liked: data.user_liked,
+					user_disliked: data.user_disliked,
+					user_reposted: data.user_reposted
+				});
 			}
 		} catch (error) {
 			console.error('Failed to toggle repost:', error);
