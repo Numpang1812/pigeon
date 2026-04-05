@@ -3,6 +3,19 @@ import { db } from '$lib/server/db';
 import { auth } from '$lib/auth';
 import { nanoid } from 'nanoid';
 
+function normalize_tag(raw_tag: unknown): string | null {
+	if (typeof raw_tag !== 'string') {
+		return null;
+	}
+
+	const normalized = raw_tag.trim().toLowerCase().replace(/^#+/, '');
+	if (!/^[a-z0-9_]{2,24}$/.test(normalized)) {
+		return null;
+	}
+
+	return normalized;
+}
+
 export const POST: RequestHandler = async ({ request }) => {
 	try {
 		const session = await auth.api.getSession({
@@ -28,8 +41,18 @@ export const POST: RequestHandler = async ({ request }) => {
 		const valid_audiences = ['public', 'followers_friends', 'close_friends', 'private'];
 		const validated_audience = valid_audiences.includes(audience) ? audience : 'public';
 
-		const valid_tags = ['tech', 'life', 'design', 'art', 'gaming', 'news', 'other'];
-		const validated_post_tag = valid_tags.includes(post_tag) ? post_tag : 'other';
+		const normalized_tags = Array.isArray(post_tags)
+			? Array.from(
+					new Set(
+						post_tags
+							.map((tag) => normalize_tag(tag))
+							.filter((tag): tag is string => tag !== null)
+					)
+			  ).slice(0, 6)
+			: [];
+
+		const normalized_primary = normalize_tag(post_tag);
+		const validated_post_tag = normalized_tags[0] ?? normalized_primary ?? 'other';
 
 		// Create post
 		const post_id = nanoid();
@@ -58,20 +81,20 @@ export const POST: RequestHandler = async ({ request }) => {
 		}
 
 		// Handle hashtags
-		if (post_tags && Array.isArray(post_tags)) {
-			for (const tag of post_tags) {
+		if (normalized_tags.length > 0) {
+			for (const tag of normalized_tags) {
 				// Insert or update hashtag
 				await db.execute({
 					sql: `INSERT INTO hashtag (id, tag_name, usage_count)
 						  VALUES (?, ?, 1)
 						  ON CONFLICT(tag_name) DO UPDATE SET usage_count = usage_count + 1`,
-					args: [nanoid(), tag.toLowerCase()]
+					args: [nanoid(), tag]
 				});
 
 				// Get hashtag ID
 				const hashtag_result = await db.execute({
 					sql: `SELECT id FROM hashtag WHERE tag_name = ?`,
-					args: [tag.toLowerCase()]
+					args: [tag]
 				});
 
 				if (hashtag_result.rows.length > 0) {
@@ -121,6 +144,7 @@ export const POST: RequestHandler = async ({ request }) => {
 				content: post.content as string,
 				audience: post.audience as string,
 				post_tag: post.post_tag as string,
+				post_tags: normalized_tags.length > 0 ? normalized_tags : [post.post_tag as string],
 				posted_at: format_time_ago(post.created_at as string),
 				author_name: post.author_name as string,
 				author_handle: post.author_handle as string,
@@ -168,6 +192,10 @@ export const GET: RequestHandler = async ({ url, request }) => {
 				u.username as author_handle,
 				u.image as author_avatar,
 				u.bio as author_bio,
+				(SELECT GROUP_CONCAT(h.tag_name, ',')
+				 FROM post_hashtag ph
+				 JOIN hashtag h ON ph.hashtag_id = h.id
+				 WHERE ph.post_id = p.id) as hashtag_list,
 				(SELECT COUNT(*) FROM like WHERE post_id = p.id) as like_count,
 				(SELECT COUNT(*) FROM dislike WHERE post_id = p.id) as dislike_count,
 				(SELECT COUNT(*) FROM repost WHERE post_id = p.id) as repost_count,
@@ -193,12 +221,19 @@ export const GET: RequestHandler = async ({ url, request }) => {
 
 		const posts_result = await db.execute({ sql: query, args });
 
-		const posts = posts_result.rows.map((row) => ({
+		const posts = posts_result.rows.map((row) => {
+			const hashtag_list = (row.hashtag_list as string | null) ?? '';
+			const parsed_tags = hashtag_list
+				.split(',')
+				.map((tag) => tag.trim().toLowerCase())
+				.filter((tag) => tag.length > 0);
+
+			return {
 			id: row.id as string,
 			content: row.content as string,
 			audience: row.audience as string,
 			post_tag: row.post_tag as string,
-			post_tags: [row.post_tag as string],
+			post_tags: parsed_tags.length > 0 ? parsed_tags : [row.post_tag as string],
 			posted_at: format_time_ago(row.created_at as string),
 			author_name: row.author_name as string,
 			author_handle: row.author_handle as string,
@@ -213,7 +248,8 @@ export const GET: RequestHandler = async ({ url, request }) => {
 			user_liked: Boolean(row.user_liked),
 			user_disliked: Boolean(row.user_disliked),
 			user_reposted: Boolean(row.user_reposted)
-		}));
+		};
+		});
 
 		return json({ success: true, posts }, { status: 200 });
 
