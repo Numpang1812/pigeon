@@ -2,9 +2,9 @@ import { betterAuth } from 'better-auth';
 import { env } from '$env/dynamic/private';
 import { get_auth_db_dialect } from './server/auth-db';
 
-console.log('[Auth] Initializing BetterAuth...');
-console.log('[Auth] GOOGLE_CLIENT_ID:', env.GOOGLE_CLIENT_ID ? 'set' : 'undefined');
-console.log('[Auth] GITHUB_CLIENT_ID:', env.GITHUB_CLIENT_ID ? 'set' : 'undefined');
+console.info('[Auth] Initializing BetterAuth...');
+console.info('[Auth] GOOGLE_CLIENT_ID:', env.GOOGLE_CLIENT_ID ? 'set' : 'undefined');
+console.info('[Auth] GITHUB_CLIENT_ID:', env.GITHUB_CLIENT_ID ? 'set' : 'undefined');
 
 // Only configure OAuth providers if credentials are provided
 const google_enabled =
@@ -19,8 +19,8 @@ const github_enabled =
 	env.GITHUB_CLIENT_ID !== '' &&
 	env.GITHUB_CLIENT_SECRET !== '';
 
-console.log('[Auth] Google enabled:', google_enabled);
-console.log('[Auth] GitHub enabled:', github_enabled);
+console.info('[Auth] Google enabled:', google_enabled);
+console.info('[Auth] GitHub enabled:', github_enabled);
 
 export const auth = betterAuth({
 	secret: env.BETTER_AUTH_SECRET,

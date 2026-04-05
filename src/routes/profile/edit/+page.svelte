@@ -156,6 +156,12 @@
 						<p>Update your password to keep your account secure.</p>
 					</div>
 
+					{#if password_error}
+						<div class="alert error">
+							{password_error}
+						</div>
+					{/if}
+
 					<div class="form-group">
 						<label for="currentPassword">Current password</label>
 						<input
