@@ -247,6 +247,7 @@
 	display: flex;
 	flex-direction: column;
 	gap: 0.55rem;
+	position: relative;
 }
 
 .compose,
@@ -264,6 +265,82 @@
 	text-align: left;
 	cursor: pointer;
 	background: rgba(148, 163, 184, 0.2);
+}
+
+.logout-confirm {
+	display: grid;
+	gap: 0.65rem;
+	padding: 0.75rem;
+	border-radius: 0.8rem;
+	border: 1px solid rgba(148, 163, 184, 0.35);
+	background:
+		radial-gradient(circle at 12% 10%, rgba(56, 189, 248, 0.1), transparent 45%),
+		rgba(15, 23, 42, 0.85);
+	box-shadow: 0 10px 24px rgba(2, 6, 23, 0.35);
+}
+
+.logout-confirm p {
+	margin: 0;
+	font-size: 0.85rem;
+	line-height: 1.4;
+	color: #e2e8f0;
+}
+
+.logout-confirm-actions {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 0.45rem;
+}
+
+.logout-cancel,
+.logout-confirm-btn {
+	border: 1px solid rgba(148, 163, 184, 0.35);
+	border-radius: 0.55rem;
+	padding: 0.45rem 0.6rem;
+	font-size: 0.78rem;
+	font-weight: 700;
+	cursor: pointer;
+	transition:
+		background 0.2s ease,
+		border-color 0.2s ease,
+		transform 0.2s ease;
+}
+
+.logout-cancel {
+	color: #e2e8f0;
+	background: rgba(30, 41, 59, 0.8);
+}
+
+.logout-confirm-btn {
+	color: #f8fafc;
+	background: linear-gradient(135deg, #ef4444, #dc2626);
+	border-color: rgba(252, 165, 165, 0.55);
+}
+
+.logout-cancel:hover,
+.logout-confirm-btn:hover {
+	transform: translateY(-1px);
+}
+
+.logout-cancel:hover {
+	background: rgba(51, 65, 85, 0.95);
+	border-color: rgba(203, 213, 225, 0.5);
+}
+
+.logout-confirm-btn:hover {
+	background: linear-gradient(135deg, #dc2626, #b91c1c);
+}
+
+.logout-cancel:focus-visible,
+.logout-confirm-btn:focus-visible {
+	outline: 2px solid rgba(191, 219, 254, 0.85);
+	outline-offset: 2px;
+}
+
+.logout-confirm-btn:disabled {
+	opacity: 0.75;
+	cursor: wait;
+	transform: none;
 }
 
 .compose:hover,
@@ -350,6 +427,14 @@
 	overflow: visible;
 }
 
+.sidebar.collapsed .logout-confirm {
+	position: absolute;
+	left: calc(100% + 0.75rem);
+	bottom: 0;
+	width: 220px;
+	z-index: 18;
+}
+
 .sidebar.collapsed .nav-item:hover .hover-label,
 .sidebar.collapsed .nav-item:focus-visible .hover-label {
 	opacity: 1;
@@ -383,5 +468,10 @@
 
 	.sidebar.collapsed {
 		width: 84px;
+	}
+
+	.sidebar.collapsed .logout-confirm {
+		position: static;
+		width: auto;
 	}
 }
