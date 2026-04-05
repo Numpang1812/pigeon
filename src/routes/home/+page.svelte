@@ -30,12 +30,61 @@
 	let feed_posts = $state<FeedPost[]>([]);
 	let loading = $state(true);
 
+	function center_post_in_view(post_element: HTMLElement): void {
+		const rect = post_element.getBoundingClientRect();
+		const current_scroll = window.scrollY;
+		const target_scroll = current_scroll + rect.top - (window.innerHeight / 2 - rect.height / 2);
+		window.scrollTo({ top: Math.max(0, target_scroll), behavior: 'smooth' });
+	}
+
+	function flash_target_post(post_element: HTMLElement): void {
+		post_element.classList.remove('flash-target');
+		requestAnimationFrame(() => {
+			post_element.classList.add('flash-target');
+			setTimeout(() => {
+				post_element.classList.remove('flash-target');
+			}, 2200);
+		});
+	}
+
+	function scroll_to_hash_post(attempt = 0): void {
+		if (typeof window === 'undefined' || !window.location.hash) return;
+
+		const hash_id = window.location.hash.startsWith('#')
+			? window.location.hash.slice(1)
+			: window.location.hash;
+		const post_element = document.getElementById(hash_id);
+
+		if (!(post_element instanceof HTMLElement)) {
+			if (attempt < 8) {
+				setTimeout(() => scroll_to_hash_post(attempt + 1), 120);
+			}
+			return;
+		}
+
+		center_post_in_view(post_element);
+		flash_target_post(post_element);
+
+		if (attempt < 2) {
+			setTimeout(() => scroll_to_hash_post(attempt + 1), 180);
+		}
+	}
+
 	async function load_posts() {
 		try {
-			const response = await fetch('/api/posts?limit=50');
+			const params = new URLSearchParams({ limit: '50' });
+			if (typeof window !== 'undefined') {
+				const requested_post_id = new URLSearchParams(window.location.search).get('post_id');
+				if (requested_post_id) {
+					params.set('post_id', requested_post_id);
+				}
+			}
+
+			const response = await fetch(`/api/posts?${params.toString()}`);
 			if (response.ok) {
 				const data = await response.json();
 				feed_posts = data.posts;
+				requestAnimationFrame(scroll_to_hash_post);
 			}
 		} catch (error) {
 			console.error('Failed to load posts:', error);
@@ -86,6 +135,12 @@
 	// Load posts on mount
 	$effect(() => {
 		load_posts();
+	});
+
+	$effect(() => {
+		if (feed_posts.length > 0) {
+			scroll_to_hash_post();
+		}
 	});
 </script>
 
