@@ -1,8 +1,8 @@
 <script lang="ts">
 	import './layout.css';
 	import favicon from '$lib/assets/favicon.svg';
-	import Navbar from '$lib/component/Navbar.svelte';
-	import Sidebar from '$lib/component/Sidebar.svelte';
+	import Navbar from '$lib/components/Navbar.svelte';
+	import Sidebar from '$lib/components/Sidebar.svelte';
 	import { auth_client } from '$lib/auth-client';
 
 	let { children } = $props();
