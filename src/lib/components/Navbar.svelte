@@ -1,7 +1,10 @@
 <script lang="ts">
 	import { Bell, Search } from 'lucide-svelte';
 	import { resolve } from '$app/paths';
+	import { auth_client } from '$lib/auth-client';
 	import './styles/navbar.css';
+
+	const session = auth_client.useSession();
 
 	let search = $state('');
 	let results = $state<{ id: string; name: string; username: string; image: string | null }[]>([]);
@@ -86,8 +89,8 @@
 			<span class="notify-icon"><Bell /></span>
 		</button>
 
-		<div class="avatar">
-			<img src="https://i.pravatar.cc/40" alt="user" />
-		</div>
+		<a class="avatar" href={resolve('/profile')} aria-label="View profile">
+			<img src={$session.data?.user?.image || 'https://i.pravatar.cc/40'} alt="user" />
+		</a>
 	</div>
 </header>
