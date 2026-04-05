@@ -1,6 +1,14 @@
 import { db } from './db';
 import { normalize_handle } from '$lib';
 
+export type ProfileConnection = {
+	id: string;
+	name: string;
+	handle: string;
+	avatar: string;
+	followed_at: string;
+};
+
 export async function get_profile_user_by_id(user_id: string) {
 	const user_result = await db.execute({
 		sql: 'SELECT id, name, username, bio, image, createdAt FROM user WHERE id = ?',
@@ -41,6 +49,98 @@ export async function get_follow_counts(profile_user_id: string) {
 		followers: Number(followers_result.rows[0]?.count ?? 0),
 		following: Number(following_result.rows[0]?.count ?? 0)
 	};
+}
+
+export async function get_profile_followers(profile_user_id: string, limit = 12): Promise<ProfileConnection[]> {
+	const result = await db.execute({
+		sql: `
+			SELECT
+				u.id,
+				u.name,
+				u.username,
+				u.image,
+				f.created_at AS followed_at
+			FROM follow f
+			JOIN user u ON u.id = f.follower_id
+			WHERE f.following_id = ?
+			ORDER BY f.created_at DESC
+			LIMIT ?
+		`,
+		args: [profile_user_id, limit]
+	});
+
+	return result.rows.map((row) => ({
+		id: row.id as string,
+		name: (row.name as string) || 'Unknown',
+		handle: normalize_handle(row.username) || 'user',
+		avatar: (row.image as string) || '',
+		followed_at: row.followed_at as string
+	}));
+}
+
+export async function get_profile_following(profile_user_id: string, limit = 12): Promise<ProfileConnection[]> {
+	const result = await db.execute({
+		sql: `
+			SELECT
+				u.id,
+				u.name,
+				u.username,
+				u.image,
+				f.created_at AS followed_at
+			FROM follow f
+			JOIN user u ON u.id = f.following_id
+			WHERE f.follower_id = ?
+			ORDER BY f.created_at DESC
+			LIMIT ?
+		`,
+		args: [profile_user_id, limit]
+	});
+
+	return result.rows.map((row) => ({
+		id: row.id as string,
+		name: (row.name as string) || 'Unknown',
+		handle: normalize_handle(row.username) || 'user',
+		avatar: (row.image as string) || '',
+		followed_at: row.followed_at as string
+	}));
+}
+
+export async function toggle_follow_relationship(follower_id: string, following_id: string) {
+	if (follower_id === following_id) {
+		return { is_following: false, changed: false };
+	}
+
+	const existing_relationship = await db.execute({
+		sql: 'SELECT id FROM follow WHERE follower_id = ? AND following_id = ? LIMIT 1',
+		args: [follower_id, following_id]
+	});
+
+	if (existing_relationship.rows.length > 0) {
+		await db.execute({
+			sql: 'DELETE FROM follow WHERE id = ?',
+			args: [existing_relationship.rows[0].id as string]
+		});
+
+		return { is_following: false, changed: true };
+	}
+
+	await db.execute({
+		sql: 'INSERT INTO follow (id, follower_id, following_id, created_at) VALUES (?, ?, ?, datetime(\'now\'))',
+		args: [crypto.randomUUID(), follower_id, following_id]
+	});
+
+	return { is_following: true, changed: true };
+}
+
+export async function create_follow_notification(target_user_id: string, source_user_id: string): Promise<void> {
+	if (target_user_id === source_user_id) return;
+
+	const notification_id = crypto.randomUUID();
+	await db.execute({
+		sql: `INSERT INTO notification (id, user_id, type, source_user_id, read, created_at)
+		      VALUES (?, ?, 'follow', ?, 0, datetime('now'))`,
+		args: [notification_id, target_user_id, source_user_id]
+	});
 }
 
 export async function get_access_state(viewer_user_id: string, profile_user_id: string, is_owner: boolean) {
