@@ -2,6 +2,7 @@ import type { PageServerLoad, Actions } from './$types';
 import { db } from '$lib/server/db';
 import { fail, redirect } from '@sveltejs/kit';
 import { auth } from '$lib/auth';
+import { normalize_handle } from '$lib';
 
 export const load: PageServerLoad = async ({ request }) => {
 	const session = await auth.api.getSession({
@@ -28,7 +29,7 @@ export const load: PageServerLoad = async ({ request }) => {
 		profile: {
 			id: user.id as string,
 			name: user.name as string,
-			username: (user.username as string) || '',
+			username: normalize_handle(user.username) || '',
 			bio: (user.bio as string) || '',
 			avatar: user.image as string,
 			email: user.email as string
@@ -48,8 +49,12 @@ export const actions: Actions = {
 
 		const data = await request.formData();
 		const name = data.get('name')?.toString() || '';
-		const username = data.get('username')?.toString() || '';
+		const username = normalize_handle(data.get('username'));
 		const bio = data.get('bio')?.toString() || '';
+
+		if (!username) {
+			return fail(400, { message: 'Username is required' });
+		}
 
 		try {
 			await db.execute({

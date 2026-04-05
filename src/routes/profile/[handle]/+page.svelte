@@ -5,4 +5,4 @@
 	const { data } = $props<{ data: PageData }>();
 </script>
 
-<ProfilePageView data={data} force_owner={true} />
+<ProfilePageView data={data} show_back_button={true} enable_follow_ui={true} />

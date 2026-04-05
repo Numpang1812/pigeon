@@ -304,7 +304,7 @@ export const GET: RequestHandler = async ({ url, request }) => {
 			post_tags: parsed_tags.length > 0 ? parsed_tags : [row.post_tag as string],
 			posted_at: format_time_ago(row.created_at as string),
 			author_name: row.author_name as string,
-			author_handle: row.author_handle as string,
+			author_handle: (row.author_handle as string) || 'user',
 			author_bio: row.author_bio as string,
 			avatar_url: row.author_avatar as string,
 			verified: false,
