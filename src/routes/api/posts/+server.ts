@@ -177,6 +177,8 @@ export const GET: RequestHandler = async ({ url, request }) => {
 
 		// Check if fetching user-specific posts
 		const user_id = url.searchParams.get('user_id');
+		const tag = url.searchParams.get('tag');
+		const post_id = url.searchParams.get('post_id');
 		const limit = parseInt(url.searchParams.get('limit') || '50');
 		const offset = parseInt(url.searchParams.get('offset') || '0');
 
@@ -207,21 +209,94 @@ export const GET: RequestHandler = async ({ url, request }) => {
 		`;
 
 		const args: any[] = [session.user.id, session.user.id, session.user.id];
+		const where_clauses: string[] = [];
 
 		if (user_id) {
+			where_clauses.push(`p.author_id = ?`);
+			args.push(user_id);
+		} else {
+			where_clauses.push(`p.audience = 'public'`);
+		}
+
+		if (!user_id && tag && tag !== 'foryou' && tag !== 'trending') {
+			if (tag === 'other') {
+				where_clauses.push(`p.post_tag = 'other'`);
+			} else {
+				where_clauses.push(`EXISTS (
+					SELECT 1 FROM post_hashtag ph 
+					JOIN hashtag h ON ph.hashtag_id = h.id 
+					WHERE ph.post_id = p.id AND h.tag_name = ?
+				)`);
+				args.push(tag);
+			}
+		}
+
+		if (where_clauses.length > 0) {
+			query += ` WHERE ` + where_clauses.join(' AND ');
+		}
+
+		if (tag === 'trending') {
+			query += ` ORDER BY like_count DESC, p.created_at DESC LIMIT ? OFFSET ?`;
+		} else {
+			query += ` ORDER BY p.created_at DESC LIMIT ? OFFSET ?`;
 			query += `WHERE p.author_id = ? `;
+			query += `ORDER BY p.created_at DESC LIMIT ? OFFSET ?`;
 			args.push(user_id);
 		} else {
 			// For feed: show public posts from all users (can be enhanced with follow logic)
 			query += `WHERE p.audience = 'public' `;
+			query += `ORDER BY p.created_at DESC LIMIT ? OFFSET ?`;
 		}
 
-		query += `ORDER BY p.created_at DESC LIMIT ? OFFSET ?`;
 		args.push(limit, offset);
 
 		const posts_result = await db.execute({ sql: query, args });
+		const rows = [...posts_result.rows];
 
-		const posts = posts_result.rows.map((row) => {
+		if (post_id && !user_id && !rows.some((row) => (row.id as string) === post_id)) {
+			const target_post_result = await db.execute({
+				sql: `
+					SELECT
+						p.id,
+						p.content,
+						p.audience,
+						p.post_tag,
+						p.created_at,
+						p.updated_at,
+						u.name as author_name,
+						u.username as author_handle,
+						u.image as author_avatar,
+						u.bio as author_bio,
+						(SELECT GROUP_CONCAT(h.tag_name, ',')
+						 FROM post_hashtag ph
+						 JOIN hashtag h ON ph.hashtag_id = h.id
+						 WHERE ph.post_id = p.id) as hashtag_list,
+						(SELECT COUNT(*) FROM like WHERE post_id = p.id) as like_count,
+						(SELECT COUNT(*) FROM dislike WHERE post_id = p.id) as dislike_count,
+						(SELECT COUNT(*) FROM repost WHERE post_id = p.id) as repost_count,
+						EXISTS(SELECT 1 FROM like WHERE post_id = p.id AND user_id = ?) as user_liked,
+						EXISTS(SELECT 1 FROM dislike WHERE post_id = p.id AND user_id = ?) as user_disliked,
+						EXISTS(SELECT 1 FROM repost WHERE post_id = p.id AND user_id = ?) as user_reposted
+					FROM post p
+					JOIN user u ON p.author_id = u.id
+					WHERE p.id = ?
+					  AND (p.audience = 'public' OR p.author_id = ?)
+					LIMIT 1
+				`,
+				args: [session.user.id, session.user.id, session.user.id, post_id, session.user.id]
+			});
+
+			if (target_post_result.rows.length > 0) {
+				rows.push(target_post_result.rows[0]);
+				rows.sort((a, b) => {
+					const a_time = new Date(String(a.created_at) + 'Z').getTime();
+					const b_time = new Date(String(b.created_at) + 'Z').getTime();
+					return b_time - a_time;
+				});
+			}
+		}
+
+		const posts = rows.map((row) => {
 			const hashtag_list = (row.hashtag_list as string | null) ?? '';
 			const parsed_tags = hashtag_list
 				.split(',')

@@ -158,7 +158,11 @@
 	}
 </script>
 
-<article class="post-shell" aria-label="Feed post">
+<article
+	id={`post-${props.post_id}`}
+	class="post-shell"
+	aria-label="Feed post"
+>
 	<div class="card">
 		<section class="content-section">
 			<header class="content-header">
@@ -258,6 +262,32 @@
 		width: 100%;
 		margin: 0 0 1rem 0;
 		box-sizing: border-box;
+		transition: transform 170ms ease;
+	}
+
+	.post-shell:hover {
+		transform: translateY(-2px);
+	}
+
+	:global(.post-shell.flash-target) .card {
+		border-color: #38bdf8;
+		box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.18), 0 14px 30px -18px rgba(14, 165, 233, 0.7);
+		animation: post-pop-in 680ms cubic-bezier(0.2, 0.9, 0.2, 1);
+	}
+
+	@keyframes post-pop-in {
+		0% {
+			transform: translateY(12px) scale(0.985);
+			opacity: 0.5;
+		}
+		60% {
+			transform: translateY(-3px) scale(1.01);
+			opacity: 1;
+		}
+		100% {
+			transform: translateY(0) scale(1);
+			opacity: 1;
+		}
 	}
 
 	.card {
