@@ -194,7 +194,13 @@
 		left: 0;
 	}
 
-	.navbar .search-box input, .navbar .search-container {
-		width: 50vw;
+	.navbar .search-container {
+		flex: 1;
+		width: auto;
+		max-width: 200px;
+	}
+
+	.navbar .search-box input {
+		width: 100%;
 	}
 }
