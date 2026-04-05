@@ -96,6 +96,27 @@ export async function upload_profile_picture(
 }
 
 /**
+ * Upload a cover photo
+ *
+ * @param user_id - The user's ID
+ * @param file_buffer - Image buffer
+ * @returns The public URL of the uploaded cover photo
+ */
+export async function upload_cover_photo(
+	user_id: string,
+	file_buffer: Buffer
+): Promise<string> {
+	const result = await upload_buffer(
+		file_buffer,
+		'pigeon/covers',
+		`cover_${user_id}`
+	);
+
+	console.info('[Cloudinary] Uploaded cover:', result.url);
+	return result.url;
+}
+
+/**
  * Upload a post media file
  *
  * @param user_id - The user's ID

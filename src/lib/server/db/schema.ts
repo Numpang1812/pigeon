@@ -25,6 +25,7 @@ export const create_tables_sql = {
 	add_bio: `ALTER TABLE user ADD COLUMN bio TEXT`,
 	add_location: `ALTER TABLE user ADD COLUMN location TEXT`,
 	add_website: `ALTER TABLE user ADD COLUMN website TEXT`,
+	add_cover: `ALTER TABLE user ADD COLUMN cover TEXT`,
 
 	// Application tables - Posts
 	post: `
