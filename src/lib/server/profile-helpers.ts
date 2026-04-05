@@ -11,7 +11,7 @@ export type ProfileConnection = {
 
 export async function get_profile_user_by_id(user_id: string) {
 	const user_result = await db.execute({
-		sql: 'SELECT id, name, username, bio, image, createdAt FROM user WHERE id = ?',
+		sql: 'SELECT id, name, username, bio, image, cover, createdAt FROM user WHERE id = ?',
 		args: [user_id]
 	});
 
@@ -26,7 +26,7 @@ export async function get_profile_user_by_handle(handle: string) {
 	}
 
 	const user_result = await db.execute({
-		sql: 'SELECT id, name, username, bio, image, createdAt FROM user WHERE lower(username) = lower(?) LIMIT 1',
+		sql: 'SELECT id, name, username, bio, image, cover, createdAt FROM user WHERE lower(username) = lower(?) LIMIT 1',
 		args: [normalized_handle]
 	});
 
@@ -217,7 +217,7 @@ export function map_profile(
 		bio: (user.bio as string) || '',
 		joined: `Joined ${joined_date}`,
 		avatar: (user.image as string) || '',
-		cover: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80',
+		cover: (user.cover as string) || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80',
 		following: counts.following,
 		followers: counts.followers
 	};

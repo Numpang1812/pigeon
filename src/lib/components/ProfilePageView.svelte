@@ -3,6 +3,7 @@
 	import { Post } from '$lib';
 	import { ArrowLeft, Calendar, Camera, X } from 'lucide-svelte';
 	import AvatarUploader from '$lib/components/AvatarUploader.svelte';
+	import CoverUploader from '$lib/components/CoverUploader.svelte';
 	import { invalidateAll } from '$app/navigation';
 	import { SvelteSet } from 'svelte/reactivity';
 
@@ -79,6 +80,8 @@
 
 	let show_avatar_uploader = $state(false);
 	let avatar_url = $state<string | null>(null);
+	let show_cover_uploader = $state(false);
+	let cover_url = $state<string | null>(null);
 	let show_connections_modal = $state<'followers' | 'following' | null>(null);
 
 	const profile = $derived(props.data.profile);
@@ -97,6 +100,12 @@
 		await invalidateAll();
 	}
 
+	async function handle_cover_success(new_url: string) {
+		cover_url = new_url;
+		show_cover_uploader = false;
+		await invalidateAll();
+	}
+
 	function handle_avatar_click() {
 		if (!is_owner) {
 			return;
@@ -105,8 +114,20 @@
 		show_avatar_uploader = true;
 	}
 
+	function handle_cover_click() {
+		if (!is_owner) {
+			return;
+		}
+
+		show_cover_uploader = true;
+	}
+
 	function close_avatar_uploader() {
 		show_avatar_uploader = false;
+	}
+
+	function close_cover_uploader() {
+		show_cover_uploader = false;
 	}
 
 	function go_back() {
@@ -195,9 +216,18 @@
 		{/if}
 
 		<div class="profile-header">
-			<div class="cover-image-container">
-				<img src={profile.cover} alt="Cover" class="cover-image" />
-			</div>
+			{#if is_owner}
+				<button class="cover-image-container" onclick={handle_cover_click} aria-label="Change cover photo" type="button">
+					<img src={cover_url || profile.cover} alt="Cover" class="cover-image" />
+					<div class="cover-overlay">
+						<Camera size={32} />
+					</div>
+				</button>
+			{:else}
+				<div class="cover-image-container">
+					<img src={cover_url || profile.cover} alt="Cover" class="cover-image" />
+				</div>
+			{/if}
 
 			<div class="profile-actions-row">
 				{#if is_owner}
@@ -326,6 +356,32 @@
 					current_avatar_url={avatar_url || profile.avatar}
 					on_success={handle_avatar_success}
 					on_close={close_avatar_uploader}
+				/>
+			</div>
+		</div>
+	{/if}
+
+	{#if is_owner && show_cover_uploader}
+		<div
+			class="modal-backdrop"
+			onclick={close_cover_uploader}
+			onkeydown={handle_backdrop_keydown}
+			role="button"
+			tabindex="0"
+			aria-label="Close cover uploader"
+		>
+			<div
+				class="modal-content"
+				onclick={stop_event_propagation}
+				onkeydown={stop_event_propagation}
+				role="dialog"
+				aria-modal="true"
+				tabindex="-1"
+			>
+				<CoverUploader
+					current_cover_url={cover_url || profile.cover}
+					on_success={handle_cover_success}
+					on_close={close_cover_uploader}
 				/>
 			</div>
 		</div>
@@ -465,12 +521,40 @@
 		height: 200px;
 		background-color: #aab8c2;
 		overflow: hidden;
+		position: relative;
+	}
+
+	button.cover-image-container {
+		border: none;
+		background: none;
+		padding: 0;
+		cursor: pointer;
+		width: 100%;
 	}
 
 	.cover-image {
 		width: 100%;
 		height: 100%;
 		object-fit: cover;
+	}
+
+	.cover-overlay {
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: 100%;
+		height: 100%;
+		background: rgba(0, 0, 0, 0.5);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		color: white;
+		opacity: 0;
+		transition: opacity 0.2s;
+	}
+
+	button.cover-image-container:hover .cover-overlay {
+		opacity: 1;
 	}
 
 	.profile-actions-row {
