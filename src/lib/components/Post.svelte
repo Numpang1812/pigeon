@@ -44,6 +44,10 @@
 		return normalize_handle(props.author_handle);
 	});
 
+	const author_profile_path = $derived.by(
+		() => `/profile/${encodeURIComponent(author_handle_safe || 'user')}` as `/profile/${string}`
+	);
+
 	// Metrics come from the API already accurate, just use them directly
 	const like_count = $derived(props.metrics?.likes ?? 0);
 	const dislike_count = $derived(props.metrics?.dislikes ?? 0);
@@ -235,7 +239,7 @@
 			{#if author_handle_safe}
 				<a
 					class="avatar-wrapper author-link"
-					href={resolve('/profile/[handle]', { handle: author_handle_safe })}
+					href={resolve(author_profile_path)}
 					aria-label={`View @${props.author_handle} profile`}
 				>
 					{#if props.avatar_url}
@@ -266,7 +270,7 @@
 				<div class="author-title-row">
 					<h2 class="author-name">
 						{#if author_handle_safe}
-							<a class="author-link" href={resolve('/profile/[handle]', { handle: author_handle_safe })}>{props.author_name}</a>
+							<a class="author-link" href={resolve(author_profile_path)}>{props.author_name}</a>
 						{:else}
 							{props.author_name}
 						{/if}
@@ -278,7 +282,7 @@
 					{/if}
 				</div>
 				{#if author_handle_safe}
-					<a class="author-handle author-link" href={resolve('/profile/[handle]', { handle: author_handle_safe })}>@{props.author_handle}</a>
+					<a class="author-handle author-link" href={resolve(author_profile_path)}>@{props.author_handle}</a>
 				{:else}
 					<span class="author-handle">@{props.author_handle}</span>
 				{/if}

@@ -60,8 +60,15 @@
 	gap: 12px;
 	text-decoration: none;
 	color: inherit;
+	border: none;
+	background: transparent;
+	width: 100%;
+	text-align: left;
 	border-bottom: 1px solid #f5f8fa;
 	transition: background 0.2s;
+	cursor: pointer;
+	font-family: inherit;
+	font-size: inherit;
 }
 
 .search-item:last-child {

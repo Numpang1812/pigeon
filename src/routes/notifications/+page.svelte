@@ -2,6 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { auth_client } from '$lib/auth-client';
+	import { normalize_handle } from '$lib';
 	import {
 		Bell,
 		Check,
@@ -152,7 +153,15 @@
 		if (!post_id) return;
 		mark_as_read(notification_id);
 		const target = `${resolve('/home')}?post_id=${encodeURIComponent(post_id)}#post-${post_id}`;
-		await goto(target);
+		await goto(resolve(target));
+	}
+
+	async function view_profile(notification_id: string, actor_handle?: string): Promise<void> {
+		if (!actor_handle) return;
+		mark_as_read(notification_id);
+		const normalized = normalize_handle(actor_handle);
+		if (!normalized) return;
+		await goto(resolve('/profile/[handle]', { handle: normalized }));
 	}
 </script>
 
@@ -223,13 +232,32 @@
 										{/if}
 									</div>
 
-									<img class="avatar" src={item.avatar_url} alt={item.actor_name} loading="lazy" />
+									<button
+							type="button"
+							class="avatar-btn"
+							onclick={() => view_profile(item.id, item.actor_handle)}
+							aria-label={`View ${item.actor_name} profile`}
+						>
+							<img class="avatar" src={item.avatar_url} alt={item.actor_name} loading="lazy" />
+						</button>
 
 									<div class="content-block">
 										<p class="message-line">
-											<strong>{item.actor_name}</strong>
+											<button
+												type="button"
+												class="name-link"
+												onclick={() => view_profile(item.id, item.actor_handle)}
+											>
+												<strong>{item.actor_name}</strong>
+											</button>
 											{#if item.actor_handle}
-												<span class="handle">@{item.actor_handle}</span>
+												<button
+													type="button"
+													class="handle-link"
+													onclick={() => view_profile(item.id, item.actor_handle)}
+												>
+													<span class="handle">@{item.actor_handle}</span>
+												</button>
 											{/if}
 											<span>{item.message}</span>
 										</p>
@@ -250,7 +278,13 @@
 												</button>
 											{/if}
 											{#if should_show_follow_actions(item.type)}
-												<button type="button" class="inline-action">View profile</button>
+												<button
+													type="button"
+													class="inline-action"
+													onclick={() => view_profile(item.id, item.actor_handle)}
+												>
+													View profile
+												</button>
 												<button type="button" class="inline-action">Follow back</button>
 											{/if}
 										</div>
@@ -457,6 +491,30 @@
 		border: 1px solid #dbe7f5;
 	}
 
+	.avatar-btn {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		padding: 0;
+		border: none;
+		background: none;
+		cursor: pointer;
+		border-radius: 999px;
+		transition: opacity 0.15s ease;
+	}
+
+	.avatar-btn:hover {
+		opacity: 0.8;
+	}
+
+	.avatar-btn img {
+		width: 2.6rem;
+		height: 2.6rem;
+		border-radius: 999px;
+		object-fit: cover;
+		border: 1px solid #dbe7f5;
+	}
+
 	.content-block {
 		min-width: 0;
 	}
@@ -471,6 +529,34 @@
 	.message-line strong {
 		font-weight: 800;
 		color: #0f172a;
+	}
+
+	.name-link,
+	.handle-link {
+		padding: 0;
+		border: none;
+		background: none;
+		font-size: inherit;
+		font-weight: inherit;
+		font-family: inherit;
+		cursor: pointer;
+		transition: color 0.15s ease;
+	}
+
+	.name-link {
+		color: inherit;
+	}
+
+	.name-link:hover strong {
+		color: #0284c7;
+	}
+
+	.handle-link {
+		color: inherit;
+	}
+
+	.handle-link:hover .handle {
+		color: #0284c7;
 	}
 
 	.handle {
