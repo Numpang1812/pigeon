@@ -3,8 +3,11 @@
 	"private": true,
 	"version": "0.0.1",
 	"type": "module",
+	"engines": {
+		"node": "22.x"
+	},
 	"scripts": {
-		"postinstall": "lefthook install",
+		"postinstall": "lefthook install || true",
 		"dev": "vite dev",
 		"build": "vite build",
 		"preview": "vite preview",

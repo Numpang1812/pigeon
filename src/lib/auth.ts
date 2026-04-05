@@ -23,6 +23,7 @@ console.info('[Auth] Google enabled:', google_enabled);
 console.info('[Auth] GitHub enabled:', github_enabled);
 
 export const auth = betterAuth({
+	baseURL: env.BETTER_AUTH_URL,
 	secret: env.BETTER_AUTH_SECRET,
 	database: {
 		dialect: get_auth_db_dialect(),

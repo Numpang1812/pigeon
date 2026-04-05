@@ -3,16 +3,14 @@
 	import favicon from '$lib/assets/favicon.svg';
 	import Navbar from '$lib/components/Navbar.svelte';
 	import Sidebar from '$lib/components/Sidebar.svelte';
-	import { auth_client } from '$lib/auth-client';
+	import type { LayoutData } from './$types';
 
-	let { children } = $props();
-
-	const session = auth_client.useSession();
+	const { children, data } = $props<{ children: import('svelte').Snippet; data: LayoutData }>();
 </script>
 
 <svelte:head><link rel="icon" href={favicon} /></svelte:head>
 
-{#if $session.data || $session.isPending}
+{#if data.is_authenticated}
 	<Navbar />
 	<div class="app-shell">
 		<Sidebar />
