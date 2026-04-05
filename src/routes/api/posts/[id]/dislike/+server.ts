@@ -41,7 +41,12 @@ export const POST: RequestHandler = async ({ request, params }) => {
 				args: [(existing_dislike.rows[0].id as string)]
 			});
 		} else {
-			// Dislike
+			// Dislike — remove any existing like first (mutual exclusion)
+			await db.execute({
+				sql: `DELETE FROM like WHERE user_id = ? AND post_id = ?`,
+				args: [session.user.id, post_id]
+			});
+
 			const dislike_id = nanoid();
 			await db.execute({
 				sql: `INSERT INTO dislike (id, user_id, post_id, created_at) VALUES (?, ?, ?, datetime('now'))`,
