@@ -239,13 +239,6 @@ export const GET: RequestHandler = async ({ url, request }) => {
 			query += ` ORDER BY like_count DESC, p.created_at DESC LIMIT ? OFFSET ?`;
 		} else {
 			query += ` ORDER BY p.created_at DESC LIMIT ? OFFSET ?`;
-			query += `WHERE p.author_id = ? `;
-			query += `ORDER BY p.created_at DESC LIMIT ? OFFSET ?`;
-			args.push(user_id);
-		} else {
-			// For feed: show public posts from all users (can be enhanced with follow logic)
-			query += `WHERE p.audience = 'public' `;
-			query += `ORDER BY p.created_at DESC LIMIT ? OFFSET ?`;
 		}
 
 		args.push(limit, offset);
