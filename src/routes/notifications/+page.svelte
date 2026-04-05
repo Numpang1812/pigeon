@@ -23,6 +23,7 @@
 		actor_name: string;
 		actor_handle?: string;
 		avatar_url: string;
+		is_following_actor?: boolean;
 		message: string;
 		time_ago: string;
 		day_group: 'Today' | 'Earlier this week' | 'Older';
@@ -132,8 +133,12 @@
 		return (item.type === 'like' || item.type === 'dislike' || item.type === 'repost') && !!item.post_id;
 	}
 
-	function should_show_follow_actions(type: NotificationType): boolean {
-		return type === 'follow';
+	function should_show_follow_actions(item: NotificationItem): boolean {
+		return item.type === 'follow';
+	}
+
+	function should_show_follow_back(item: NotificationItem): boolean {
+		return item.type === 'follow' && !item.is_following_actor;
 	}
 
 	function action_label(type: NotificationType): string {
@@ -153,7 +158,7 @@
 		if (!post_id) return;
 		mark_as_read(notification_id);
 		const target = `${resolve('/home')}?post_id=${encodeURIComponent(post_id)}#post-${post_id}`;
-		await goto(resolve(target));
+		await goto(new URL(target, window.location.origin));
 	}
 
 	async function view_profile(notification_id: string, actor_handle?: string): Promise<void> {
@@ -277,7 +282,7 @@
 													{action_label(item.type)}
 												</button>
 											{/if}
-											{#if should_show_follow_actions(item.type)}
+											{#if should_show_follow_actions(item)}
 												<button
 													type="button"
 													class="inline-action"
@@ -285,7 +290,9 @@
 												>
 													View profile
 												</button>
-												<button type="button" class="inline-action">Follow back</button>
+												{#if should_show_follow_back(item)}
+													<button type="button" class="inline-action">Follow back</button>
+												{/if}
 											{/if}
 										</div>
 									</div>

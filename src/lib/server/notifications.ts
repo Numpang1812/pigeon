@@ -8,6 +8,7 @@ export type ActivityNotificationItem = {
 	actor_name: string;
 	actor_handle: string;
 	avatar_url: string;
+	is_following_actor: boolean;
 	message: string;
 	created_at: string;
 	time_ago: string;
@@ -25,9 +26,11 @@ type DbNotificationRow = {
 	event_id: string;
 	type: ActivityNotificationType;
 	created_at: string;
+	actor_id: string;
 	actor_name: string | null;
 	actor_handle: string | null;
 	avatar_url: string | null;
+	is_following_actor: number | boolean | null;
 	post_id: string | null;
 	post_content: string | null;
 };
@@ -47,9 +50,15 @@ export async function fetch_activity_notifications_for_user(
 					l.id AS event_id,
 					'like' AS type,
 					l.created_at,
+					u.id AS actor_id,
 					u.name AS actor_name,
 					u.username AS actor_handle,
 					u.image AS avatar_url,
+					EXISTS(
+						SELECT 1
+						FROM follow f2
+						WHERE f2.follower_id = ? AND f2.following_id = u.id
+					) AS is_following_actor,
 					p.id AS post_id,
 					p.content AS post_content
 				FROM like l
@@ -63,9 +72,15 @@ export async function fetch_activity_notifications_for_user(
 					d.id AS event_id,
 					'dislike' AS type,
 					d.created_at,
+					u.id AS actor_id,
 					u.name AS actor_name,
 					u.username AS actor_handle,
 					u.image AS avatar_url,
+					EXISTS(
+						SELECT 1
+						FROM follow f2
+						WHERE f2.follower_id = ? AND f2.following_id = u.id
+					) AS is_following_actor,
 					p.id AS post_id,
 					p.content AS post_content
 				FROM dislike d
@@ -79,9 +94,15 @@ export async function fetch_activity_notifications_for_user(
 					r.id AS event_id,
 					'repost' AS type,
 					r.created_at,
+					u.id AS actor_id,
 					u.name AS actor_name,
 					u.username AS actor_handle,
 					u.image AS avatar_url,
+					EXISTS(
+						SELECT 1
+						FROM follow f2
+						WHERE f2.follower_id = ? AND f2.following_id = u.id
+					) AS is_following_actor,
 					p.id AS post_id,
 					p.content AS post_content
 				FROM repost r
@@ -95,9 +116,15 @@ export async function fetch_activity_notifications_for_user(
 					f.id AS event_id,
 					'follow' AS type,
 					f.created_at,
+					u.id AS actor_id,
 					u.name AS actor_name,
 					u.username AS actor_handle,
 					u.image AS avatar_url,
+					EXISTS(
+						SELECT 1
+						FROM follow f2
+						WHERE f2.follower_id = ? AND f2.following_id = u.id
+					) AS is_following_actor,
 					NULL AS post_id,
 					NULL AS post_content
 				FROM follow f
@@ -107,7 +134,13 @@ export async function fetch_activity_notifications_for_user(
 			ORDER BY created_at DESC
 			LIMIT ? OFFSET ?
 		`,
-		args: [user_id, user_id, user_id, user_id, user_id, user_id, user_id, user_id, limit, offset]
+		args: [
+			user_id, user_id, user_id,
+			user_id, user_id, user_id,
+			user_id, user_id, user_id,
+			user_id, user_id, user_id,
+			limit, offset
+		]
 	});
 
 	return result.rows.map((row) => {
@@ -140,6 +173,7 @@ export async function fetch_activity_notifications_for_user(
 			actor_name,
 			actor_handle,
 			avatar_url: item.avatar_url ?? '',
+			is_following_actor: Boolean(item.is_following_actor),
 			message,
 			created_at: item.created_at,
 			time_ago: format_time_ago(item.created_at),

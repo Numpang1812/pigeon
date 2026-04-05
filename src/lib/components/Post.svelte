@@ -172,10 +172,16 @@
 	}
 
 	let is_editing = $state(false);
-	let edited_content = $state(props.content);
+	let edited_content = $state('');
 	let is_saving = $state(false);
 	let show_delete_confirm = $state(false);
 	let is_deleting = $state(false);
+
+	$effect(() => {
+		if (!is_editing) {
+			edited_content = props.content;
+		}
+	});
 
 	function request_delete() {
 		show_delete_confirm = true;
