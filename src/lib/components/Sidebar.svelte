@@ -2,6 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { Home, Search, Bell, User, Edit, LogOut } from 'lucide-svelte';
+	import { fly } from 'svelte/transition';
 	import './styles/sidebar.css';
 	import { auth_client } from '$lib/auth-client';
 
@@ -9,6 +10,8 @@
 
 	let is_collapsed = $state(false);
 	let mobile_open = $state(false);
+	let show_logout_confirm = $state(false);
+	let is_logging_out = $state(false);
 
 	const nav_items = [
 		{ label: 'Home', icon: Home, href: '/home' },
@@ -21,9 +24,27 @@
 		href: AppRoute;
 	}>;
 
-	async function handle_logout() {
-		await auth_client.signOut();
-		goto(resolve('/'));
+	function request_logout(): void {
+		show_logout_confirm = true;
+	}
+
+	function cancel_logout(): void {
+		show_logout_confirm = false;
+	}
+
+	async function confirm_logout(): Promise<void> {
+		if (is_logging_out) {
+			return;
+		}
+
+		is_logging_out = true;
+
+		try {
+			await auth_client.signOut();
+			goto(resolve('/'));
+		} finally {
+			is_logging_out = false;
+		}
 	}
 
 	function toggle_sidebar(): void {
@@ -138,10 +159,27 @@
 			<span class="action-hover-label" aria-hidden="true">Compose</span>
 		</a>
 
-		<button class="logout" type="button" aria-label="Logout" onclick={handle_logout}>
-			<LogOut size={20} />
-			<span class="action-label">Logout</span>
-			<span class="action-hover-label" aria-hidden="true">Logout</span>
-		</button>
+		{#if show_logout_confirm}
+			<div class="logout-confirm" transition:fly={{ y: 10, duration: 180 }}>
+				<p>Log out of your account?</p>
+				<div class="logout-confirm-actions">
+					<button class="logout-cancel" type="button" onclick={cancel_logout}>Cancel</button>
+					<button
+						class="logout-confirm-btn"
+						type="button"
+						onclick={confirm_logout}
+						disabled={is_logging_out}
+					>
+						{is_logging_out ? 'Logging out...' : 'Yes, log out'}
+					</button>
+				</div>
+			</div>
+		{:else}
+			<button class="logout" type="button" aria-label="Logout" onclick={request_logout}>
+				<LogOut size={20} />
+				<span class="action-label">Logout</span>
+				<span class="action-hover-label" aria-hidden="true">Logout</span>
+			</button>
+		{/if}
 	</div>
 </aside>
