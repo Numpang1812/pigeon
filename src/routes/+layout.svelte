@@ -21,18 +21,3 @@
 {:else}
 	{@render children()}
 {/if}
-
-<style>
-	.loading-session {
-		min-height: 100vh;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		background: #f8fbff;
-	}
-
-	.loading-session p {
-		color: #64748b;
-		font-size: 1rem;
-	}
-</style>
