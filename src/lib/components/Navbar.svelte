@@ -1,8 +1,9 @@
 <script lang="ts">
-	import { Bell, Search } from 'lucide-svelte';
 	import { goto } from '$app/navigation';
+	import { Bell, Search } from 'lucide-svelte';
 	import { resolve } from '$app/paths';
 	import { auth_client } from '$lib/auth-client';
+	import { normalize_handle } from '$lib';
 	import './styles/navbar.css';
 
 	const session = auth_client.useSession();
@@ -92,7 +93,7 @@
 
 	function open_notifications(): void {
 		on_notifications_page = true;
-		goto('/notifications');
+		goto(resolve('/notifications'));
 	}
 
 	$effect(() => {
@@ -136,14 +137,23 @@
 						<div class="search-item loading">Searching...</div>
 					{:else if results.length > 0}
 						{#each results as user (user.id)}
-							<!-- svelte-ignore a11y_invalid_attribute -->
-							<a href={`/profile/${user.id}`} class="search-item">
+							<button
+								type="button"
+								class="search-item"
+								onclick={async () => {
+									const normalized = normalize_handle(user.username);
+									if (normalized) {
+										show_dropdown = false;
+										await goto(resolve('/profile/[handle]', { handle: normalized }));
+									}
+								}}
+							>
 								<img src={user.image || 'https://i.pravatar.cc/40'} alt={user.name} class="search-avatar" />
 								<div class="search-info">
 									<p class="search-name">{user.name}</p>
 									<p class="search-email">@{user.username}</p>
 								</div>
-							</a>
+							</button>
 						{/each}
 					{:else if search.trim().length > 0}
 						<div class="search-item no-results">No users found for "{search}"</div>
