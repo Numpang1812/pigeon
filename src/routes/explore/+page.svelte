@@ -1,22 +1,24 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { auth_client } from '$lib/auth-client';
-	import { Flame, Globe2, Music2, Sparkles, Trophy } from 'lucide-svelte';
+	import { Flame, Hash, Sparkles } from 'lucide-svelte';
+	import type { Component } from 'svelte';
 	import { Post } from '$lib';
 
 	const session = auth_client.useSession();
 
-	const filters = [
+	const static_filters = [
 		{ id: 'foryou', label: 'For you', icon: Sparkles },
-		{ id: 'trending', label: 'Trending', icon: Flame },
-		{ id: 'world', label: 'World', icon: Globe2 },
-		{ id: 'music', label: 'Music', icon: Music2 },
-		{ id: 'sports', label: 'Sports', icon: Trophy }
+		{ id: 'trending', label: 'Trending', icon: Flame }
 	] as const;
 
-	let active_filter = $state<(typeof filters)[number]['id']>('foryou');
+	interface Tag {
+		id: string;
+		label: string;
+		icon: Component;
+	}
 
-	type ExploreFeedPost = {
+	interface PostData {
 		id: string;
 		post_tag: string;
 		post_tags: string[];
@@ -27,75 +29,66 @@
 		author_bio?: string;
 		avatar_url?: string;
 		verified?: boolean;
-		metrics?: {
-			likes?: number;
-			dislikes?: number;
-			reposts?: number;
+		metrics: {
+			likes: number;
+			dislikes: number;
+			reposts: number;
 		};
 		user_liked?: boolean;
 		user_disliked?: boolean;
 		user_reposted?: boolean;
-	};
+	}
 
-	const posts: ExploreFeedPost[] = [
-		{
-			id: '1',
-			post_tag: 'world',
-			post_tags: ['world', 'travel'],
-			posted_at: '2h',
-			author_name: 'Aether Travel',
-			author_handle: 'aether.travel',
-			content: 'Sunset over Santorini. The colors are unbelievable today.',
-			author_bio: 'Travel photographer roaming the world.',
-			verified: true,
-			metrics: { likes: 12400, dislikes: 20, reposts: 150 },
-			avatar_url: 'https://i.pravatar.cc/150?u=1'
-		},
-		{
-			id: '2',
-			post_tag: 'trending',
-			post_tags: ['trending', 'tech'],
-			posted_at: '4h',
-			author_name: 'Neon City',
-			author_handle: 'neoncity',
-			content: 'Shibuya crossing at night never gets old. So much energy.',
-			author_bio: 'Urban explorer.',
-			metrics: { likes: 28100, dislikes: 50, reposts: 300 },
-			avatar_url: 'https://i.pravatar.cc/150?u=2'
-		},
-		{
-			id: '3',
-			post_tag: 'sports',
-			post_tags: ['sports', 'racing'],
-			posted_at: '1h',
-			author_name: 'Heatwave',
-			author_handle: 'heatwave',
-			content: 'Desert dunes rally was intense. Sand everywhere!',
-			author_bio: 'Racing team driver.',
-			verified: true,
-			metrics: { likes: 15000, dislikes: 10, reposts: 200 },
-			avatar_url: 'https://i.pravatar.cc/150?u=3'
-		},
-		{
-			id: '4',
-			post_tag: 'music',
-			post_tags: ['music', 'festival'],
-			posted_at: '30m',
-			author_name: 'Harbor Lens',
-			author_handle: 'harbor.lens',
-			content: 'New album dropping next week. Can\'t wait to share it with you all.',
-			author_bio: 'Music critic and producer.',
-			metrics: { likes: 7800, dislikes: 5, reposts: 80 },
-			avatar_url: 'https://i.pravatar.cc/150?u=4'
+	let dynamic_tags = $state<Tag[]>([]);
+	let active_filter = $state<string>('foryou');
+
+	let feed_posts = $state<PostData[]>([]);
+	let loading = $state(true);
+	let tags_loading = $state(true);
+
+	const all_filters = $derived([...static_filters, ...dynamic_tags]);
+
+	async function load_popular_tags() {
+		tags_loading = true;
+		try {
+			const res = await fetch('/api/tags/popular');
+			if (res.ok) {
+				const data = await res.json();
+				dynamic_tags = (data.tags || []).map((t: { id: string; label: string }) => ({
+					id: t.id,
+					label: t.label,
+					icon: Hash
+				}));
+			}
+		} catch (error) {
+			console.error('Failed to load popular tags:', error);
+		} finally {
+			tags_loading = false;
 		}
-	];
+	}
 
-	let filtered_posts = $derived(
-		posts.filter((post) => {
-			if (active_filter === 'foryou') return true;
-			return post.post_tags.includes(active_filter);
-		})
-	);
+	async function load_posts(tag: string) {
+		loading = true;
+		try {
+			const res = await fetch(`/api/posts?tag=${encodeURIComponent(tag)}&limit=50`);
+			if (res.ok) {
+				const data = await res.json();
+				feed_posts = data.posts || [];
+			}
+		} catch (error) {
+			console.error('Failed to load explore feed:', error);
+		} finally {
+			loading = false;
+		}
+	}
+
+	$effect(() => {
+		load_popular_tags();
+	});
+
+	$effect(() => {
+		load_posts(active_filter);
+	});
 </script>
 
 {#if $session.data}
@@ -103,22 +96,30 @@
 		<header class="explore-header">
 			<h1 class="page-title">Explore</h1>
 			<div class="filter-pills">
-				{#each filters as f (f.id)}
-					<button
-						class="pill"
-						class:active={active_filter === f.id}
-						onclick={() => (active_filter = f.id)}
-					>
-						<span class="filter-icon"><f.icon size={16} strokeWidth={2.25} /></span>
-						{f.label}
-					</button>
-				{/each}
+				{#if tags_loading}
+					<div class="pills-loading">Loading tags...</div>
+				{:else}
+					{#each all_filters as f (f.id)}
+						<button
+							class="pill"
+							class:active={active_filter === f.id}
+							onclick={() => (active_filter = f.id)}
+						>
+							<span class="filter-icon"><f.icon size={16} strokeWidth={2.25} /></span>
+							{f.label}
+						</button>
+					{/each}
+				{/if}
 			</div>
 		</header>
 
 		<section class="feed-column" aria-label="Posts">
-			{#if filtered_posts.length > 0}
-				{#each filtered_posts as post (post.id)}
+			{#if loading}
+				<div class="empty-state loading-state">
+					<p>Loading explore feed...</p>
+				</div>
+			{:else if feed_posts.length > 0}
+				{#each feed_posts as post (post.id)}
 					<Post
 						post_id={post.id}
 						post_tag={post.post_tag}
@@ -182,6 +183,12 @@
 		gap: 0.5rem;
 		overflow-x: auto;
 		padding-bottom: 0.5rem;
+		scrollbar-width: none; /* Firefox */
+		-ms-overflow-style: none; /* IE and Edge */
+	}
+
+	.filter-pills::-webkit-scrollbar {
+		display: none; /* Chrome, Safari and Opera */
 	}
 
 	.pill {
