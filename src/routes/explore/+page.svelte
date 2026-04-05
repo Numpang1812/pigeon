@@ -161,14 +161,22 @@
 		min-height: 100vh;
 		width: calc(100% + 3rem);
 		margin: -1.5rem;
+		background: #f8fbff;
 	}
 
 	.explore-header {
 		width: 100%;
 		max-width: 980px;
 		margin: 0 auto;
-		padding: 1.25rem 1.25rem 0;
+		padding: 1rem 1.25rem;
 		box-sizing: border-box;
+		position: sticky;
+		top: 0;
+		background: #f8fbff;
+		z-index: 10;
+		border-bottom: 1px solid #e1e8ed;
+		transition: all 0.2s ease;
+		min-width: 0;
 	}
 
 	.page-title {
@@ -182,9 +190,14 @@
 		display: flex;
 		gap: 0.5rem;
 		overflow-x: auto;
-		padding-bottom: 0.5rem;
+		width: 100%;
+		min-width: 0; /* Ensures the container can shrink below its children's intrinsic width */
+		padding: 0.5rem 0 1rem 0;
 		scrollbar-width: none; /* Firefox */
 		-ms-overflow-style: none; /* IE and Edge */
+		-webkit-overflow-scrolling: touch;
+		mask-image: linear-gradient(to right, black 90%, transparent 100%);
+		-webkit-mask-image: linear-gradient(to right, black 90%, transparent 100%);
 	}
 
 	.filter-pills::-webkit-scrollbar {
@@ -194,6 +207,7 @@
 	.pill {
 		display: inline-flex;
 		align-items: center;
+		flex-shrink: 0; /* Prevent pills from squashing */
 		gap: 0.35rem;
 		padding: 0.4rem 0.85rem;
 		border: 1px solid #d0d7e2;
@@ -258,8 +272,18 @@
 			margin: -1rem;
 		}
 
+		.explore-header {
+			padding: 1rem;
+			max-width: 100vw;
+		}
+
 		.feed-column {
 			padding: 0.85rem 1rem 0 1rem;
+		}
+
+		.filter-pills {
+			mask-image: linear-gradient(to right, transparent 0%, black 5%, black 95%, transparent 100%);
+			-webkit-mask-image: linear-gradient(to right, transparent 0%, black 5%, black 95%, transparent 100%);
 		}
 	}
 </style>
