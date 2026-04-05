@@ -74,7 +74,7 @@ export async function get_profile_posts(viewer_user_id: string, profile_user_id:
 	const where_clause = get_posts_where_clause(is_owner);
 
 	return db.execute({
-		sql: `SELECT p.id, p.content, p.post_tag, p.audience, p.created_at,
+		sql: `SELECT p.id, p.content, p.post_tag, p.audience, p.created_at, p.author_id, p.updated_at,
 			(SELECT COUNT(*) FROM like WHERE post_id = p.id) as like_count,
 			(SELECT COUNT(*) FROM dislike WHERE post_id = p.id) as dislike_count,
 			(SELECT COUNT(*) FROM repost WHERE post_id = p.id) as repost_count,
@@ -125,7 +125,8 @@ export function map_profile(
 
 export function map_profile_posts(
 	posts_rows: Awaited<ReturnType<typeof get_profile_posts>>['rows'],
-	user: NonNullable<Awaited<ReturnType<typeof get_profile_user_by_handle>>>
+	user: NonNullable<Awaited<ReturnType<typeof get_profile_user_by_handle>>>,
+	viewer_user_id?: string
 ) {
 	return posts_rows.map((row) => ({
 		id: row.id as string,
@@ -146,6 +147,8 @@ export function map_profile_posts(
 		user_liked: Boolean(row.user_liked),
 		user_disliked: Boolean(row.user_disliked),
 		user_reposted: Boolean(row.user_reposted),
-		avatar_url: (user.image as string) || ''
+		avatar_url: (user.image as string) || '',
+		is_author: row.author_id === viewer_user_id,
+		is_edited: row.updated_at !== row.created_at
 	}));
 }

@@ -35,7 +35,7 @@ export const load: PageServerLoad = async ({ request }) => {
 
 	return {
 		profile: map_profile(user, counts),
-		posts: map_profile_posts(posts_result.rows, user),
+		posts: map_profile_posts(posts_result.rows, user, session.user.id),
 		access: {
 			is_owner: true,
 			is_following: false

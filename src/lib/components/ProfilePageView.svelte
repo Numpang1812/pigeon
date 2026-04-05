@@ -4,6 +4,7 @@
 	import { ArrowLeft, Calendar, Camera } from 'lucide-svelte';
 	import AvatarUploader from '$lib/components/AvatarUploader.svelte';
 	import { invalidateAll } from '$app/navigation';
+	import { SvelteSet } from 'svelte/reactivity';
 
 	type ProfilePost = {
 		id: string;
@@ -25,6 +26,8 @@
 		user_disliked: boolean;
 		user_reposted: boolean;
 		avatar_url: string;
+		is_author?: boolean;
+		is_edited?: boolean;
 	};
 
 	type ProfileData = {
@@ -71,7 +74,12 @@
 	const profile = $derived(props.data.profile);
 	const posts_source = $derived(props.data.posts as ProfilePost[]);
 	const post_overrides = $state<Record<string, ProfilePost>>({});
-	const local_posts = $derived(posts_source.map((p) => post_overrides[p.id] ?? p));
+	const deleted_post_ids = new SvelteSet<string>();
+	const local_posts = $derived(
+		posts_source
+			.filter((p) => !deleted_post_ids.has(p.id))
+			.map((p) => post_overrides[p.id] ?? p)
+	);
 
 	async function handle_avatar_success(new_url: string) {
 		avatar_url = new_url;
@@ -140,6 +148,23 @@
 			user_liked: new_metrics.user_liked,
 			user_disliked: new_metrics.user_disliked,
 			user_reposted: new_metrics.user_reposted
+		};
+
+		post_overrides[post_id] = updated_post;
+	}
+
+	function handle_post_delete(post_id: string): void {
+		deleted_post_ids.add(post_id);
+	}
+
+	function handle_post_edit(post_id: string, new_content: string): void {
+		const post_index = local_posts.findIndex((p) => p.id === post_id);
+		if (post_index === -1) return;
+
+		const updated_post = {
+			...local_posts[post_index],
+			content: new_content,
+			is_edited: true
 		};
 
 		post_overrides[post_id] = updated_post;
@@ -256,7 +281,11 @@
 						user_liked={post.user_liked}
 						user_disliked={post.user_disliked}
 						user_reposted={post.user_reposted}
+						is_author={post.is_author}
+						is_edited={post.is_edited}
 						on_metric_change={handle_metric_change}
+						on_delete={handle_post_delete}
+						on_edit={handle_post_edit}
 					/>
 				{/each}
 			{:else}

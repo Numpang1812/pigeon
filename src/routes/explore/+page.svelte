@@ -37,6 +37,8 @@
 		user_liked?: boolean;
 		user_disliked?: boolean;
 		user_reposted?: boolean;
+		is_author?: boolean;
+		is_edited?: boolean;
 	}
 
 	let dynamic_tags = $state<Tag[]>([]);
@@ -89,6 +91,27 @@
 	$effect(() => {
 		load_posts(active_filter);
 	});
+
+	function handle_post_delete(post_id: string): void {
+		feed_posts = feed_posts.filter((p) => p.id !== post_id);
+	}
+
+	function handle_post_edit(post_id: string, new_content: string): void {
+		const post_index = feed_posts.findIndex((p) => p.id === post_id);
+		if (post_index === -1) return;
+
+		const updated_post = {
+			...feed_posts[post_index],
+			content: new_content,
+			is_edited: true
+		};
+
+		feed_posts = [
+			...feed_posts.slice(0, post_index),
+			updated_post,
+			...feed_posts.slice(post_index + 1)
+		];
+	}
 </script>
 
 {#if $session.data}
@@ -135,6 +158,10 @@
 						user_liked={post.user_liked}
 						user_disliked={post.user_disliked}
 						user_reposted={post.user_reposted}
+						is_author={post.is_author}
+						is_edited={post.is_edited}
+						on_delete={handle_post_delete}
+						on_edit={handle_post_edit}
 					/>
 				{/each}
 			{:else}
