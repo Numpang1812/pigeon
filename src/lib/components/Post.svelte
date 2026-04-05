@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { BadgeCheck, Check, Repeat2, Heart, ThumbsDown } from 'lucide-svelte';
+	import { resolve } from '$app/paths';
+	import { normalize_handle } from '$lib';
 
 	type PostMetrics = {
 		likes?: number;
@@ -38,6 +40,9 @@
 	const liked = $derived(props.user_liked ?? false);
 	const disliked = $derived(props.user_disliked ?? false);
 	const reposted = $derived(props.user_reposted ?? false);
+	const author_handle_safe = $derived.by(() => {
+		return normalize_handle(props.author_handle);
+	});
 
 	// Metrics come from the API already accurate, just use them directly
 	const like_count = $derived(props.metrics?.likes ?? 0);
@@ -227,28 +232,56 @@
 		</section>
 
 		<aside class="author-section">
-			<div class="avatar-wrapper">
-				{#if props.avatar_url}
-					<img class="avatar-image" src={props.avatar_url} alt={`${props.post_tag} tag icon`} />
-				{:else}
-					<div class="avatar-placeholder" aria-hidden="true">
-						<svg viewBox="0 0 24 24" fill="currentColor">
-							<path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
-						</svg>
-					</div>
-				{/if}
-			</div>
+			{#if author_handle_safe}
+				<a
+					class="avatar-wrapper author-link"
+					href={resolve('/profile/[handle]', { handle: author_handle_safe })}
+					aria-label={`View @${props.author_handle} profile`}
+				>
+					{#if props.avatar_url}
+						<img class="avatar-image" src={props.avatar_url} alt={`${props.post_tag} tag icon`} />
+					{:else}
+						<div class="avatar-placeholder" aria-hidden="true">
+							<svg viewBox="0 0 24 24" fill="currentColor">
+								<path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+							</svg>
+						</div>
+					{/if}
+				</a>
+			{:else}
+				<div class="avatar-wrapper">
+					{#if props.avatar_url}
+						<img class="avatar-image" src={props.avatar_url} alt={`${props.post_tag} tag icon`} />
+					{:else}
+						<div class="avatar-placeholder" aria-hidden="true">
+							<svg viewBox="0 0 24 24" fill="currentColor">
+								<path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+							</svg>
+						</div>
+					{/if}
+				</div>
+			{/if}
 
 			<div class="author-info">
 				<div class="author-title-row">
-					<h2 class="author-name">{props.author_name}</h2>
+					<h2 class="author-name">
+						{#if author_handle_safe}
+							<a class="author-link" href={resolve('/profile/[handle]', { handle: author_handle_safe })}>{props.author_name}</a>
+						{:else}
+							{props.author_name}
+						{/if}
+					</h2>
 					{#if props.verified}
 						<span class="verified-icon" aria-label="Verified account" title="Verified account">
 							<BadgeCheck size={18} aria-hidden="true" fill="#0ea5e9"/>
 						</span>
 					{/if}
 				</div>
-				<span class="author-handle">@{props.author_handle}</span>
+				{#if author_handle_safe}
+					<a class="author-handle author-link" href={resolve('/profile/[handle]', { handle: author_handle_safe })}>@{props.author_handle}</a>
+				{:else}
+					<span class="author-handle">@{props.author_handle}</span>
+				{/if}
 				{#if props.author_bio}
 					<p class="author-bio">{props.author_bio}</p>
 				{/if}
@@ -400,6 +433,26 @@
 
 	.avatar-wrapper {
 		flex-shrink: 0;
+	}
+
+	.author-link {
+		color: inherit;
+		text-decoration: none;
+	}
+
+	.author-link:hover {
+		text-decoration: underline;
+	}
+
+	.avatar-wrapper.author-link:hover {
+		text-decoration: none;
+	}
+
+	.avatar-wrapper.author-link:focus-visible,
+	.author-info .author-link:focus-visible {
+		outline: 2px solid #38bdf8;
+		outline-offset: 2px;
+		border-radius: 8px;
 	}
 
 	.avatar-image,

@@ -155,9 +155,9 @@
 		<div class="modal-backdrop" onclick={() => (show_avatar_uploader = false)}>
 			<div class="modal-content" onclick={(e) => e.stopPropagation()}>
 				<AvatarUploader
-					currentAvatarUrl={profile.avatar}
-					onSuccess={handle_avatar_success}
-					onClose={() => (show_avatar_uploader = false)}
+					current_avatar_url={profile.avatar}
+					on_success={handle_avatar_success}
+					on_close={() => (show_avatar_uploader = false)}
 				/>
 			</div>
 		</div>
