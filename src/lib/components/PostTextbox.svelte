@@ -8,6 +8,7 @@
 		ShieldCheck,
 		Users
 	} from 'lucide-svelte';
+	import { tick } from 'svelte';
 
 	interface PostTextboxProps {
 		placeholder?: string;
@@ -61,6 +62,14 @@
 	let selected_audience = $state<string>(audience_options[0].value);
 	let is_audience_menu_open = $state(false);
 	let is_submitting = $state(false);
+	let mention_results = $state<{ id: string; name: string; username: string; image: string | null }[]>([]);
+	let is_mention_menu_open = $state(false);
+	let is_mention_loading = $state(false);
+	let active_mention_index = $state(0);
+	let mention_timer: ReturnType<typeof setTimeout>;
+	let mention_request_id = 0;
+	let textarea_element = $state<HTMLTextAreaElement | null>(null);
+	let mention_context = $state<{ start: number; end: number } | null>(null);
 	const hashtag_pattern = /(^|[^a-z0-9_])#([a-z0-9_]{2,24})\b/gi;
 	const sanitized_text_content = $derived.by(() =>
 		text_content
@@ -144,12 +153,149 @@
 		if (!target.closest('.audience-menu')) {
 			is_audience_menu_open = false;
 		}
+		if (!target.closest('.mention-autocomplete')) {
+			close_mention_menu();
+		}
 	}
 
 	function handle_menu_keydown(event: KeyboardEvent): void {
 		if (event.key === 'Escape') {
 			is_audience_menu_open = false;
 		}
+	}
+
+	function close_mention_menu(): void {
+		is_mention_menu_open = false;
+		is_mention_loading = false;
+		mention_results = [];
+		active_mention_index = 0;
+		mention_context = null;
+	}
+
+	function get_mention_query_context(content: string, caret_position: number):
+		| { query: string; start: number; end: number }
+		| null {
+		const at_index = content.lastIndexOf('@', Math.max(0, caret_position - 1));
+		if (at_index < 0) return null;
+
+		const previous_char = at_index > 0 ? content[at_index - 1] : '';
+		if (/[a-zA-Z0-9_.]/.test(previous_char)) {
+			return null;
+		}
+
+		const query = content.slice(at_index + 1, caret_position);
+		if (!/^[a-zA-Z0-9_]{0,24}$/.test(query)) {
+			return null;
+		}
+
+		return {
+			query,
+			start: at_index,
+			end: caret_position
+		};
+	}
+
+	async function fetch_mention_suggestions(query: string): Promise<void> {
+		const request_id = ++mention_request_id;
+		is_mention_loading = true;
+
+		try {
+			const search_query = query.length > 0 ? query : '@';
+			const response = await fetch(`/api/users/search?q=${encodeURIComponent(search_query)}`);
+
+			if (!response.ok || request_id !== mention_request_id) return;
+
+			const data = await response.json();
+			mention_results = Array.isArray(data.users) ? data.users : [];
+			active_mention_index = 0;
+			is_mention_menu_open = mention_results.length > 0;
+		} catch (error) {
+			if (request_id === mention_request_id) {
+				console.error('Failed to fetch mention suggestions:', error);
+				close_mention_menu();
+			}
+		} finally {
+			if (request_id === mention_request_id) {
+				is_mention_loading = false;
+			}
+		}
+	}
+
+	function schedule_mention_lookup(query: string): void {
+		clearTimeout(mention_timer);
+		mention_timer = setTimeout(() => {
+			void fetch_mention_suggestions(query);
+		}, 180);
+	}
+
+	function update_mention_state(): void {
+		if (!textarea_element) return;
+
+		const context = get_mention_query_context(text_content, textarea_element.selectionStart ?? text_content.length);
+		if (!context) {
+			close_mention_menu();
+			return;
+		}
+
+		mention_context = { start: context.start, end: context.end };
+		schedule_mention_lookup(context.query);
+	}
+
+	async function insert_mention(user: { username: string }): Promise<void> {
+		if (!mention_context || !textarea_element) return;
+
+		const mention_text = `@${user.username} `;
+		const before = text_content.slice(0, mention_context.start);
+		const after = text_content.slice(mention_context.end);
+		text_content = `${before}${mention_text}${after}`;
+
+		close_mention_menu();
+		await tick();
+
+		const new_cursor_position = before.length + mention_text.length;
+		textarea_element.focus();
+		textarea_element.setSelectionRange(new_cursor_position, new_cursor_position);
+	}
+
+	function handle_textarea_keydown(event: KeyboardEvent): void {
+		if (!is_mention_menu_open || mention_results.length === 0) {
+			return;
+		}
+
+		if (event.key === 'ArrowDown') {
+			event.preventDefault();
+			active_mention_index = (active_mention_index + 1) % mention_results.length;
+			return;
+		}
+
+		if (event.key === 'ArrowUp') {
+			event.preventDefault();
+			active_mention_index =
+				(active_mention_index - 1 + mention_results.length) % mention_results.length;
+			return;
+		}
+
+		if (event.key === 'Enter' || event.key === 'Tab') {
+			event.preventDefault();
+			void insert_mention(mention_results[active_mention_index]);
+			return;
+		}
+
+		if (event.key === 'Escape') {
+			event.preventDefault();
+			close_mention_menu();
+		}
+	}
+
+	function register_textarea(node: HTMLTextAreaElement) {
+		textarea_element = node;
+		return {
+			destroy() {
+				if (textarea_element === node) {
+					textarea_element = null;
+				}
+			}
+		};
 	}
 </script>
 
@@ -217,14 +363,52 @@
 		</div>
 	</div>
 
-	<textarea
-		bind:value={text_content}
-		placeholder={props.placeholder ?? 'What is floating in your mind?'}
-		maxlength="280"
-		rows={props.isExpanded ? 12 : 4}
-		data-expanded={props.isExpanded ?? false}
-		aria-label="Post content"
-	></textarea>
+	<div class="mention-autocomplete">
+		<textarea
+			use:register_textarea
+			bind:value={text_content}
+			oninput={update_mention_state}
+			onclick={update_mention_state}
+			onkeydown={handle_textarea_keydown}
+			placeholder={props.placeholder ?? 'What is floating in your mind?'}
+			maxlength="280"
+			rows={props.isExpanded ? 12 : 4}
+			data-expanded={props.isExpanded ?? false}
+			aria-label="Post content"
+			autocomplete="off"
+		></textarea>
+
+		{#if is_mention_menu_open}
+			<div class="mention-menu" role="listbox" aria-label="Mention suggestions">
+				{#if is_mention_loading && mention_results.length === 0}
+					<div class="mention-loading">Finding people...</div>
+				{:else}
+					{#each mention_results as user, index (user.id)}
+						<button
+							type="button"
+							class="mention-item"
+							class:is-active={index === active_mention_index}
+							role="option"
+							aria-selected={index === active_mention_index}
+							onclick={() => {
+								void insert_mention(user);
+							}}
+						>
+							<img
+								class="mention-avatar"
+								src={user.image || 'https://i.pravatar.cc/40'}
+								alt={user.name}
+							/>
+							<span class="mention-meta">
+								<strong>{user.name}</strong>
+								<small>@{user.username}</small>
+							</span>
+						</button>
+					{/each}
+				{/if}
+			</div>
+		{/if}
+	</div>
 
 	<footer class="composer-footer">
 		<span class="counter" aria-live="polite">{text_content.length}/280</span>
@@ -255,6 +439,9 @@
 	}
 
 	textarea {
+		display: block;
+		width: 100%;
+		box-sizing: border-box;
 		resize: vertical;
 		min-height: 6.5rem;
 		max-height: 16rem;
@@ -272,6 +459,84 @@
 
 	textarea::placeholder {
 		color: #94a3b8;
+	}
+
+	.mention-autocomplete {
+		position: relative;
+		width: 100%;
+		display: block;
+	}
+
+	.mention-menu {
+		position: absolute;
+		left: 0;
+		right: 0;
+		top: 3rem;
+		z-index: 30;
+		display: grid;
+		gap: 0.2rem;
+		max-height: 12rem;
+		overflow-y: auto;
+		padding: 0.35rem;
+		border-radius: 10px;
+		border: 1px solid #d0d7e2;
+		background: #ffffff;
+		box-shadow: 0 12px 30px rgba(15, 23, 42, 0.15);
+	}
+
+	.mention-item {
+		display: flex;
+		align-items: center;
+		gap: 0.55rem;
+		width: 100%;
+		padding: 0.45rem 0.5rem;
+		border: 1px solid transparent;
+		border-radius: 8px;
+		background: transparent;
+		text-align: left;
+		cursor: pointer;
+	}
+
+	.mention-item:hover,
+	.mention-item.is-active {
+		background: #eff6ff;
+		border-color: #bfdbfe;
+	}
+
+	.mention-avatar {
+		width: 30px;
+		height: 30px;
+		border-radius: 999px;
+		object-fit: cover;
+		flex-shrink: 0;
+	}
+
+	.mention-meta {
+		display: flex;
+		flex-direction: column;
+		min-width: 0;
+	}
+
+	.mention-meta strong {
+		font-size: 0.87rem;
+		color: #0f172a;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	.mention-meta small {
+		font-size: 0.78rem;
+		color: #64748b;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	.mention-loading {
+		padding: 0.5rem;
+		font-size: 0.84rem;
+		color: #64748b;
 	}
 
 	.composer-controls {

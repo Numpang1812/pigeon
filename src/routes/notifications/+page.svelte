@@ -152,7 +152,8 @@
 	async function view_post(notification_id: string, post_id?: string | null): Promise<void> {
 		if (!post_id) return;
 		mark_as_read(notification_id);
-		const target = `${resolve('/home')}?post_id=${encodeURIComponent(post_id)}#post-${post_id}`;
+		const target =
+			`/home?post_id=${encodeURIComponent(post_id)}#post-${post_id}` as `/home?${string}#${string}`;
 		await goto(resolve(target));
 	}
 

@@ -22,7 +22,16 @@ export const GET: RequestHandler = async ({ request, url }) => {
 		}
 
 		if (query_term === '') {
-			return json({ users: [] });
+			const suggested = await db.execute({
+				sql: `
+					SELECT id, name, username, image
+					FROM user
+					ORDER BY name ASC
+					LIMIT 10
+				`
+			});
+
+			return json({ users: suggested.rows });
 		}
 
 		const search_term = `%${query_term}%`;
