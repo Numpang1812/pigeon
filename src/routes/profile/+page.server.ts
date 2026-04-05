@@ -7,7 +7,9 @@ import {
 	get_follow_counts,
 	map_profile,
 	map_profile_posts,
-	get_profile_posts
+	get_profile_posts,
+	get_profile_followers,
+	get_profile_following
 } from '$lib/server/profile-helpers';
 
 export const load: PageServerLoad = async ({ request }) => {
@@ -32,10 +34,16 @@ export const load: PageServerLoad = async ({ request }) => {
 		get_follow_counts(session.user.id),
 		get_profile_posts(session.user.id, session.user.id, is_owner)
 	]);
+	const [followers, following] = await Promise.all([
+		get_profile_followers(session.user.id),
+		get_profile_following(session.user.id)
+	]);
 
 	return {
 		profile: map_profile(user, counts),
 		posts: map_profile_posts(posts_result.rows, user, session.user.id),
+		followers,
+		following,
 		access: {
 			is_owner: true,
 			is_following: false

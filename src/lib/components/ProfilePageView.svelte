@@ -1,11 +1,19 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { Post } from '$lib';
-	import { ArrowLeft, Calendar, Camera } from 'lucide-svelte';
+	import { ArrowLeft, Calendar, Camera, X } from 'lucide-svelte';
 	import AvatarUploader from '$lib/components/AvatarUploader.svelte';
 	import CoverUploader from '$lib/components/CoverUploader.svelte';
 	import { invalidateAll } from '$app/navigation';
 	import { SvelteSet } from 'svelte/reactivity';
+
+	type ProfileConnection = {
+		id: string;
+		name: string;
+		handle: string;
+		avatar: string;
+		followed_at: string;
+	};
 
 	type ProfilePost = {
 		id: string;
@@ -44,6 +52,8 @@
 			followers: number;
 		};
 		posts: ProfilePost[];
+		followers: ProfileConnection[];
+		following: ProfileConnection[];
 		access?: {
 			is_owner?: boolean;
 			is_following?: boolean;
@@ -66,13 +76,13 @@
 	const show_back_button = $derived(props.show_back_button ?? false);
 	const enable_follow_ui = $derived(props.enable_follow_ui ?? false);
 
-	let is_following_override = $state<boolean | null>(null);
-	const is_following = $derived(is_following_override ?? (props.data.access?.is_following ?? false));
+	const is_following = $derived(props.data.access?.is_following ?? false);
 
 	let show_avatar_uploader = $state(false);
 	let avatar_url = $state<string | null>(null);
 	let show_cover_uploader = $state(false);
 	let cover_url = $state<string | null>(null);
+	let show_connections_modal = $state<'followers' | 'following' | null>(null);
 
 	const profile = $derived(props.data.profile);
 	const posts_source = $derived(props.data.posts as ProfilePost[]);
@@ -127,10 +137,6 @@
 		}
 
 		window.location.href = resolve('/home');
-	}
-
-	function toggle_follow_ui() {
-		is_following_override = !is_following;
 	}
 
 	function handle_backdrop_keydown(event: KeyboardEvent) {
@@ -240,9 +246,11 @@
 					{#if is_owner}
 						<a href={resolve('/profile/edit')} class="btn btn-outline">Edit profile</a>
 					{:else if enable_follow_ui}
-						<button type="button" class={`btn ${is_following ? 'btn-outline' : 'btn-muted'}`} onclick={toggle_follow_ui}>
-							{is_following ? 'Following' : 'Follow'}
-						</button>
+						<form method="POST" action="?/toggle_follow">
+							<button type="submit" class={`btn ${is_following ? 'btn-outline' : 'btn-muted'}`}>
+								{is_following ? 'Following' : 'Follow'}
+							</button>
+						</form>
 					{/if}
 				</div>
 			</div>
@@ -261,18 +269,18 @@
 				</div>
 
 				<div class="user-stats">
-					<a href="#following" class="stat-link">
+					<button type="button" class="stat-link" disabled>
 						<span class="stat-value">{local_posts.length}</span>
 						<span class="stat-label">Posts</span>
-					</a>
-					<a href="#following" class="stat-link">
+					</button>
+					<button type="button" class="stat-link" onclick={() => (show_connections_modal = 'following')}>
 						<span class="stat-value">{profile.following}</span>
 						<span class="stat-label">Following</span>
-					</a>
-					<a href="#followers" class="stat-link">
+					</button>
+					<button type="button" class="stat-link" onclick={() => (show_connections_modal = 'followers')}>
 						<span class="stat-value">{profile.followers >= 1000 ? `${(profile.followers / 1000).toFixed(1)}K` : profile.followers}</span>
 						<span class="stat-label">Followers</span>
-					</a>
+					</button>
 				</div>
 			</div>
 
@@ -292,7 +300,7 @@
 			</nav>
 		</div>
 
-		<section class="feed-column" aria-label="Posts">
+		<section class="feed-column" id="posts" aria-label="Posts">
 			{#if active_tab === 'Posts'}
 				{#each local_posts as post (post.id)}
 					<Post
@@ -375,6 +383,74 @@
 					on_success={handle_cover_success}
 					on_close={close_cover_uploader}
 				/>
+			</div>
+		</div>
+	{/if}
+
+	{#if show_connections_modal}
+		<div
+			class="modal-backdrop"
+			onclick={() => (show_connections_modal = null)}
+			onkeydown={(e) => e.key === 'Escape' && (show_connections_modal = null)}
+			role="button"
+			tabindex="0"
+			aria-label="Close connections"
+		>
+			<div
+				class="connections-modal"
+				onclick={stop_event_propagation}
+				onkeydown={stop_event_propagation}
+				role="dialog"
+				aria-modal="true"
+				tabindex="-1"
+			>
+				<div class="modal-header">
+					<h2>{show_connections_modal === 'following' ? 'Following' : 'Followers'}</h2>
+					<button
+						type="button"
+						class="modal-close"
+						onclick={() => (show_connections_modal = null)}
+						aria-label="Close"
+					>
+						<X size={18} strokeWidth={2.5} />
+					</button>
+				</div>
+
+				<div class="modal-body">
+					{#if show_connections_modal === 'following'}
+						{#if props.data.following.length > 0}
+							<div class="connection-list">
+								{#each props.data.following as user (user.id)}
+									<a class="connection-item" href={resolve(`/profile/${user.handle}`)}>
+										<img src={user.avatar || 'https://i.pravatar.cc/40'} alt={user.name} />
+										<div>
+											<strong>{user.name}</strong>
+											<p>@{user.handle}</p>
+										</div>
+									</a>
+								{/each}
+							</div>
+						{:else}
+							<p class="connection-empty">Not following anyone yet.</p>
+						{/if}
+					{:else if show_connections_modal === 'followers'}
+						{#if props.data.followers.length > 0}
+							<div class="connection-list">
+								{#each props.data.followers as user (user.id)}
+									<a class="connection-item" href={resolve(`/profile/${user.handle}`)}>
+										<img src={user.avatar || 'https://i.pravatar.cc/40'} alt={user.name} />
+										<div>
+											<strong>{user.name}</strong>
+											<p>@{user.handle}</p>
+										</div>
+									</a>
+								{/each}
+							</div>
+						{:else}
+							<p class="connection-empty">No followers yet.</p>
+						{/if}
+					{/if}
+				</div>
 			</div>
 		</div>
 	{/if}
@@ -541,6 +617,10 @@
 		align-items: flex-start;
 	}
 
+	.action-buttons form {
+		margin: 0;
+	}
+
 	.btn {
 		cursor: pointer;
 		font-family: inherit;
@@ -620,14 +700,26 @@
 	}
 
 	.stat-link {
+		background: none;
+		border: none;
+		cursor: pointer;
 		text-decoration: none;
 		font-size: 15px;
 		display: flex;
 		gap: 4px;
+		flex-direction: column;
+		align-items: center;
+		padding: 0;
+		color: inherit;
+		font-family: inherit;
 	}
 
-	.stat-link:hover {
+	.stat-link:not(:disabled):hover {
 		text-decoration: underline;
+	}
+
+	.stat-link:disabled {
+		cursor: default;
 	}
 
 	.stat-value {
@@ -685,6 +777,143 @@
 		padding: 1.5rem;
 	}
 
+	.connections-modal {
+		background: white;
+		border-radius: 28px;
+		width: 100%;
+		max-width: 720px;
+		max-height: 90vh;
+		display: flex;
+		flex-direction: column;
+		animation: modal_slide_in 0.3s ease-out;
+		box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+	}
+
+	.modal-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: 1rem 1rem;
+		border-bottom: 2px solid #f1f5f9;
+		background: #fafbfc;
+		border-radius: 28px 28px 0 0;
+	}
+
+	.modal-header h2 {
+		font-size: 23px;
+		font-weight: 700;
+		margin: 0;
+		margin-left: 10px;
+		color: #0f1419;
+		letter-spacing: -0.5px;
+	}
+
+	.modal-close {
+		background: #e8ecf1;
+		border: none;
+		font-size: 24px;
+		line-height: 1;
+		cursor: pointer;
+		color: #536471;
+		padding: 0;
+		width: 40px;
+		height: 40px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		border-radius: 50%;
+		transition: all 0.2s;
+		flex-shrink: 0;
+	}
+
+	.modal-close:hover {
+		background-color: #d4d9df;
+		color: #0f1419;
+	}
+
+	.modal-body {
+		overflow-y: auto;
+		padding: 1.5rem 0;
+		flex: 1;
+		scroll-behavior: smooth;
+	}
+
+	.modal-body::-webkit-scrollbar {
+		width: 8px;
+	}
+
+	.modal-body::-webkit-scrollbar-track {
+		background: #f1f5f9;
+	}
+
+	.modal-body::-webkit-scrollbar-thumb {
+		background: #cbd5e1;
+		border-radius: 4px;
+	}
+
+	.modal-body::-webkit-scrollbar-thumb:hover {
+		background: #94a3b8;
+	}
+
+	.connection-list {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+		padding: 0.5rem 1.5rem;
+	}
+
+	.connection-item {
+		width: 100%;
+		border: 1px solid transparent;
+		background: transparent;
+		display: flex;
+		align-items: center;
+		gap: 1.2rem;
+		padding: 1.2rem 1.2rem;
+		border-radius: 16px;
+		text-decoration: none;
+		color: inherit;
+		transition: all 0.2s ease;
+	}
+
+	.connection-item:hover {
+		background: #f0f3f7;
+		border-color: #e1e8ed;
+	}
+
+	.connection-item img {
+		width: 56px;
+		height: 56px;
+		border-radius: 9999px;
+		object-fit: cover;
+		flex-shrink: 0;
+		border: 2px solid #e1e8ed;
+	}
+
+	.connection-item strong {
+		display: block;
+		font-size: 16px;
+		font-weight: 600;
+		color: #0f1419;
+		line-height: 1.4;
+	}
+
+	.connection-item p {
+		margin: 0;
+		font-size: 15px;
+		color: #536471;
+		line-height: 1.4;
+	}
+
+	.connection-empty {
+		margin: 0;
+		color: #536471;
+		font-size: 15px;
+		text-align: center;
+		padding: 3rem 2rem;
+		line-height: 1.6;
+	}
+
 	.empty-state {
 		padding: 40px 20px;
 		text-align: center;
@@ -728,23 +957,37 @@
 		justify-content: center;
 		z-index: 1000;
 		padding: 20px;
+		animation: backdrop_fade_in 0.22s ease-out;
 	}
 
 	.modal-content {
 		position: relative;
 		max-width: 500px;
 		width: 100%;
-		animation: modal_slide_in 0.3s ease-out;
+		animation: modal_slide_in 0.26s ease-out;
+	}
+
+	.connections-modal {
+		will-change: transform, opacity;
 	}
 
 	@keyframes modal_slide_in {
 		from {
 			opacity: 0;
-			transform: translateY(-20px);
+			transform: translateY(18px) scale(0.98);
 		}
 		to {
 			opacity: 1;
-			transform: translateY(0);
+			transform: translateY(0) scale(1);
+		}
+	}
+
+	@keyframes backdrop_fade_in {
+		from {
+			opacity: 0;
+		}
+		to {
+			opacity: 1;
 		}
 	}
 </style>
