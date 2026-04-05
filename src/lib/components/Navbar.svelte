@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Bell, Search } from 'lucide-svelte';
+	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { auth_client } from '$lib/auth-client';
 	import './styles/navbar.css';
