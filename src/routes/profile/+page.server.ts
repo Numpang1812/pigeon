@@ -90,7 +90,9 @@ export const load: PageServerLoad = async ({ request }) => {
 };
 
 function format_time_ago(date_string: string): string {
-	const date = new Date(date_string);
+	// SQLite stores timestamps in UTC without timezone indicator
+	// Append 'Z' to ensure JavaScript treats it as UTC
+	const date = new Date(date_string + 'Z');
 	const now = new Date();
 	const diff_seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
 
