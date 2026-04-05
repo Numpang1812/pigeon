@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Post, PostTextbox } from '$lib';
+	import { SvelteURLSearchParams } from 'svelte/reactivity';
 	import type { PageData } from './$types';
 
 	// eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -25,6 +26,8 @@
 		user_liked?: boolean;
 		user_disliked?: boolean;
 		user_reposted?: boolean;
+		is_author?: boolean;
+		is_edited?: boolean;
 	};
 
 	let feed_posts = $state<FeedPost[]>([]);
@@ -72,9 +75,9 @@
 
 	async function load_posts() {
 		try {
-			const params = new URLSearchParams({ limit: '50' });
+			const params = new SvelteURLSearchParams({ limit: '50' });
 			if (typeof window !== 'undefined') {
-				const requested_post_id = new URLSearchParams(window.location.search).get('post_id');
+				const requested_post_id = new SvelteURLSearchParams(window.location.search).get('post_id');
 				if (requested_post_id) {
 					params.set('post_id', requested_post_id);
 				}
@@ -132,6 +135,27 @@
 		];
 	}
 
+	function handle_post_delete(post_id: string): void {
+		feed_posts = feed_posts.filter((p) => p.id !== post_id);
+	}
+
+	function handle_post_edit(post_id: string, new_content: string): void {
+		const post_index = feed_posts.findIndex((p) => p.id === post_id);
+		if (post_index === -1) return;
+
+		const updated_post = {
+			...feed_posts[post_index],
+			content: new_content,
+			is_edited: true
+		};
+
+		feed_posts = [
+			...feed_posts.slice(0, post_index),
+			updated_post,
+			...feed_posts.slice(post_index + 1)
+		];
+	}
+
 	// Load posts on mount
 	$effect(() => {
 		load_posts();
@@ -178,7 +202,11 @@
 					user_liked={post.user_liked}
 					user_disliked={post.user_disliked}
 					user_reposted={post.user_reposted}
+					is_author={post.is_author}
+					is_edited={post.is_edited}
 					on_metric_change={handle_metric_change}
+					on_delete={handle_post_delete}
+					on_edit={handle_post_edit}
 				/>
 			{/each}
 		{/if}

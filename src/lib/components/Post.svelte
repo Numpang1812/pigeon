@@ -1,7 +1,8 @@
 <script lang="ts">
-	import { BadgeCheck, Check, Repeat2, Heart, ThumbsDown } from 'lucide-svelte';
+	import { BadgeCheck, Check, Repeat2, Heart, ThumbsDown, Trash2, Pencil, X, AlertTriangle } from 'lucide-svelte';
 	import { resolve } from '$app/paths';
 	import { normalize_handle } from '$lib';
+	import { fly } from 'svelte/transition';
 
 	type PostMetrics = {
 		likes?: number;
@@ -25,6 +26,8 @@
 		user_liked?: boolean;
 		user_disliked?: boolean;
 		user_reposted?: boolean;
+		is_author?: boolean;
+		is_edited?: boolean;
 		on_metric_change?: (post_id: string, type: 'like' | 'dislike' | 'repost', new_metrics: {
 			likes: number;
 			dislikes: number;
@@ -33,6 +36,8 @@
 			user_disliked: boolean;
 			user_reposted: boolean;
 		}) => void;
+		on_delete?: (post_id: string) => void;
+		on_edit?: (post_id: string, new_content: string) => void;
 	}
 
 	const props: PostProps = $props();
@@ -165,6 +170,86 @@
 			console.error('Failed to toggle repost:', error);
 		}
 	}
+
+	let is_editing = $state(false);
+	let edited_content = $state(props.content);
+	let is_saving = $state(false);
+	let show_delete_confirm = $state(false);
+	let is_deleting = $state(false);
+
+	function request_delete() {
+		show_delete_confirm = true;
+	}
+
+	function cancel_delete() {
+		show_delete_confirm = false;
+	}
+
+	async function handle_delete() {
+		is_deleting = true;
+
+		try {
+			const response = await fetch(`/api/posts/${props.post_id}`, {
+				method: 'DELETE'
+			});
+
+			if (response.ok) {
+				props.on_delete?.(props.post_id);
+			} else {
+				const data = await response.json();
+				alert(data.error || 'Failed to delete post');
+			}
+		} catch (error) {
+			console.error('Failed to delete post:', error);
+			alert('Failed to delete post');
+		} finally {
+			is_deleting = false;
+		}
+	}
+
+	function start_edit() {
+		edited_content = props.content;
+		is_editing = true;
+	}
+
+	function cancel_edit() {
+		is_editing = false;
+	}
+
+	async function save_edit() {
+		if (edited_content.trim() === props.content) {
+			is_editing = false;
+			return;
+		}
+
+		if (edited_content.trim().length === 0) {
+			alert('Content cannot be empty');
+			return;
+		}
+
+		is_saving = true;
+		try {
+			const response = await fetch(`/api/posts/${props.post_id}`, {
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ content: edited_content })
+			});
+
+			if (response.ok) {
+				const data = await response.json();
+				props.on_edit?.(props.post_id, data.content);
+				is_editing = false;
+			} else {
+				const data = await response.json();
+				alert(data.error || 'Failed to update post');
+			}
+		} catch (error) {
+			console.error('Failed to update post:', error);
+			alert('Failed to update post');
+		} finally {
+			is_saving = false;
+		}
+	}
 </script>
 
 <article
@@ -188,10 +273,84 @@
 						<span>{props.audience}</span>
 					{/if}
 				</p>
-				<time class="timestamp">{props.posted_at}</time>
+				<time class="timestamp">
+					{props.posted_at}
+					{#if props.is_edited}
+						<span class="edited-label" title="This post has been modified">· Edited</span>
+					{/if}
+				</time>
+				{#if props.is_author && !is_editing}
+					<div class="author-actions">
+						<button 
+							type="button" 
+							class="action-btn edit-btn" 
+							onclick={start_edit}
+							aria-label="Edit post"
+						>
+							<Pencil size={14} />
+						</button>
+						<button 
+							type="button" 
+							class="action-btn delete-btn" 
+							onclick={request_delete}
+							aria-label="Delete post"
+						>
+							<Trash2 size={14} />
+						</button>
+					</div>
+				{/if}
 			</header>
 
-			<p class="body-text">{props.content}</p>
+			{#if show_delete_confirm}
+				<div class="delete-confirm" transition:fly={{ y: 10, duration: 180 }}>
+					<div class="confirm-message">
+						<AlertTriangle size={18} class="warn-icon" />
+						<p>Delete this post permanently?</p>
+					</div>
+					<div class="confirm-actions">
+						<button class="confirm-cancel" type="button" onclick={cancel_delete}>Cancel</button>
+						<button
+							class="confirm-delete-btn"
+							type="button"
+							onclick={handle_delete}
+							disabled={is_deleting}
+						>
+							{is_deleting ? 'Deleting...' : 'Yes, delete'}
+						</button>
+					</div>
+				</div>
+			{:else if is_editing}
+				<div class="edit-mode">
+					<textarea
+						class="edit-textarea"
+						bind:value={edited_content}
+						maxlength="280"
+						disabled={is_saving}
+					></textarea>
+					<div class="edit-actions">
+						<button 
+							type="button" 
+							class="edit-action-btn cancel-btn" 
+							onclick={cancel_edit}
+							disabled={is_saving}
+						>
+							<X size={16} />
+							<span>Cancel</span>
+						</button>
+						<button 
+							type="button" 
+							class="edit-action-btn save-btn" 
+							onclick={save_edit}
+							disabled={is_saving || edited_content.trim() === ''}
+						>
+							<Check size={16} />
+							<span>{is_saving ? 'Saving...' : 'Save'}</span>
+						</button>
+					</div>
+				</div>
+			{:else}
+				<p class="body-text">{props.content}</p>
+			{/if}
 
 			<footer class="metrics">
 				<button
@@ -374,6 +533,15 @@
 	.timestamp {
 		color: #64748b;
 		font-size: 0.82rem;
+		display: flex;
+		align-items: center;
+		gap: 0.25rem;
+	}
+
+	.edited-label {
+		font-size: 0.72rem;
+		opacity: 0.7;
+		font-weight: 500;
 	}
 
 	.body-text {
@@ -523,6 +691,181 @@
 		font-size: 0.78rem;
 		line-height: 1.45;
 		color: #64748b;
+	}
+
+	.author-actions {
+		display: flex;
+		gap: 0.4rem;
+		margin-left: auto;
+	}
+
+	.action-btn {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 28px;
+		height: 28px;
+		border-radius: 6px;
+		border: 1px solid transparent;
+		background: transparent;
+		color: #94a3b8;
+		cursor: pointer;
+		transition: all 150ms ease;
+	}
+
+	.action-btn:hover {
+		background: #f1f5f9;
+		color: #64748b;
+		border-color: #e2e8f0;
+	}
+
+	.delete-btn:hover {
+		background: #fef2f2;
+		color: #ef4444;
+		border-color: #fee2e2;
+	}
+
+	.delete-confirm {
+		display: grid;
+		gap: 0.85rem;
+		padding: 1rem;
+		margin: 0.5rem 0;
+		border-radius: 10px;
+		border: 1px solid #fee2e2;
+		background: linear-gradient(135deg, #fffcfc 0%, #fff5f5 100%);
+		box-shadow: 0 10px 24px rgba(239, 68, 68, 0.08);
+	}
+
+	.confirm-message {
+		display: flex;
+		align-items: center;
+		gap: 0.6rem;
+	}
+
+	.warn-icon {
+		color: #ef4444;
+	}
+
+	.delete-confirm p {
+		margin: 0;
+		font-size: 0.92rem;
+		font-weight: 600;
+		color: #991b1b;
+	}
+
+	.confirm-actions {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 0.75rem;
+	}
+
+	.confirm-cancel,
+	.confirm-delete-btn {
+		border-radius: 8px;
+		padding: 0.55rem 0.75rem;
+		font-size: 0.85rem;
+		font-weight: 700;
+		cursor: pointer;
+		transition: all 180ms ease;
+	}
+
+	.confirm-cancel {
+		color: #64748b;
+		background: white;
+		border: 1px solid #e2e8f0;
+	}
+
+	.confirm-cancel:hover {
+		background: #f8fafc;
+		border-color: #cbd5e1;
+	}
+
+	.confirm-delete-btn {
+		color: #ffffff;
+		background: #ef4444;
+		border: 1px solid #dc2626;
+	}
+
+	.confirm-delete-btn:hover:not(:disabled) {
+		background: #dc2626;
+		transform: translateY(-1px);
+		box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2);
+	}
+
+	.confirm-delete-btn:disabled {
+		opacity: 0.6;
+		cursor: wait;
+	}
+
+	.edit-mode {
+		display: flex;
+		flex-direction: column;
+		gap: 0.75rem;
+		width: 100%;
+	}
+
+	.edit-textarea {
+		width: 100%;
+		min-height: 100px;
+		padding: 0.75rem;
+		border-radius: 8px;
+		border: 1px solid #cbd5e1;
+		font-family: inherit;
+		font-size: 1rem;
+		line-height: 1.55;
+		resize: vertical;
+		outline: none;
+		transition: border-color 150ms ease;
+	}
+
+	.edit-textarea:focus {
+		border-color: #38bdf8;
+		box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.1);
+	}
+
+	.edit-actions {
+		display: flex;
+		justify-content: flex-end;
+		gap: 0.6rem;
+	}
+
+	.edit-action-btn {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.4rem;
+		padding: 0.4rem 0.8rem;
+		border-radius: 6px;
+		font-size: 0.85rem;
+		font-weight: 600;
+		cursor: pointer;
+		transition: all 150ms ease;
+	}
+
+	.cancel-btn {
+		background: #f8fafc;
+		border: 1px solid #e2e8f0;
+		color: #64748b;
+	}
+
+	.cancel-btn:hover {
+		background: #f1f5f9;
+		border-color: #cbd5e1;
+	}
+
+	.save-btn {
+		background: #0ea5e9;
+		border: 1px solid #0284c7;
+		color: white;
+	}
+
+	.save-btn:hover:not(:disabled) {
+		background: #0284c7;
+		box-shadow: 0 4px 12px rgba(14, 165, 233, 0.25);
+	}
+
+	.save-btn:disabled {
+		opacity: 0.6;
+		cursor: not-allowed;
 	}
 
 	@media (max-width: 900px) {
