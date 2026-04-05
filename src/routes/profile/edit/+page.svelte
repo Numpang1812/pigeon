@@ -17,6 +17,26 @@
 		profile.avatar = newUrl;
 		show_avatar_uploader = false;
 	}
+
+	// Password form state
+	let current_password = $state('');
+	let new_password = $state('');
+	let confirm_password = $state('');
+	let password_error = $state('');
+
+	function handle_password_submit() {
+		password_error = '';
+
+		if (new_password !== confirm_password) {
+			password_error = 'Your passwords don\'t match';
+			return;
+		}
+
+		if (current_password === new_password) {
+			password_error = 'Cannot change into the same password';
+			return;
+		}
+	}
 </script>
 
 <svelte:head>
@@ -124,7 +144,13 @@
 					</div>
 				</form>
 			{:else}
-				<form method="POST" action="?/password" use:enhance class="edit-form">
+				<form
+					method="POST"
+					action="?/password"
+					use:enhance
+					onsubmit={handle_password_submit}
+					class="edit-form"
+				>
 					<div class="security-intro">
 						<Lock size={20} />
 						<p>Update your password to keep your account secure.</p>
@@ -132,12 +158,37 @@
 
 					<div class="form-group">
 						<label for="currentPassword">Current password</label>
-						<input type="password" id="currentPassword" name="currentPassword" required />
+						<input
+							type="password"
+							id="currentPassword"
+							name="currentPassword"
+							bind:value={current_password}
+							required
+						/>
 					</div>
 
 					<div class="form-group">
 						<label for="newPassword">New password</label>
-						<input type="password" id="newPassword" name="newPassword" required minlength="8" />
+						<input
+							type="password"
+							id="newPassword"
+							name="newPassword"
+							bind:value={new_password}
+							required
+							minlength="8"
+						/>
+					</div>
+
+					<div class="form-group">
+						<label for="confirmPassword">Confirm new password</label>
+						<input
+							type="password"
+							id="confirmPassword"
+							name="confirmPassword"
+							bind:value={confirm_password}
+							required
+							minlength="8"
+						/>
 					</div>
 
 					<div class="form-actions">

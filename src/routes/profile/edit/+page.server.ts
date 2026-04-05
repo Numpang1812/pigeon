@@ -80,9 +80,18 @@ export const actions: Actions = {
 		const data = await request.formData();
 		const current_password = data.get('currentPassword')?.toString() || '';
 		const new_password = data.get('newPassword')?.toString() || '';
+		const confirm_password = data.get('confirmPassword')?.toString() || '';
 
-		if (!current_password || !new_password) {
-			return fail(400, { message: 'Passwords are required' });
+		if (!current_password || !new_password || !confirm_password) {
+			return fail(400, { message: 'All password fields are required' });
+		}
+
+		if (new_password !== confirm_password) {
+			return fail(400, { message: "Your passwords don't match" });
+		}
+
+		if (current_password === new_password) {
+			return fail(400, { message: 'Cannot change into the same password' });
 		}
 
 		try {
@@ -97,6 +106,10 @@ export const actions: Actions = {
 		} catch (e: unknown) {
 			const message = e instanceof Error ? e.message : 'Failed to change password';
 			console.error('Error changing password:', e);
+			// Provide a clearer message for wrong current password
+			if (message.toLowerCase().includes('current password') || message.toLowerCase().includes('incorrect')) {
+				return fail(400, { message: 'Wrong Password' });
+			}
 			return fail(500, { message });
 		}
 	}
