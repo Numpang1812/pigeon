@@ -1,11 +1,19 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { auth_client } from '$lib/auth-client';
-	import { AtSign, Bell, Check, Heart, MessageCircle, UserPlus } from 'lucide-svelte';
+	import {
+		Bell,
+		Check,
+		Heart,
+		Repeat2,
+		ThumbsDown,
+		UserPlus
+	} from 'lucide-svelte';
 
 	const session = auth_client.useSession();
 
-	type NotificationType = 'like' | 'reply' | 'follow' | 'mention' | 'system';
+	type NotificationType = 'like' | 'dislike' | 'repost' | 'follow';
 	type NotificationFilter = 'all' | 'unread';
 
 	type NotificationItem = {
@@ -18,6 +26,7 @@
 		time_ago: string;
 		day_group: 'Today' | 'Earlier this week' | 'Older';
 		unread: boolean;
+		post_id?: string | null;
 	};
 
 	const filters = [
@@ -25,86 +34,11 @@
 		{ id: 'unread', label: 'Unread' }
 	] as const;
 
-	let active_filter = $state<NotificationFilter>('all');
+	const read_notifications_key = 'pigeon_notifications_read_ids';
 
-	let notifications = $state<NotificationItem[]>([
-		{
-			id: 'n1',
-			type: 'mention',
-			actor_name: 'Aether Travel',
-			actor_handle: 'aether.travel',
-			avatar_url: 'https://i.pravatar.cc/100?u=mention-1',
-			message: 'mentioned you in a post: "That shot by @you was incredible."',
-			time_ago: '5m',
-			day_group: 'Today',
-			unread: true
-		},
-		{
-			id: 'n2',
-			type: 'reply',
-			actor_name: 'Neon City',
-			actor_handle: 'neoncity',
-			avatar_url: 'https://i.pravatar.cc/100?u=reply-2',
-			message: 'replied to your post about design systems.',
-			time_ago: '38m',
-			day_group: 'Today',
-			unread: true
-		},
-		{
-			id: 'n3',
-			type: 'like',
-			actor_name: 'Street Pulse',
-			actor_handle: 'streetpulse',
-			avatar_url: 'https://i.pravatar.cc/100?u=like-3',
-			message: 'liked your post "Minimal APIs, maximal clarity."',
-			time_ago: '1h',
-			day_group: 'Today',
-			unread: false
-		},
-		{
-			id: 'n4',
-			type: 'follow',
-			actor_name: 'Harbor Lens',
-			actor_handle: 'harborlens',
-			avatar_url: 'https://i.pravatar.cc/100?u=follow-4',
-			message: 'started following you.',
-			time_ago: '4h',
-			day_group: 'Today',
-			unread: true
-		},
-		{
-			id: 'n5',
-			type: 'system',
-			actor_name: 'Pigeon',
-			avatar_url: 'https://i.pravatar.cc/100?u=system-5',
-			message: 'Your account security check is complete. Everything looks good.',
-			time_ago: '1d',
-			day_group: 'Earlier this week',
-			unread: false
-		},
-		{
-			id: 'n6',
-			type: 'mention',
-			actor_name: 'Heatwave',
-			actor_handle: 'heatwave',
-			avatar_url: 'https://i.pravatar.cc/100?u=mention-6',
-			message: 'mentioned you in a comment about UI motion patterns.',
-			time_ago: '2d',
-			day_group: 'Earlier this week',
-			unread: false
-		},
-		{
-			id: 'n7',
-			type: 'reply',
-			actor_name: 'Jordan Rivera',
-			actor_handle: 'jordanplays',
-			avatar_url: 'https://i.pravatar.cc/100?u=reply-7',
-			message: 'replied: "Agree. Reusable components save weeks later."',
-			time_ago: '4d',
-			day_group: 'Older',
-			unread: false
-		}
-	]);
+	let active_filter = $state<NotificationFilter>('all');
+	let notifications = $state<NotificationItem[]>([]);
+	let loading_notifications = $state(true);
 
 	const unread_count = $derived(notifications.filter((n) => n.unread).length);
 
@@ -126,28 +60,99 @@
 	}
 
 	function mark_all_as_read(): void {
+		persist_read_notification_ids(notifications.map((n) => n.id));
 		notifications = notifications.map((n) => ({ ...n, unread: false }));
+		if (typeof window !== 'undefined') {
+			window.dispatchEvent(new Event('notifications-seen-updated'));
+		}
 	}
 
 	function mark_as_read(id: string): void {
+		persist_read_notification_ids([id]);
 		notifications = notifications.map((n) => (n.id === id ? { ...n, unread: false } : n));
+		if (typeof window !== 'undefined') {
+			window.dispatchEvent(new Event('notifications-seen-updated'));
+		}
+	}
+
+	function get_read_notification_ids(): Set<string> {
+		if (typeof window === 'undefined') return new Set<string>();
+		try {
+			const raw = localStorage.getItem(read_notifications_key);
+			if (!raw) return new Set<string>();
+			const parsed = JSON.parse(raw);
+			if (!Array.isArray(parsed)) return new Set<string>();
+			return new Set(parsed.filter((id): id is string => typeof id === 'string'));
+		} catch {
+			return new Set<string>();
+		}
+	}
+
+	function persist_read_notification_ids(ids: string[]): void {
+		if (typeof window === 'undefined' || ids.length === 0) return;
+		const current = get_read_notification_ids();
+		for (const id of ids) current.add(id);
+		localStorage.setItem(read_notifications_key, JSON.stringify(Array.from(current)));
+	}
+
+	async function load_notifications(): Promise<void> {
+		loading_notifications = true;
+		try {
+			const response = await fetch('/api/notifications?limit=50');
+			if (!response.ok) {
+				notifications = [];
+				return;
+			}
+
+			const result = await response.json();
+			const incoming: NotificationItem[] = Array.isArray(result.notifications)
+				? (result.notifications as NotificationItem[])
+				: [];
+			const read_ids = get_read_notification_ids();
+			notifications = incoming.map((item) => ({
+				...item,
+				unread: !read_ids.has(item.id)
+			}));
+		} catch (error) {
+			console.error('Failed to load notifications:', error);
+			notifications = [];
+		} finally {
+			loading_notifications = false;
+		}
+	}
+
+	$effect(() => {
+		if ($session.data) {
+			load_notifications();
+		}
+	});
+
+	function should_show_view_post_action(item: NotificationItem): boolean {
+		return (item.type === 'like' || item.type === 'dislike' || item.type === 'repost') && !!item.post_id;
+	}
+
+	function should_show_follow_actions(type: NotificationType): boolean {
+		return type === 'follow';
 	}
 
 	function action_label(type: NotificationType): string {
 		switch (type) {
-			case 'mention':
-				return 'View mention';
-			case 'reply':
-				return 'View reply';
 			case 'like':
+			case 'dislike':
+			case 'repost':
 				return 'View post';
 			case 'follow':
 				return 'Follow back';
-			case 'system':
-				return 'Review';
 			default:
 				return 'View';
 		}
+	}
+
+	async function view_post(notification_id: string, post_id?: string | null): Promise<void> {
+		if (!post_id) return;
+		mark_as_read(notification_id);
+		const target = `${resolve('/home')}?post_id=${encodeURIComponent(post_id)}#post-${post_id}`;
+		await goto(target);
 	}
 </script>
 
@@ -193,7 +198,11 @@
 		</div>
 
 		<section class="feed-column" aria-label="Notification timeline">
-			{#if filtered_notifications.length > 0}
+			{#if loading_notifications}
+				<div class="empty-state" aria-label="Loading notifications">
+					<p>Loading notifications...</p>
+				</div>
+			{:else if filtered_notifications.length > 0}
 				{#each grouped_notifications(filtered_notifications) as section (section.group)}
 					<div class="group-block">
 						<h2 class="group-title">{section.group}</h2>
@@ -201,12 +210,12 @@
 							{#each section.items as item (item.id)}
 								<article class="notification-card" class:unread={item.unread}>
 									<div class="icon-spot" aria-hidden="true">
-										{#if item.type === 'mention'}
-											<AtSign size={14} />
-										{:else if item.type === 'reply'}
-											<MessageCircle size={14} />
-										{:else if item.type === 'like'}
+										{#if item.type === 'like'}
 											<Heart size={14} />
+										{:else if item.type === 'dislike'}
+											<ThumbsDown size={14} />
+										{:else if item.type === 'repost'}
+											<Repeat2 size={14} />
 										{:else if item.type === 'follow'}
 											<UserPlus size={14} />
 										{:else}
@@ -235,7 +244,15 @@
 													Mark as read
 												</button>
 											{/if}
-											<button type="button" class="inline-action">{action_label(item.type)}</button>
+											{#if should_show_view_post_action(item)}
+												<button type="button" class="inline-action" onclick={() => view_post(item.id, item.post_id)}>
+													{action_label(item.type)}
+												</button>
+											{/if}
+											{#if should_show_follow_actions(item.type)}
+												<button type="button" class="inline-action">View profile</button>
+												<button type="button" class="inline-action">Follow back</button>
+											{/if}
 										</div>
 									</div>
 								</article>
