@@ -69,35 +69,50 @@ export const actions: Actions = {
 		}
 	},
 	password: async ({ request }) => {
-		const session = await auth.api.getSession({
-			headers: request.headers
-		});
-
-		if (!session) {
-			return fail(401, { message: 'Unauthorized' });
-		}
+		const session = await auth.api.getSession({ headers: request.headers });
+		if (!session) return fail(401, { message: 'Unauthorized' });
 
 		const data = await request.formData();
-		const current_password = data.get('currentPassword')?.toString() || '';
-		const new_password = data.get('newPassword')?.toString() || '';
-
-		if (!current_password || !new_password) {
-			return fail(400, { message: 'Passwords are required' });
-		}
+		const validation = validate_password_data(data);
+		if (validation.error) return fail(400, { message: validation.error });
 
 		try {
 			await auth.api.changePassword({
 				body: {
-					newPassword: new_password,
-					currentPassword: current_password
+					newPassword: validation.new_password!,
+					currentPassword: validation.current_password!
 				},
 				headers: request.headers
 			});
 			return { success: true, message: 'Password updated successfully' };
 		} catch (e: unknown) {
-			const message = e instanceof Error ? e.message : 'Failed to change password';
-			console.error('Error changing password:', e);
-			return fail(500, { message });
+			return handle_password_error(e);
 		}
 	}
 };
+
+function validate_password_data(data: FormData) {
+	const current_password = data.get('currentPassword')?.toString() || '';
+	const new_password = data.get('newPassword')?.toString() || '';
+	const confirm_password = data.get('confirmPassword')?.toString() || '';
+
+	if (!current_password || !new_password || !confirm_password) {
+		return { error: 'All password fields are required' };
+	}
+	if (new_password !== confirm_password) {
+		return { error: "Your passwords don't match" };
+	}
+	if (current_password === new_password) {
+		return { error: 'Cannot change into the same password' };
+	}
+	return { current_password, new_password };
+}
+
+function handle_password_error(e: unknown) {
+	const message = e instanceof Error ? e.message : 'Failed to change password';
+	console.error('Error changing password:', e);
+	if (message.toLowerCase().includes('current password') || message.toLowerCase().includes('incorrect')) {
+		return fail(400, { message: 'Wrong Password' });
+	}
+	return fail(500, { message });
+}

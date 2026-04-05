@@ -3,6 +3,7 @@ import { auth } from '$lib/auth';
 import { ensure_schema } from '$lib/server/db';
 import { fetch_activity_notifications_for_user } from '$lib/server/notifications';
 
+// eslint-disable-next-line @typescript-eslint/naming-convention
 export const GET: RequestHandler = async ({ request, url }) => {
 	try {
 		await ensure_schema();

@@ -152,13 +152,13 @@ export async function fetch_activity_notifications_for_user(
 		let message: string;
 		switch (item.type) {
 			case 'like':
-				message = `liked your post${post_preview ? ` \"${post_preview}\"` : '.'}`;
+				message = `liked your post${post_preview ? ` "${post_preview}"` : '.'}`;
 				break;
 			case 'dislike':
-				message = `disliked your post${post_preview ? ` \"${post_preview}\"` : '.'}`;
+				message = `disliked your post${post_preview ? ` "${post_preview}"` : '.'}`;
 				break;
 			case 'repost':
-				message = `reposted your post${post_preview ? ` \"${post_preview}\"` : '.'}`;
+				message = `reposted your post${post_preview ? ` "${post_preview}"` : '.'}`;
 				break;
 			case 'follow':
 				message = 'started following you.';

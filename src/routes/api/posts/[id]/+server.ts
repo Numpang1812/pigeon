@@ -2,6 +2,7 @@ import { json, type RequestHandler } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
 import { auth } from '$lib/auth';
 
+// eslint-disable-next-line @typescript-eslint/naming-convention
 export const DELETE: RequestHandler = async ({ params, request }) => {
 	try {
 		const session = await auth.api.getSession({
@@ -45,6 +46,7 @@ export const DELETE: RequestHandler = async ({ params, request }) => {
 	}
 };
 
+// eslint-disable-next-line @typescript-eslint/naming-convention
 export const PATCH: RequestHandler = async ({ params, request }) => {
 	try {
 		const session = await auth.api.getSession({

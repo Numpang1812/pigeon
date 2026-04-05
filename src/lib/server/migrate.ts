@@ -5,14 +5,14 @@
  * Usage: npx tsx src/lib/server/migrate.ts
  */
 
-import { db, ensure_schema } from './db.js';
+import { ensure_schema } from './db.js';
 
 async function migrate() {
-	console.log('🔧 Starting database migration...');
+	console.info('🔧 Starting database migration...');
 	
 	try {
 		await ensure_schema();
-		console.log('✅ Migration complete!');
+		console.info('✅ Migration complete!');
 		process.exit(0);
 	} catch (error) {
 		console.error('❌ Migration failed:', error);

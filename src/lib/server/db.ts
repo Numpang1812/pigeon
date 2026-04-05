@@ -10,8 +10,8 @@ export function get_client() {
 		const url = env.TURSO_DB_URL;
 		const token = env.TURSO_DB_TOKEN;
 
-		console.log('[DB] TURSO_DB_URL:', url ? 'set' : 'undefined');
-		console.log('[DB] TURSO_DB_TOKEN:', token ? 'set' : 'undefined');
+		console.info('[DB] TURSO_DB_URL:', url ? 'set' : 'undefined');
+		console.info('[DB] TURSO_DB_TOKEN:', token ? 'set' : 'undefined');
 
 		if (!url || !token) {
 			throw new Error(
@@ -23,7 +23,7 @@ export function get_client() {
 			url,
 			authToken: token
 		});
-		console.log('[DB] Client created successfully');
+		console.info('[DB] Client created successfully');
 	}
 	return db_client;
 }
@@ -57,34 +57,14 @@ export async function ensure_schema(): Promise<void> {
 			// Create application tables
 			const table_entries = Object.entries(create_tables_sql);
 			for (const [name, sql] of table_entries) {
-				console.info(`[DB Schema] ${sql.startsWith('CREATE TABLE') ? 'Creating table' : 'Altering table'}: ${name}...`);
-				try {
-					await db.execute({ sql, args: [] });
-					console.info(`[DB Schema] ✅ Success: ${name}`);
-				} catch (table_error: any) {
-					const msg = table_error.message?.toLowerCase() || '';
-					// Ignore "already exists" or "duplicate column" errors
-					if (msg.includes('already exists') || msg.includes('duplicate column')) {
-						console.info(`[DB Schema] ℹ️  Already exists: ${name}`);
-					} else {
-						console.error(`[DB Schema] ❌ Error on ${name}:`, table_error.message);
-						throw table_error;
-					}
-				}
+				await handle_table_creation(name, sql);
 			}
 			console.info('[DB Schema] All application tables verified');
 
 			// Create indexes
 			console.info('[DB Schema] Creating indexes...');
 			for (const sql of create_indexes_sql) {
-				try {
-					await db.execute({ sql, args: [] });
-				} catch (index_error: any) {
-					// Index might already exist, which is fine
-					if (!index_error.message?.includes('already exists')) {
-						console.error('[DB Schema] Index error:', index_error.message);
-					}
-				}
+				await handle_index_creation(sql);
 			}
 			console.info('[DB Schema] All indexes verified');
 			console.info('[DB Schema] ========== DATABASE INITIALIZATION COMPLETE ✅ ==========');
@@ -96,4 +76,34 @@ export async function ensure_schema(): Promise<void> {
 	})();
 
 	return init_promise;
+}
+
+async function handle_table_creation(name: string, sql: string) {
+	console.info(`[DB Schema] ${sql.startsWith('CREATE TABLE') ? 'Creating table' : 'Altering table'}: ${name}...`);
+	try {
+		await db.execute({ sql, args: [] });
+		console.info(`[DB Schema] ✅ Success: ${name}`);
+	} catch (table_err: unknown) {
+		const table_error = table_err as { message?: string };
+		const msg = table_error.message?.toLowerCase() || '';
+		// Ignore "already exists" or "duplicate column" errors
+		if (msg.includes('already exists') || msg.includes('duplicate column')) {
+			console.info(`[DB Schema] ℹ️  Already exists: ${name}`);
+		} else {
+			console.error(`[DB Schema] ❌ Error on ${name}:`, table_error.message);
+			throw table_error;
+		}
+	}
+}
+
+async function handle_index_creation(sql: string) {
+	try {
+		await db.execute({ sql, args: [] });
+	} catch (idx_err: unknown) {
+		const index_error = idx_err as { message?: string };
+		// Index might already exist, which is fine
+		if (!index_error.message?.includes('already exists')) {
+			console.error('[DB Schema] Index error:', index_error.message);
+		}
+	}
 }

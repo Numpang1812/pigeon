@@ -3,6 +3,7 @@ import { db } from '$lib/server/db';
 import { auth } from '$lib/auth';
 import { nanoid } from 'nanoid';
 
+// eslint-disable-next-line @typescript-eslint/naming-convention
 export const POST: RequestHandler = async ({ request, params }) => {
 	try {
 		const session = await auth.api.getSession({
