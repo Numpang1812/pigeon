@@ -155,7 +155,8 @@ export const POST: RequestHandler = async ({ request }) => {
 					likes: Number(post.like_count),
 					dislikes: Number(post.dislike_count),
 					reposts: Number(post.repost_count)
-				}
+				},
+				is_author: true
 			}
 		}, { status: 201 });
 
@@ -188,6 +189,7 @@ export const GET: RequestHandler = async ({ url, request }) => {
 				p.content,
 				p.audience,
 				p.post_tag,
+				p.author_id,
 				p.created_at,
 				p.updated_at,
 				u.name as author_name,
@@ -254,6 +256,7 @@ export const GET: RequestHandler = async ({ url, request }) => {
 						p.content,
 						p.audience,
 						p.post_tag,
+						p.author_id,
 						p.created_at,
 						p.updated_at,
 						u.name as author_name,
@@ -308,6 +311,8 @@ export const GET: RequestHandler = async ({ url, request }) => {
 			author_bio: row.author_bio as string,
 			avatar_url: row.author_avatar as string,
 			verified: false,
+			is_author: row.author_id === session.user.id,
+			is_edited: row.updated_at !== row.created_at,
 			metrics: {
 				likes: Number(row.like_count),
 				dislikes: Number(row.dislike_count),

@@ -37,6 +37,8 @@
 		user_liked?: boolean;
 		user_disliked?: boolean;
 		user_reposted?: boolean;
+		is_author?: boolean;
+		is_edited?: boolean;
 	}
 
 	let dynamic_tags = $state<Tag[]>([]);
@@ -89,6 +91,27 @@
 	$effect(() => {
 		load_posts(active_filter);
 	});
+
+	function handle_post_delete(post_id: string): void {
+		feed_posts = feed_posts.filter((p) => p.id !== post_id);
+	}
+
+	function handle_post_edit(post_id: string, new_content: string): void {
+		const post_index = feed_posts.findIndex((p) => p.id === post_id);
+		if (post_index === -1) return;
+
+		const updated_post = {
+			...feed_posts[post_index],
+			content: new_content,
+			is_edited: true
+		};
+
+		feed_posts = [
+			...feed_posts.slice(0, post_index),
+			updated_post,
+			...feed_posts.slice(post_index + 1)
+		];
+	}
 </script>
 
 {#if $session.data}
@@ -135,6 +158,10 @@
 						user_liked={post.user_liked}
 						user_disliked={post.user_disliked}
 						user_reposted={post.user_reposted}
+						is_author={post.is_author}
+						is_edited={post.is_edited}
+						on_delete={handle_post_delete}
+						on_edit={handle_post_edit}
 					/>
 				{/each}
 			{:else}
@@ -161,14 +188,22 @@
 		min-height: 100vh;
 		width: calc(100% + 3rem);
 		margin: -1.5rem;
+		background: #f8fbff;
 	}
 
 	.explore-header {
 		width: 100%;
 		max-width: 980px;
 		margin: 0 auto;
-		padding: 1.25rem 1.25rem 0;
+		padding: 1rem 1.25rem;
 		box-sizing: border-box;
+		position: sticky;
+		top: 0;
+		background: #f8fbff;
+		z-index: 10;
+		border-bottom: 1px solid #e1e8ed;
+		transition: all 0.2s ease;
+		min-width: 0;
 	}
 
 	.page-title {
@@ -182,9 +217,14 @@
 		display: flex;
 		gap: 0.5rem;
 		overflow-x: auto;
-		padding-bottom: 0.5rem;
+		width: 100%;
+		min-width: 0; /* Ensures the container can shrink below its children's intrinsic width */
+		padding: 0.5rem 0 1rem 0;
 		scrollbar-width: none; /* Firefox */
 		-ms-overflow-style: none; /* IE and Edge */
+		-webkit-overflow-scrolling: touch;
+		mask-image: linear-gradient(to right, black 90%, transparent 100%);
+		-webkit-mask-image: linear-gradient(to right, black 90%, transparent 100%);
 	}
 
 	.filter-pills::-webkit-scrollbar {
@@ -194,6 +234,7 @@
 	.pill {
 		display: inline-flex;
 		align-items: center;
+		flex-shrink: 0; /* Prevent pills from squashing */
 		gap: 0.35rem;
 		padding: 0.4rem 0.85rem;
 		border: 1px solid #d0d7e2;
@@ -258,8 +299,18 @@
 			margin: -1rem;
 		}
 
+		.explore-header {
+			padding: 1rem;
+			max-width: 100vw;
+		}
+
 		.feed-column {
 			padding: 0.85rem 1rem 0 1rem;
+		}
+
+		.filter-pills {
+			mask-image: linear-gradient(to right, transparent 0%, black 5%, black 95%, transparent 100%);
+			-webkit-mask-image: linear-gradient(to right, transparent 0%, black 5%, black 95%, transparent 100%);
 		}
 	}
 </style>

@@ -60,8 +60,15 @@
 	gap: 12px;
 	text-decoration: none;
 	color: inherit;
+	border: none;
+	background: transparent;
+	width: 100%;
+	text-align: left;
 	border-bottom: 1px solid #f5f8fa;
 	transition: background 0.2s;
+	cursor: pointer;
+	font-family: inherit;
+	font-size: inherit;
 }
 
 .search-item:last-child {
@@ -187,7 +194,13 @@
 		left: 0;
 	}
 
-	.navbar .search-box input, .navbar .search-container {
-		width: 50vw;
+	.navbar .search-container {
+		flex: 1;
+		width: auto;
+		max-width: 200px;
+	}
+
+	.navbar .search-box input {
+		width: 100%;
 	}
 }
