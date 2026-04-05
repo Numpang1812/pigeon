@@ -177,6 +177,7 @@ export const GET: RequestHandler = async ({ url, request }) => {
 
 		// Check if fetching user-specific posts
 		const user_id = url.searchParams.get('user_id');
+		const tag = url.searchParams.get('tag');
 		const limit = parseInt(url.searchParams.get('limit') || '50');
 		const offset = parseInt(url.searchParams.get('offset') || '0');
 
@@ -207,16 +208,38 @@ export const GET: RequestHandler = async ({ url, request }) => {
 		`;
 
 		const args: any[] = [session.user.id, session.user.id, session.user.id];
+		const where_clauses: string[] = [];
 
 		if (user_id) {
-			query += `WHERE p.author_id = ? `;
+			where_clauses.push(`p.author_id = ?`);
 			args.push(user_id);
 		} else {
-			// For feed: show public posts from all users (can be enhanced with follow logic)
-			query += `WHERE p.audience = 'public' `;
+			where_clauses.push(`p.audience = 'public'`);
 		}
 
-		query += `ORDER BY p.created_at DESC LIMIT ? OFFSET ?`;
+		if (!user_id && tag && tag !== 'foryou' && tag !== 'trending') {
+			if (tag === 'other') {
+				where_clauses.push(`p.post_tag = 'other'`);
+			} else {
+				where_clauses.push(`EXISTS (
+					SELECT 1 FROM post_hashtag ph 
+					JOIN hashtag h ON ph.hashtag_id = h.id 
+					WHERE ph.post_id = p.id AND h.tag_name = ?
+				)`);
+				args.push(tag);
+			}
+		}
+
+		if (where_clauses.length > 0) {
+			query += ` WHERE ` + where_clauses.join(' AND ');
+		}
+
+		if (tag === 'trending') {
+			query += ` ORDER BY like_count DESC, p.created_at DESC LIMIT ? OFFSET ?`;
+		} else {
+			query += ` ORDER BY p.created_at DESC LIMIT ? OFFSET ?`;
+		}
+
 		args.push(limit, offset);
 
 		const posts_result = await db.execute({ sql: query, args });
