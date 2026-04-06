@@ -1,64 +1,13 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { Post } from '$lib';
-	import { ArrowLeft, Calendar, Camera, X } from 'lucide-svelte';
+	import { ArrowLeft, Calendar, Camera } from 'lucide-svelte';
 	import AvatarUploader from '$lib/components/AvatarUploader.svelte';
 	import CoverUploader from '$lib/components/CoverUploader.svelte';
+	import ProfilePostTabs from '$lib/components/profile/ProfilePostTabs.svelte';
+	import ProfileConnectionsModal from '$lib/components/profile/ProfileConnectionsModal.svelte';
+	import type { ProfileData, ProfilePost, ProfilePostMetricChange } from '$lib/components/profile/types';
 	import { invalidateAll } from '$app/navigation';
 	import { SvelteSet } from 'svelte/reactivity';
-
-	type ProfileConnection = {
-		id: string;
-		name: string;
-		handle: string;
-		avatar: string;
-		followed_at: string;
-	};
-
-	type ProfilePost = {
-		id: string;
-		post_tag: string;
-		post_tags: string[];
-		posted_at: string;
-		author_name: string;
-		author_handle: string;
-		content: string;
-		audience: string;
-		author_bio: string;
-		verified: boolean;
-		metrics: {
-			likes: number;
-			dislikes: number;
-			reposts: number;
-		};
-		user_liked: boolean;
-		user_disliked: boolean;
-		user_reposted: boolean;
-		avatar_url: string;
-		is_author?: boolean;
-		is_edited?: boolean;
-	};
-
-	type ProfileData = {
-		profile: {
-			id: string;
-			name: string;
-			handle: string;
-			bio: string;
-			joined: string;
-			avatar: string;
-			cover: string;
-			following: number;
-			followers: number;
-		};
-		posts: ProfilePost[];
-		followers: ProfileConnection[];
-		following: ProfileConnection[];
-		access?: {
-			is_owner?: boolean;
-			is_following?: boolean;
-		};
-	};
 
 	interface ProfilePageViewProps {
 		data: ProfileData;
@@ -68,9 +17,6 @@
 	}
 
 	const props: ProfilePageViewProps = $props();
-
-	const tabs = ['Posts', 'Replies', 'Media', 'Likes'] as const;
-	let active_tab = $state<(typeof tabs)[number]>('Posts');
 
 	const is_owner = $derived(props.force_owner ?? props.data.access?.is_owner ?? false);
 	const show_back_button = $derived(props.show_back_button ?? false);
@@ -86,13 +32,33 @@
 
 	const profile = $derived(props.data.profile);
 	const posts_source = $derived(props.data.posts as ProfilePost[]);
+	const reposted_posts_source = $derived(props.data.reposted_posts as ProfilePost[]);
+	const liked_posts_source = $derived(props.data.liked_posts as ProfilePost[]);
 	const post_overrides = $state<Record<string, ProfilePost>>({});
 	const deleted_post_ids = new SvelteSet<string>();
-	const local_posts = $derived(
-		posts_source
+
+	function apply_local_post_state(
+		posts: ProfilePost[],
+		include_post?: (post: ProfilePost) => boolean
+	): ProfilePost[] {
+		return posts
 			.filter((p) => !deleted_post_ids.has(p.id))
 			.map((p) => post_overrides[p.id] ?? p)
+			.filter((p) => (include_post ? include_post(p) : true));
+	}
+
+	const local_posts = $derived(apply_local_post_state(posts_source));
+	const local_reposted_posts = $derived(
+		apply_local_post_state(reposted_posts_source, (post) => post.user_reposted)
 	);
+	const local_liked_posts = $derived(
+		apply_local_post_state(liked_posts_source, (post) => post.user_liked)
+	);
+	const all_visible_posts = $derived([
+		...local_posts,
+		...local_reposted_posts,
+		...local_liked_posts
+	]);
 
 	async function handle_avatar_success(new_url: string) {
 		avatar_url = new_url;
@@ -153,20 +119,13 @@
 	function handle_metric_change(
 		post_id: string,
 		type: 'like' | 'dislike' | 'repost',
-		new_metrics: {
-			likes: number;
-			dislikes: number;
-			reposts: number;
-			user_liked: boolean;
-			user_disliked: boolean;
-			user_reposted: boolean;
-		}
+		new_metrics: ProfilePostMetricChange
 	): void {
-		const post_index = local_posts.findIndex((p) => p.id === post_id);
-		if (post_index === -1) return;
+		const current_post = all_visible_posts.find((p) => p.id === post_id);
+		if (!current_post) return;
 
 		const updated_post = {
-			...local_posts[post_index],
+			...current_post,
 			metrics: {
 				likes: new_metrics.likes,
 				dislikes: new_metrics.dislikes,
@@ -185,11 +144,11 @@
 	}
 
 	function handle_post_edit(post_id: string, new_content: string): void {
-		const post_index = local_posts.findIndex((p) => p.id === post_id);
-		if (post_index === -1) return;
+		const current_post = all_visible_posts.find((p) => p.id === post_id);
+		if (!current_post) return;
 
 		const updated_post = {
-			...local_posts[post_index],
+			...current_post,
 			content: new_content,
 			is_edited: true
 		};
@@ -283,56 +242,16 @@
 					</button>
 				</div>
 			</div>
-
-			<nav class="profile-tabs">
-				{#each tabs as tab (tab)}
-					<button
-						class="tab"
-						class:active={active_tab === tab}
-						onclick={() => (active_tab = tab)}
-					>
-						{tab}
-						{#if active_tab === tab}
-							<div class="tab-indicator"></div>
-						{/if}
-					</button>
-				{/each}
-			</nav>
 		</div>
 
-		<section class="feed-column" id="posts" aria-label="Posts">
-			{#if active_tab === 'Posts'}
-				{#each local_posts as post (post.id)}
-					<Post
-						post_id={post.id}
-						post_tag={post.post_tag}
-						post_tags={post.post_tags}
-						posted_at={post.posted_at}
-						content={post.content}
-						audience={post.audience}
-						author_name={post.author_name}
-						author_handle={post.author_handle}
-						author_bio={post.author_bio}
-						avatar_url={post.avatar_url}
-						verified={post.verified}
-						metrics={post.metrics}
-						user_liked={post.user_liked}
-						user_disliked={post.user_disliked}
-						user_reposted={post.user_reposted}
-						is_author={post.is_author}
-						is_edited={post.is_edited}
-						on_metric_change={handle_metric_change}
-						on_delete={handle_post_delete}
-						on_edit={handle_post_edit}
-					/>
-				{/each}
-			{:else}
-				<div class="empty-state">
-					<h2>No {active_tab.toLowerCase()} yet</h2>
-					<p>When there are {active_tab.toLowerCase()}, they will show up here.</p>
-				</div>
-			{/if}
-		</section>
+		<ProfilePostTabs
+			posts={local_posts}
+			reposted_posts={local_reposted_posts}
+			liked_posts={local_liked_posts}
+			on_metric_change={handle_metric_change}
+			on_delete={handle_post_delete}
+			on_edit={handle_post_edit}
+		/>
 	</div>
 
 	{#if is_owner && show_avatar_uploader}
@@ -387,73 +306,12 @@
 		</div>
 	{/if}
 
-	{#if show_connections_modal}
-		<div
-			class="modal-backdrop"
-			onclick={() => (show_connections_modal = null)}
-			onkeydown={(e) => e.key === 'Escape' && (show_connections_modal = null)}
-			role="button"
-			tabindex="0"
-			aria-label="Close connections"
-		>
-			<div
-				class="connections-modal"
-				onclick={stop_event_propagation}
-				onkeydown={stop_event_propagation}
-				role="dialog"
-				aria-modal="true"
-				tabindex="-1"
-			>
-				<div class="modal-header">
-					<h2>{show_connections_modal === 'following' ? 'Following' : 'Followers'}</h2>
-					<button
-						type="button"
-						class="modal-close"
-						onclick={() => (show_connections_modal = null)}
-						aria-label="Close"
-					>
-						<X size={18} strokeWidth={2.5} />
-					</button>
-				</div>
-
-				<div class="modal-body">
-					{#if show_connections_modal === 'following'}
-						{#if props.data.following.length > 0}
-							<div class="connection-list">
-								{#each props.data.following as user (user.id)}
-									<a class="connection-item" href={resolve(`/profile/${user.handle}`)}>
-										<img src={user.avatar || 'https://i.pravatar.cc/40'} alt={user.name} />
-										<div>
-											<strong>{user.name}</strong>
-											<p>@{user.handle}</p>
-										</div>
-									</a>
-								{/each}
-							</div>
-						{:else}
-							<p class="connection-empty">Not following anyone yet.</p>
-						{/if}
-					{:else if show_connections_modal === 'followers'}
-						{#if props.data.followers.length > 0}
-							<div class="connection-list">
-								{#each props.data.followers as user (user.id)}
-									<a class="connection-item" href={resolve(`/profile/${user.handle}`)}>
-										<img src={user.avatar || 'https://i.pravatar.cc/40'} alt={user.name} />
-										<div>
-											<strong>{user.name}</strong>
-											<p>@{user.handle}</p>
-										</div>
-									</a>
-								{/each}
-							</div>
-						{:else}
-							<p class="connection-empty">No followers yet.</p>
-						{/if}
-					{/if}
-				</div>
-			</div>
-		</div>
-	{/if}
+	<ProfileConnectionsModal
+		mode={show_connections_modal}
+		followers={props.data.followers}
+		following={props.data.following}
+		on_close={() => (show_connections_modal = null)}
+	/>
 </div>
 
 <style>
@@ -731,207 +589,6 @@
 		color: #657786;
 	}
 
-	.profile-tabs {
-		display: flex;
-		border-bottom: 1px solid #e1e8ed;
-		width: 100%;
-	}
-
-	.tab {
-		flex: 1;
-		background: transparent;
-		border: none;
-		font-weight: 500;
-		font-size: 15px;
-		color: #657786;
-		padding: 16px 0;
-		cursor: pointer;
-		position: relative;
-		transition: background-color 0.2s;
-		font-family: inherit;
-	}
-
-	.tab:hover {
-		background-color: #f5f8fa;
-	}
-
-	.tab.active {
-		font-weight: 700;
-		color: #14171a;
-	}
-
-	.tab-indicator {
-		position: absolute;
-		bottom: 0;
-		left: 50%;
-		transform: translateX(-50%);
-		width: 56px;
-		height: 4px;
-		border-radius: 9999px;
-		background-color: #1da1f2;
-	}
-
-	.feed-column {
-		display: flex;
-		flex-direction: column;
-		padding: 1.5rem;
-	}
-
-	.connections-modal {
-		background: white;
-		border-radius: 28px;
-		width: 100%;
-		max-width: 720px;
-		max-height: 90vh;
-		display: flex;
-		flex-direction: column;
-		animation: modal_slide_in 0.3s ease-out;
-		box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
-	}
-
-	.modal-header {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		padding: 1rem 1rem;
-		border-bottom: 2px solid #f1f5f9;
-		background: #fafbfc;
-		border-radius: 28px 28px 0 0;
-	}
-
-	.modal-header h2 {
-		font-size: 23px;
-		font-weight: 700;
-		margin: 0;
-		margin-left: 10px;
-		color: #0f1419;
-		letter-spacing: -0.5px;
-	}
-
-	.modal-close {
-		background: #e8ecf1;
-		border: none;
-		font-size: 24px;
-		line-height: 1;
-		cursor: pointer;
-		color: #536471;
-		padding: 0;
-		width: 40px;
-		height: 40px;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		border-radius: 50%;
-		transition: all 0.2s;
-		flex-shrink: 0;
-	}
-
-	.modal-close:hover {
-		background-color: #d4d9df;
-		color: #0f1419;
-	}
-
-	.modal-body {
-		overflow-y: auto;
-		padding: 1.5rem 0;
-		flex: 1;
-		scroll-behavior: smooth;
-	}
-
-	.modal-body::-webkit-scrollbar {
-		width: 8px;
-	}
-
-	.modal-body::-webkit-scrollbar-track {
-		background: #f1f5f9;
-	}
-
-	.modal-body::-webkit-scrollbar-thumb {
-		background: #cbd5e1;
-		border-radius: 4px;
-	}
-
-	.modal-body::-webkit-scrollbar-thumb:hover {
-		background: #94a3b8;
-	}
-
-	.connection-list {
-		display: flex;
-		flex-direction: column;
-		gap: 0.5rem;
-		padding: 0.5rem 1.5rem;
-	}
-
-	.connection-item {
-		width: 100%;
-		border: 1px solid transparent;
-		background: transparent;
-		display: flex;
-		align-items: center;
-		gap: 1.2rem;
-		padding: 1.2rem 1.2rem;
-		border-radius: 16px;
-		text-decoration: none;
-		color: inherit;
-		transition: all 0.2s ease;
-	}
-
-	.connection-item:hover {
-		background: #f0f3f7;
-		border-color: #e1e8ed;
-	}
-
-	.connection-item img {
-		width: 56px;
-		height: 56px;
-		border-radius: 9999px;
-		object-fit: cover;
-		flex-shrink: 0;
-		border: 2px solid #e1e8ed;
-	}
-
-	.connection-item strong {
-		display: block;
-		font-size: 16px;
-		font-weight: 600;
-		color: #0f1419;
-		line-height: 1.4;
-	}
-
-	.connection-item p {
-		margin: 0;
-		font-size: 15px;
-		color: #536471;
-		line-height: 1.4;
-	}
-
-	.connection-empty {
-		margin: 0;
-		color: #536471;
-		font-size: 15px;
-		text-align: center;
-		padding: 3rem 2rem;
-		line-height: 1.6;
-	}
-
-	.empty-state {
-		padding: 40px 20px;
-		text-align: center;
-		color: #14171a;
-	}
-
-	.empty-state h2 {
-		font-size: 31px;
-		font-weight: 800;
-		margin: 0 0 8px 0;
-	}
-
-	.empty-state p {
-		font-size: 15px;
-		color: #657786;
-		margin: 0;
-		line-height: 1.3;
-	}
 
 	@media (max-width: 900px) {
 		.profile-layout {
@@ -965,10 +622,6 @@
 		max-width: 500px;
 		width: 100%;
 		animation: modal_slide_in 0.26s ease-out;
-	}
-
-	.connections-modal {
-		will-change: transform, opacity;
 	}
 
 	@keyframes modal_slide_in {
