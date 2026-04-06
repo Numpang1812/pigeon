@@ -14,6 +14,7 @@ import type {
 	Dislike,
 	Repost,
 	Follow,
+	PostVisibility,
 	Notification,
 	Hashtag,
 	PostHashtag
@@ -32,6 +33,7 @@ export interface Database {
 	dislike: Dislike;
 	repost: Repost;
 	follow: Follow;
+	post_visibility: PostVisibility;
 	notification: Notification;
 	hashtag: Hashtag;
 	post_hashtag: PostHashtag;

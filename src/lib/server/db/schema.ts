@@ -40,6 +40,15 @@ export const create_tables_sql = {
 		)
 	`,
 
+	post_visibility: `
+		CREATE TABLE IF NOT EXISTS post_visibility (
+			post_id TEXT NOT NULL REFERENCES post(id) ON DELETE CASCADE,
+			user_id TEXT NOT NULL REFERENCES user(id) ON DELETE CASCADE,
+			created_at TEXT NOT NULL DEFAULT (datetime('now')),
+			PRIMARY KEY (post_id, user_id)
+		)
+	`,
+
 	// Post Media (images/videos from S3)
 	post_media: `
 		CREATE TABLE IF NOT EXISTS post_media (
@@ -160,6 +169,7 @@ export const create_indexes_sql = [
 	`CREATE INDEX IF NOT EXISTS idx_post_author_id ON post(author_id)`,
 	`CREATE INDEX IF NOT EXISTS idx_post_created_at ON post(created_at DESC)`,
 	`CREATE INDEX IF NOT EXISTS idx_post_tag ON post(post_tag)`,
+	`CREATE INDEX IF NOT EXISTS idx_post_visibility_user ON post_visibility(user_id)`,
 
 	// Post media indexes
 	`CREATE INDEX IF NOT EXISTS idx_post_media_post_id ON post_media(post_id)`,
@@ -204,6 +214,7 @@ export const create_indexes_sql = [
 export const table_names = {
 	post: 'post',
 	postMedia: 'post_media',
+	postVisibility: 'post_visibility',
 	comment: 'comment',
 	like: 'like',
 	dislike: 'dislike',

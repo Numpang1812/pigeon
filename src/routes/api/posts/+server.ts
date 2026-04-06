@@ -2,6 +2,7 @@ import { json, type RequestHandler } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
 import { auth } from '$lib/auth';
 import { nanoid } from 'nanoid';
+import { build_post_visibility_clause, normalize_user_id_list } from '$lib/server/post-visibility';
 
 function normalize_tag(raw_tag: unknown): string | null {
 	if (typeof raw_tag !== 'string') return null;
@@ -19,8 +20,27 @@ export const POST: RequestHandler = async ({ request }) => {
 		const validation = validate_post_input(body);
 		if (validation.error) return json({ error: validation.error }, { status: 400 });
 
-		const { content, audience, normalized_tags, validated_post_tag } = validation;
+		const { content, audience, normalized_tags, validated_post_tag, requested_allowed_user_ids } = validation;
 		if (!content || !audience || !validated_post_tag) return json({ error: 'Invalid input' }, { status: 400 });
+
+		let validated_allowed_user_ids: string[] = [];
+		if (audience === 'close_friends') {
+			const following_result = await db.execute({
+				sql: 'SELECT following_id FROM follow WHERE follower_id = ?',
+				args: [session.user.id]
+			});
+
+			const allowed_following_ids = new Set(
+				following_result.rows.map((row) => String(row.following_id))
+			);
+			validated_allowed_user_ids = requested_allowed_user_ids.filter((user_id) =>
+				allowed_following_ids.has(user_id)
+			);
+
+			if (validated_allowed_user_ids.length === 0) {
+				return json({ error: 'Select who can see this post' }, { status: 400 });
+			}
+		}
 
 		const post_id = nanoid();
 		await db.execute({
@@ -28,6 +48,10 @@ export const POST: RequestHandler = async ({ request }) => {
 				  VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
 			args: [post_id, session.user.id, content.trim(), audience, validated_post_tag]
 		});
+
+		if (audience === 'close_friends') {
+			await handle_post_visibility(post_id, validated_allowed_user_ids);
+		}
 
 		if (body.media) await handle_post_media(post_id, body.media);
 		if (normalized_tags && normalized_tags.length > 0) await handle_post_hashtags(post_id, normalized_tags);
@@ -77,10 +101,11 @@ interface PostInput {
 	audience?: string;
 	normalized_tags?: string[];
 	validated_post_tag?: string;
+	requested_allowed_user_ids?: string[];
 }
 
 function validate_post_input(body: Record<string, unknown>): PostInput {
-	const { content, audience, post_tag, post_tags } = body;
+	const { content, audience, post_tag, post_tags, allowed_user_ids } = body;
 	if (!content || typeof content !== 'string' || content.trim().length === 0) {
 		return { error: 'Content is required' };
 	}
@@ -97,8 +122,9 @@ function validate_post_input(body: Record<string, unknown>): PostInput {
 
 	const normalized_primary = normalize_tag(post_tag);
 	const validated_post_tag = normalized_tags[0] ?? normalized_primary ?? 'other';
+	const requested_allowed_user_ids = normalize_user_id_list(allowed_user_ids);
 
-	return { content, audience: validated_audience, normalized_tags, validated_post_tag };
+	return { content, audience: validated_audience, normalized_tags, validated_post_tag, requested_allowed_user_ids };
 }
 
 async function handle_post_media(post_id: string, media: unknown[]) {
@@ -127,6 +153,16 @@ async function handle_post_hashtags(post_id: string, tags: string[]) {
 				args: [post_id, result.rows[0].id as string]
 			});
 		}
+	}
+}
+
+async function handle_post_visibility(post_id: string, user_ids: string[]) {
+	for (const user_id of user_ids) {
+		await db.execute({
+			sql: `INSERT OR IGNORE INTO post_visibility (post_id, user_id, created_at)
+				  VALUES (?, ?, datetime('now'))`,
+			args: [post_id, user_id]
+		});
 	}
 }
 
@@ -175,6 +211,7 @@ function build_posts_query(url: URL, current_user_id: string) {
 	const tag = url.searchParams.get('tag');
 	const limit = parseInt(url.searchParams.get('limit') || '50');
 	const offset = parseInt(url.searchParams.get('offset') || '0');
+	const visibility_clause = build_post_visibility_clause(current_user_id);
 
 	let query = `
 		SELECT p.*, u.name as author_name, u.username as author_handle, u.image as author_avatar, u.bio as author_bio,
@@ -193,8 +230,13 @@ function build_posts_query(url: URL, current_user_id: string) {
 	if (user_id) {
 		where.push('p.author_id = ?');
 		args.push(user_id);
+		if (user_id !== current_user_id) {
+			where.push(visibility_clause.clause);
+			args.push(...visibility_clause.args);
+		}
 	} else {
-		where.push("p.audience = 'public'");
+		where.push(visibility_clause.clause);
+		args.push(...visibility_clause.args);
 	}
 
 	if (!user_id && tag && !['foryou', 'trending'].includes(tag)) {
@@ -225,8 +267,8 @@ async function fetch_specific_post(post_id: string, current_user_id: string) {
 				EXISTS(SELECT 1 FROM dislike WHERE post_id = p.id AND user_id = ?) as user_disliked,
 				EXISTS(SELECT 1 FROM repost WHERE post_id = p.id AND user_id = ?) as user_reposted
 			  FROM post p JOIN user u ON p.author_id = u.id
-			  WHERE p.id = ? AND (p.audience = 'public' OR p.author_id = ?)`,
-		args: [current_user_id, current_user_id, current_user_id, post_id, current_user_id]
+			  WHERE p.id = ? AND ${build_post_visibility_clause(current_user_id).clause}`,
+		args: [current_user_id, current_user_id, current_user_id, post_id, ...build_post_visibility_clause(current_user_id).args]
 	});
 	return result.rows[0];
 }

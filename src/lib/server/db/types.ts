@@ -46,6 +46,12 @@ export interface Post {
 	updatedAt: GeneratedDate;
 }
 
+export interface PostVisibility {
+	postId: string;
+	userId: string;
+	createdAt: GeneratedDate;
+}
+
 // ==========================================
 // Post Media
 // ==========================================
