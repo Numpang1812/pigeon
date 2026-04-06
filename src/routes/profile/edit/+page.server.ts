@@ -3,6 +3,7 @@ import { db } from '$lib/server/db';
 import { fail, redirect } from '@sveltejs/kit';
 import { auth } from '$lib/auth';
 import { normalize_handle } from '$lib';
+import { delete_from_cloudinary, extract_public_id } from '$lib/server/cloudinary';
 
 export const load: PageServerLoad = async ({ request }) => {
 	const session = await auth.api.getSession({
@@ -102,6 +103,81 @@ export const actions: Actions = {
 			return { success: true, message: 'Password updated successfully' };
 		} catch (e: unknown) {
 			return handle_password_error(e);
+		}
+	},
+	delete: async ({ request }) => {
+		const session = await auth.api.getSession({ headers: request.headers });
+		if (!session) return fail(401, { message: 'Unauthorized' });
+
+		const data = await request.formData();
+		const confirmation = data.get('deleteConfirmation')?.toString() || '';
+
+		if (confirmation !== 'IWANTTODELETEMYACCOUNT') {
+			return fail(400, { message: 'Confirmation text does not match' });
+		}
+
+		try {
+			// 1. Fetch user profile data (avatar, cover) before deletion
+			const user_data = await db.execute({
+				sql: 'SELECT id, image, cover FROM user WHERE id = ?',
+				args: [session.user.id]
+			});
+
+			// 2. Fetch all post media Cloudinary keys for user's posts
+			const post_media_result = await db.execute({
+				sql: `
+					SELECT pm.s3_key, pm.media_url
+					FROM post_media pm
+					JOIN post p ON pm.post_id = p.id
+					WHERE p.author_id = ?
+				`,
+				args: [session.user.id]
+			});
+
+			// 3. Delete Cloudinary assets for user's profile images
+			const cloudinary_promises: Promise<void>[] = [];
+
+			const avatar_url = user_data.rows[0]?.image as string | null;
+			if (avatar_url && !avatar_url.includes('ui-avatars.com')) {
+				const avatar_id = extract_public_id(avatar_url);
+				if (avatar_id) cloudinary_promises.push(delete_from_cloudinary(avatar_id));
+			}
+
+			const cover_url = user_data.rows[0]?.cover as string | null;
+			if (cover_url) {
+				const cover_id = extract_public_id(cover_url);
+				if (cover_id) cloudinary_promises.push(delete_from_cloudinary(cover_id));
+			}
+
+			// 4. Delete Cloudinary assets for all user's post media
+			for (const row of post_media_result.rows) {
+				const media_url = row.media_url as string;
+				const media_id = extract_public_id(media_url);
+				if (media_id) cloudinary_promises.push(delete_from_cloudinary(media_id));
+			}
+
+			// Wait for all Cloudinary deletions to complete
+			await Promise.allSettled(cloudinary_promises);
+
+			// 5. Delete user from database (CASCADE handles posts, comments, likes, etc.)
+			await db.execute({
+				sql: 'DELETE FROM user WHERE id = ?',
+				args: [session.user.id]
+			});
+
+			// 6. Revoke all sessions from BetterAuth
+			await auth.api.revokeUserSession({
+				body: { userId: session.user.id },
+				headers: request.headers
+			});
+
+			throw redirect(303, '/');
+		} catch (e: unknown) {
+			if (e && typeof e === 'object' && 'status' in e && typeof (e as { status: number }).status === 'number') {
+				throw e;
+			}
+			console.error('Error deleting account:', e);
+			return fail(500, { message: 'Failed to delete account' });
 		}
 	}
 };
