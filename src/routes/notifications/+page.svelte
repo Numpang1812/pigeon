@@ -157,9 +157,14 @@
 	async function view_post(notification_id: string, post_id?: string | null): Promise<void> {
 		if (!post_id) return;
 		mark_as_read(notification_id);
-		const target =
-			`/home?post_id=${encodeURIComponent(post_id)}#post-${post_id}` as `/home?${string}#${string}`;
-		await goto(resolve(target));
+		if (typeof window !== 'undefined') {
+			window.location.assign(
+				resolve('/home') + `?post_id=${encodeURIComponent(post_id)}#post-${post_id}`
+			);
+			return;
+		}
+
+		await goto(resolve('/home'));
 	}
 
 	async function view_profile(notification_id: string, actor_handle?: string): Promise<void> {
