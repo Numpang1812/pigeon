@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { Home, Search, Bell, User, Edit, LogOut } from 'lucide-svelte';
 	import { fly } from 'svelte/transition';
@@ -41,7 +40,7 @@
 
 		try {
 			await auth_client.signOut();
-			goto(resolve('/'));
+			window.location.href = resolve('/');
 		} finally {
 			is_logging_out = false;
 		}
