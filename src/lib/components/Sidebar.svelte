@@ -144,6 +144,14 @@
 					xmlns="http://www.w3.org/2000/svg"
 					aria-label="Pigeon logo"
 				>
+					<defs>
+						<radialGradient id="pigeon-bg" cx="50%" cy="38%" r="70%">
+							<stop offset="0%" stop-color="#7dd3fc" />
+							<stop offset="100%" stop-color="#0ea5e9" />
+						</radialGradient>
+					</defs>
+					<circle cx="60" cy="60" r="56" fill="url(#pigeon-bg)" />
+					<circle cx="60" cy="60" r="55" stroke="rgba(255, 255, 255, 0.45)" stroke-width="1.5" />
 					<!-- Body -->
 					<ellipse cx="62" cy="68" rx="34" ry="26" fill="white" opacity="0.95" />
 					<!-- Head -->
