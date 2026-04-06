@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { auth_client } from '$lib/auth-client';
-	import { Flame, Hash, Sparkles } from 'lucide-svelte';
+	import { Flame, Hash, Sparkles, ChevronLeft, ChevronRight } from 'lucide-svelte';
 	import type { Component } from 'svelte';
 	import { Post } from '$lib';
 
@@ -50,7 +50,20 @@
 
 	const all_filters = $derived([...static_filters, ...dynamic_tags]);
 
-	async function load_popular_tags() {
+	let pills_container: HTMLDivElement | null = null;
+
+	function scroll_filters(direction: 'left' | 'right'): void {
+		if (!pills_container) return;
+
+		const scroll_amount = 220;
+
+		pills_container.scrollBy({
+			left: direction === 'left' ? -scroll_amount : scroll_amount,
+			behavior: 'smooth'
+		});
+	}
+
+	async function load_popular_tags(): Promise<void> {
 		tags_loading = true;
 		try {
 			const res = await fetch('/api/tags/popular');
@@ -69,7 +82,7 @@
 		}
 	}
 
-	async function load_posts(tag: string) {
+	async function load_posts(tag: string): Promise<void> {
 		loading = true;
 		try {
 			const res = await fetch(`/api/posts?tag=${encodeURIComponent(tag)}&limit=50`);
@@ -118,21 +131,34 @@
 	<div class="explore-page">
 		<header class="explore-header">
 			<h1 class="page-title">Explore</h1>
-			<div class="filter-pills">
-				{#if tags_loading}
-					<div class="pills-loading">Loading tags...</div>
-				{:else}
-					{#each all_filters as f (f.id)}
-						<button
-							class="pill"
-							class:active={active_filter === f.id}
-							onclick={() => (active_filter = f.id)}
-						>
-							<span class="filter-icon"><f.icon size={16} strokeWidth={2.25} /></span>
-							{f.label}
-						</button>
-					{/each}
-				{/if}
+
+			<div class="filter-wrapper">
+				<button class="scroll-btn" onclick={() => scroll_filters('left')}>
+					<ChevronLeft size={18} strokeWidth={2.5} />
+				</button>
+
+				<div class="filter-pills" bind:this={pills_container}>
+					{#if tags_loading}
+						<div class="pills-loading">Loading tags...</div>
+					{:else}
+						{#each all_filters as f (f.id)}
+							<button
+								class="pill"
+								class:active={active_filter === f.id}
+								onclick={() => (active_filter = f.id)}
+							>
+								<span class="filter-icon">
+									<f.icon size={16} strokeWidth={2.25} />
+								</span>
+								{f.label}
+							</button>
+						{/each}
+					{/if}
+				</div>
+
+				<button class="scroll-btn" onclick={() => scroll_filters('right')}>
+					<ChevronRight size={18} strokeWidth={2.5} />
+				</button>
 			</div>
 		</header>
 
@@ -202,8 +228,6 @@
 		background: #f8fbff;
 		z-index: 10;
 		border-bottom: 1px solid #e1e8ed;
-		transition: all 0.2s ease;
-		min-width: 0;
 	}
 
 	.page-title {
@@ -213,28 +237,52 @@
 		margin: 0 0 1rem 0;
 	}
 
+	.filter-wrapper {
+		display: flex;
+		align-items: center;
+		gap: 0.4rem;
+	}
+
 	.filter-pills {
 		display: flex;
 		gap: 0.5rem;
 		overflow-x: auto;
-		width: 100%;
-		min-width: 0; /* Ensures the container can shrink below its children's intrinsic width */
-		padding: 0.5rem 0 1rem 0;
-		scrollbar-width: none; /* Firefox */
-		-ms-overflow-style: none; /* IE and Edge */
-		-webkit-overflow-scrolling: touch;
-		mask-image: linear-gradient(to right, black 90%, transparent 100%);
-		-webkit-mask-image: linear-gradient(to right, black 90%, transparent 100%);
+		scroll-behavior: smooth;
+		flex: 1;
+
+		scrollbar-width: none;
+		-ms-overflow-style: none;
 	}
 
 	.filter-pills::-webkit-scrollbar {
-		display: none; /* Chrome, Safari and Opera */
+		display: none;
+	}
+
+	.scroll-btn {
+		border: 1px solid #e2e8f0;
+		background: #ffffff;
+		color: #334155;
+		border-radius: 999px;
+		width: 32px;
+		height: 32px;
+		cursor: pointer;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		transition: all 0.15s ease;
+		flex-shrink: 0;
+		box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+	}
+
+	.scroll-btn:hover {
+		background: #f1f5f9;
+		border-color: #cbd5f5;
 	}
 
 	.pill {
 		display: inline-flex;
 		align-items: center;
-		flex-shrink: 0; /* Prevent pills from squashing */
+		flex-shrink: 0;
 		gap: 0.35rem;
 		padding: 0.4rem 0.85rem;
 		border: 1px solid #d0d7e2;
@@ -245,11 +293,6 @@
 		font-weight: 600;
 		cursor: pointer;
 		white-space: nowrap;
-		transition: all 150ms ease;
-	}
-
-	.pill:hover {
-		background: #eef3fb;
 	}
 
 	.pill.active {
@@ -258,59 +301,16 @@
 		border-color: #0ea5e9;
 	}
 
-	.filter-icon {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-	}
-
 	.feed-column {
 		width: 100%;
 		max-width: 980px;
 		margin: 0 auto;
 		padding: 1rem 1.25rem 0 1.25rem;
-		box-sizing: border-box;
 	}
 
 	.empty-state {
 		padding: 60px 20px;
 		text-align: center;
 		color: #64748b;
-	}
-
-	.login-prompt,
-	.loading {
-		min-height: 100vh;
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-	}
-
-	.login-link {
-		color: #1da1f2;
-		font-weight: 700;
-		text-decoration: none;
-	}
-
-	@media (max-width: 900px) {
-		.explore-page {
-			width: calc(100% + 2rem);
-			margin: -1rem;
-		}
-
-		.explore-header {
-			padding: 1rem;
-			max-width: 100vw;
-		}
-
-		.feed-column {
-			padding: 0.85rem 1rem 0 1rem;
-		}
-
-		.filter-pills {
-			mask-image: linear-gradient(to right, transparent 0%, black 5%, black 95%, transparent 100%);
-			-webkit-mask-image: linear-gradient(to right, transparent 0%, black 5%, black 95%, transparent 100%);
-		}
 	}
 </style>
