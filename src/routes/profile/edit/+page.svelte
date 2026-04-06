@@ -1,8 +1,9 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { goto } from '$app/navigation';
 	import type { ActionData, PageData } from './$types';
 	import { resolve } from '$app/paths';
-	import { ArrowLeft, Camera, Lock } from 'lucide-svelte';
+	import { ArrowLeft, Camera, KeyRound, Trash2, AlertTriangle } from 'lucide-svelte';
 	import AvatarUploader from '$lib/components/AvatarUploader.svelte';
 
 	const { data, form } = $props<{ data: PageData; form: ActionData }>();
@@ -17,6 +18,9 @@
 		profile.avatar = newUrl;
 		show_avatar_uploader = false;
 	}
+
+	// Security tab state
+	let show_password_form = $state(false);
 
 	// Password form state
 	let current_password = $state('');
@@ -36,6 +40,21 @@
 			password_error = 'Cannot change into the same password';
 			return;
 		}
+	}
+
+	// Delete account state
+	let show_delete_modal = $state(false);
+	let delete_confirmation = $state('');
+	const DELETE_CONFIRMATION = 'IWANTTODELETEMYACCOUNT';
+
+	function open_delete_modal() {
+		show_delete_modal = true;
+		delete_confirmation = '';
+	}
+
+	function cancel_delete() {
+		show_delete_modal = false;
+		delete_confirmation = '';
 	}
 </script>
 
@@ -84,7 +103,7 @@
 		<div class="form-container">
 			{#if active_tab === 'profile'}
 				<form method="POST" action="?/profile" use:enhance class="edit-form">
-					
+
 					<!-- Avatar Edit -->
 					<div class="avatar-section">
 						<span class="section-label">Profile Picture</span>
@@ -143,64 +162,96 @@
 						<button type="submit" class="btn btn-primary">Save changes</button>
 					</div>
 				</form>
-			{:else}
-				<form
-					method="POST"
-					action="?/password"
-					use:enhance
-					onsubmit={handle_password_submit}
-					class="edit-form"
-				>
-					<div class="security-intro">
-						<Lock size={20} />
-						<p>Update your password to keep your account secure.</p>
-					</div>
+			{:else if show_password_form}
+				<div class="security-section">
+					<button class="security-back-btn" onclick={() => (show_password_form = false)}>
+						<ArrowLeft size={16} /> Back to Security
+					</button>
 
-					{#if password_error}
-						<div class="alert error">
-							{password_error}
+					<form
+						method="POST"
+						action="?/password"
+						use:enhance
+						onsubmit={handle_password_submit}
+						class="edit-form"
+					>
+						<div class="security-intro">
+							<KeyRound size={20} />
+							<p>Update your password to keep your account secure.</p>
 						</div>
-					{/if}
 
-					<div class="form-group">
-						<label for="currentPassword">Current password</label>
-						<input
-							type="password"
-							id="currentPassword"
-							name="currentPassword"
-							bind:value={current_password}
-							required
-						/>
+						{#if password_error}
+							<div class="alert error">{password_error}</div>
+						{/if}
+
+						<div class="form-group">
+							<label for="currentPassword">Current password</label>
+							<input
+								type="password"
+								id="currentPassword"
+								name="currentPassword"
+								bind:value={current_password}
+								required
+							/>
+						</div>
+
+						<div class="form-group">
+							<label for="newPassword">New password</label>
+							<input
+								type="password"
+								id="newPassword"
+								name="newPassword"
+								bind:value={new_password}
+								required
+								minlength="8"
+							/>
+						</div>
+
+						<div class="form-group">
+							<label for="confirmPassword">Confirm new password</label>
+							<input
+								type="password"
+								id="confirmPassword"
+								name="confirmPassword"
+								bind:value={confirm_password}
+								required
+								minlength="8"
+							/>
+						</div>
+
+						<div class="form-actions">
+							<button type="submit" class="btn btn-primary">Update password</button>
+						</div>
+					</form>
+				</div>
+			{:else}
+				<div class="security-options">
+					<div class="security-option">
+						<div class="security-option-content">
+							<KeyRound size={24} />
+							<div class="security-option-text">
+								<h3>Change Password</h3>
+								<p>Update your password to keep your account secure</p>
+							</div>
+						</div>
+						<button class="btn btn-outline" onclick={() => (show_password_form = true)}>
+							Change
+						</button>
 					</div>
 
-					<div class="form-group">
-						<label for="newPassword">New password</label>
-						<input
-							type="password"
-							id="newPassword"
-							name="newPassword"
-							bind:value={new_password}
-							required
-							minlength="8"
-						/>
+					<div class="security-option danger">
+						<div class="security-option-content">
+							<AlertTriangle size={24} />
+							<div class="security-option-text">
+								<h3>Delete Account</h3>
+								<p>Permanently delete your account and all your data</p>
+							</div>
+						</div>
+						<button class="btn btn-danger" onclick={open_delete_modal}>
+							Delete
+						</button>
 					</div>
-
-					<div class="form-group">
-						<label for="confirmPassword">Confirm new password</label>
-						<input
-							type="password"
-							id="confirmPassword"
-							name="confirmPassword"
-							bind:value={confirm_password}
-							required
-							minlength="8"
-						/>
-					</div>
-
-					<div class="form-actions">
-						<button type="submit" class="btn btn-primary">Update password</button>
-					</div>
-				</form>
+				</div>
 			{/if}
 		</div>
 	</div>
@@ -216,6 +267,62 @@
 					on_success={handle_avatar_success}
 					on_close={() => (show_avatar_uploader = false)}
 				/>
+			</div>
+		</div>
+	{/if}
+
+	<!-- Delete Account Modal -->
+	{#if show_delete_modal}
+		<!-- svelte-ignore a11y_click_events_have_key_events -->
+        <!-- svelte-ignore a11y_no_static_element_interactions -->
+		<div class="modal-backdrop" onclick={cancel_delete}>
+			<div class="modal-content modal-delete" onclick={(e) => e.stopPropagation()}>
+				<form method="POST" action="?/delete" use:enhance>
+					<div class="modal-header danger">
+						<Trash2 size={20} />
+						<h2>Delete Account</h2>
+					</div>
+					<div class="modal-body">
+						<p>This action is <strong>irreversible</strong>. Deleting your account will:</p>
+						<ul class="delete-consequences">
+							<li>Remove your profile permanently</li>
+							<li>Delete all your posts and data</li>
+							<li>Remove you from all notifications</li>
+						</ul>
+						<p>
+							To confirm, type <code>{DELETE_CONFIRMATION}</code> in the field below:
+						</p>
+						<input
+							type="text"
+							name="deleteConfirmation"
+							class="delete-input"
+							placeholder="Type here..."
+							bind:value={delete_confirmation}
+							required
+						/>
+						{#if delete_confirmation && delete_confirmation !== DELETE_CONFIRMATION}
+							<p class="delete-hint">
+								{#if delete_confirmation.length < DELETE_CONFIRMATION.length}
+									Keep typing...
+								{:else}
+									Confirmation text does not match
+								{/if}
+							</p>
+						{/if}
+					</div>
+					<div class="modal-footer">
+						<button type="button" class="btn btn-outline" onclick={cancel_delete}>
+							Cancel
+						</button>
+						<button
+							type="submit"
+							class="btn btn-danger"
+							disabled={delete_confirmation !== DELETE_CONFIRMATION}
+						>
+							Delete my account
+						</button>
+					</div>
+				</form>
 			</div>
 		</div>
 	{/if}
@@ -512,6 +619,35 @@
 		background-color: #167CB8;
 	}
 
+	.btn-outline {
+		background-color: transparent;
+		color: #1DA1F2;
+		border: 2px solid #1DA1F2;
+	}
+
+	.btn-outline:hover {
+		background-color: #F0F8FF;
+	}
+
+	.btn-danger {
+		background-color: #DC3545;
+		color: white;
+	}
+
+	.btn-danger:hover {
+		background-color: #C82333;
+	}
+
+	.btn-danger:active {
+		background-color: #BD2130;
+	}
+
+	.btn-danger:disabled {
+		background-color: #F5C6CB;
+		color: #6C757D;
+		cursor: not-allowed;
+	}
+
 	@media (max-width: 600px) {
 		.border-x {
 			border-left: none;
@@ -550,5 +686,185 @@
 			opacity: 1;
 			transform: translateY(0);
 		}
+	}
+
+	/* Security Options */
+	.security-section {
+		display: flex;
+		flex-direction: column;
+		gap: 24px;
+	}
+
+	.security-back-btn {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		background: none;
+		border: none;
+		color: #657786;
+		font-size: 14px;
+		font-weight: 500;
+		cursor: pointer;
+		font-family: inherit;
+		padding: 8px 0;
+		transition: color 0.2s;
+	}
+
+	.security-back-btn:hover {
+		color: #14171A;
+	}
+
+	.security-options {
+		display: flex;
+		flex-direction: column;
+		gap: 16px;
+	}
+
+	.security-option {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: 16px;
+		border-radius: 12px;
+		border: 1px solid #E1E8ED;
+		background-color: #F5F8FA;
+	}
+
+	.security-option.danger {
+		border-color: #FFCDD2;
+		background-color: #FFF8F8;
+	}
+
+	.security-option-content {
+		display: flex;
+		align-items: center;
+		gap: 16px;
+		color: #657786;
+		flex: 1;
+	}
+
+	.security-option.danger .security-option-content {
+		color: #C62828;
+	}
+
+	.security-option-text h3 {
+		font-size: 15px;
+		font-weight: 700;
+		color: #14171A;
+		margin: 0 0 2px;
+	}
+
+	.security-option.danger .security-option-text h3 {
+		color: #C62828;
+	}
+
+	.security-option-text p {
+		font-size: 13px;
+		color: #657786;
+		margin: 0;
+	}
+
+	.security-option.danger .security-option-text p {
+		color: #A94442;
+	}
+
+	/* Delete Modal */
+	.modal-delete {
+		background-color: white;
+		border-radius: 16px;
+		overflow: hidden;
+	}
+
+	.modal-header {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		padding: 20px 24px;
+		background-color: #F5F8FA;
+		border-bottom: 1px solid #E1E8ED;
+	}
+
+	.modal-header h2 {
+		margin: 0;
+		font-size: 18px;
+		font-weight: 800;
+		color: #14171A;
+	}
+
+	.modal-header.danger {
+		background-color: #FFF8F8;
+		border-bottom-color: #FFCDD2;
+	}
+
+	.modal-header.danger :global(svg) {
+		color: #DC3545;
+	}
+
+	.modal-body {
+		padding: 24px;
+	}
+
+	.modal-body p {
+		font-size: 14px;
+		color: #657786;
+		margin: 0 0 12px;
+		line-height: 1.5;
+	}
+
+	.modal-body p strong {
+		color: #C62828;
+	}
+
+	.modal-body code {
+		background-color: #F5F8FA;
+		padding: 2px 6px;
+		border-radius: 4px;
+		font-size: 13px;
+		font-weight: 600;
+		color: #14171A;
+	}
+
+	.delete-consequences {
+		margin: 12px 0;
+		padding-left: 20px;
+		font-size: 14px;
+		color: #657786;
+	}
+
+	.delete-consequences li {
+		margin-bottom: 4px;
+	}
+
+	.delete-input {
+		width: 100%;
+		padding: 12px 16px;
+		border-radius: 8px;
+		border: 1px solid #E1E8ED;
+		background-color: #F5F8FA;
+		font-family: inherit;
+		font-size: 14px;
+		transition: all 0.2s;
+		box-sizing: border-box;
+	}
+
+	.delete-input:focus {
+		outline: none;
+		border-color: #DC3545;
+		background-color: white;
+		box-shadow: 0 0 0 1px #DC3545;
+	}
+
+	.delete-hint {
+		font-size: 13px !important;
+		color: #C62828 !important;
+		margin-top: 8px !important;
+	}
+
+	.modal-footer {
+		display: flex;
+		justify-content: flex-end;
+		gap: 12px;
+		padding: 16px 24px;
+		border-top: 1px solid #E1E8ED;
 	}
 </style>
