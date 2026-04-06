@@ -88,8 +88,13 @@
 		}, 300);
 	}
 
-	function close_dropdown() {
-		setTimeout(() => { show_dropdown = false; }, 200);
+	function handle_search_focusout(event: FocusEvent): void {
+		const next_target = event.relatedTarget;
+		if (next_target instanceof Node && event.currentTarget instanceof HTMLElement) {
+			if (event.currentTarget.contains(next_target)) return;
+		}
+
+		show_dropdown = false;
 	}
 
 	function open_notifications(): void {
@@ -144,7 +149,7 @@
 		{/if}
 	</div>
 	<div class="right">
-		<div class="search-container">
+		<div class="search-container" onfocusout={handle_search_focusout}>
 			<div class="search-box">
 				<span class="icon search-icon"><Search /></span>
 				<input
@@ -152,7 +157,6 @@
 					placeholder="Search Pigeon..."
 					bind:value={search}
 					oninput={handle_search}
-					onblur={close_dropdown}
 					onfocus={() => { if(search) show_dropdown = true; }}
 				/>
 			</div>

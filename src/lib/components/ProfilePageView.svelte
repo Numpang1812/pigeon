@@ -54,10 +54,10 @@
 
 	const local_posts = $derived(apply_local_post_state(posts_source));
 	const local_reposted_posts = $derived(
-		apply_local_post_state(reposted_posts_source, (post) => post.user_reposted)
+		apply_local_post_state(reposted_posts_source, (post) => (is_owner ? post.user_reposted : true))
 	);
 	const local_liked_posts = $derived(
-		apply_local_post_state(liked_posts_source, (post) => post.user_liked)
+		apply_local_post_state(liked_posts_source, (post) => (is_owner ? post.user_liked : true))
 	);
 	const all_visible_posts = $derived([
 		...local_posts,
