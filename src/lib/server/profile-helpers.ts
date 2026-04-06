@@ -167,7 +167,10 @@ function get_posts_where_clause(is_owner: boolean) {
 		return 'WHERE p.author_id = ?';
 	}
 
-	return "WHERE p.author_id = ? AND p.audience = 'public'";
+	return `WHERE p.author_id = ? AND (
+		p.audience = 'public'
+		OR (p.audience = 'followers_friends' AND p.author_id IN (SELECT following_id FROM follow WHERE follower_id = ?))
+	)`;
 }
 
 type ProfilePostMode = 'posts' | 'liked' | 'reposted';
@@ -178,7 +181,10 @@ function get_profile_posts_query_parts(mode: ProfilePostMode, is_owner: boolean)
 			from_clause: 'FROM like l JOIN post p ON p.id = l.post_id JOIN user u ON p.author_id = u.id',
 			where_clause: is_owner
 				? 'WHERE l.user_id = ?'
-				: "WHERE l.user_id = ? AND p.audience = 'public'",
+				: `WHERE l.user_id = ? AND (
+					p.audience = 'public'
+					OR (p.audience = 'followers_friends' AND p.author_id IN (SELECT following_id FROM follow WHERE follower_id = ?))
+				)`,
 			order_clause: 'ORDER BY l.created_at DESC'
 		};
 	}
@@ -188,7 +194,10 @@ function get_profile_posts_query_parts(mode: ProfilePostMode, is_owner: boolean)
 			from_clause: 'FROM repost r JOIN post p ON p.id = r.post_id JOIN user u ON p.author_id = u.id',
 			where_clause: is_owner
 				? 'WHERE r.user_id = ?'
-				: "WHERE r.user_id = ? AND p.audience = 'public'",
+				: `WHERE r.user_id = ? AND (
+					p.audience = 'public'
+					OR (p.audience = 'followers_friends' AND p.author_id IN (SELECT following_id FROM follow WHERE follower_id = ?))
+				)`,
 			order_clause: 'ORDER BY r.created_at DESC'
 		};
 	}
@@ -222,7 +231,7 @@ export async function get_profile_posts(
 			${where_clause}
 			${order_clause}
 			LIMIT 50`,
-		args: [viewer_user_id, viewer_user_id, viewer_user_id, profile_user_id]
+		args: [viewer_user_id, viewer_user_id, viewer_user_id, profile_user_id, viewer_user_id]
 	});
 }
 

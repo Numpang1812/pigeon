@@ -194,7 +194,12 @@ function build_posts_query(url: URL, current_user_id: string) {
 		where.push('p.author_id = ?');
 		args.push(user_id);
 	} else {
-		where.push("p.audience = 'public'");
+		where.push(`(
+			p.audience = 'public'
+			OR (p.audience = 'followers_friends' AND p.author_id IN (SELECT following_id FROM follow WHERE follower_id = ?))
+			OR p.author_id = ?
+		)`);
+		args.push(current_user_id, current_user_id);
 	}
 
 	if (!user_id && tag && !['foryou', 'trending'].includes(tag)) {
@@ -225,8 +230,12 @@ async function fetch_specific_post(post_id: string, current_user_id: string) {
 				EXISTS(SELECT 1 FROM dislike WHERE post_id = p.id AND user_id = ?) as user_disliked,
 				EXISTS(SELECT 1 FROM repost WHERE post_id = p.id AND user_id = ?) as user_reposted
 			  FROM post p JOIN user u ON p.author_id = u.id
-			  WHERE p.id = ? AND (p.audience = 'public' OR p.author_id = ?)`,
-		args: [current_user_id, current_user_id, current_user_id, post_id, current_user_id]
+			  WHERE p.id = ? AND (
+					p.audience = 'public'
+					OR (p.audience = 'followers_friends' AND p.author_id IN (SELECT following_id FROM follow WHERE follower_id = ?))
+					OR p.author_id = ?
+			  )`,
+		args: [current_user_id, current_user_id, current_user_id, post_id, current_user_id, current_user_id]
 	});
 	return result.rows[0];
 }
