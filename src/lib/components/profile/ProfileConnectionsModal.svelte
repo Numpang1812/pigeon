@@ -7,6 +7,7 @@
 		mode: 'followers' | 'following' | null;
 		followers: ProfileConnection[];
 		following: ProfileConnection[];
+		on_item_click?: (event: MouseEvent, handle: string) => void | Promise<void>;
 		on_close: () => void;
 	}
 
@@ -51,7 +52,11 @@
 				{#if active_list.length > 0}
 					<div class="connection-list">
 						{#each active_list as user (user.id)}
-							<a class="connection-item" href={resolve(`/profile/${user.handle}`)}>
+							<a
+								class="connection-item"
+								href={resolve(`/profile/${user.handle}`)}
+								onclick={(event) => props.on_item_click?.(event, user.handle)}
+							>
 								<img src={user.avatar || 'https://i.pravatar.cc/40'} alt={user.name} />
 								<div>
 									<strong>{user.name}</strong>

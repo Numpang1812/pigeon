@@ -34,10 +34,7 @@
 	let loading = $state(true);
 
 	function center_post_in_view(post_element: HTMLElement): void {
-		const rect = post_element.getBoundingClientRect();
-		const current_scroll = window.scrollY;
-		const target_scroll = current_scroll + rect.top - (window.innerHeight / 2 - rect.height / 2);
-		window.scrollTo({ top: Math.max(0, target_scroll), behavior: 'smooth' });
+		post_element.scrollIntoView({ behavior: 'smooth', block: 'center' });
 	}
 
 	function flash_target_post(post_element: HTMLElement): void {
@@ -51,12 +48,18 @@
 	}
 
 	function scroll_to_hash_post(attempt = 0): void {
-		if (typeof window === 'undefined' || !window.location.hash) return;
+		if (typeof window === 'undefined') return;
 
-		const hash_id = window.location.hash.startsWith('#')
-			? window.location.hash.slice(1)
-			: window.location.hash;
-		const post_element = document.getElementById(hash_id);
+		const hash_id = window.location.hash
+			? window.location.hash.startsWith('#')
+				? window.location.hash.slice(1)
+				: window.location.hash
+			: '';
+		const requested_post_id = new URLSearchParams(window.location.search).get('post_id');
+		const target_id = hash_id || (requested_post_id ? `post-${requested_post_id}` : '');
+		if (!target_id) return;
+
+		const post_element = document.getElementById(target_id);
 
 		if (!(post_element instanceof HTMLElement)) {
 			if (attempt < 8) {

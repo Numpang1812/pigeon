@@ -5,6 +5,7 @@
 	import { auth_client } from '$lib/auth-client';
 
 	let name = $state('');
+	let username = $state('');
 	let email = $state('');
 	let password = $state('');
 	let confirm_password = $state('');
@@ -17,6 +18,11 @@
 
 		if (password !== confirm_password) {
 			error = 'Passwords do not match.';
+			return;
+		}
+
+		if (!/^[a-zA-Z0-9_]{2,15}$/.test(username.trim())) {
+			error = 'Username must be 2-15 characters using only letters, numbers, or underscores.';
 			return;
 		}
 
@@ -34,6 +40,19 @@
 				throw new Error(auth_error.message);
 			}
 
+			const username_response = await fetch('/api/users/username', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({ username: username.trim() })
+			});
+
+			if (!username_response.ok) {
+				const username_data = await username_response.json();
+				throw new Error(username_data.error || 'Failed to save username.');
+			}
+
 			goto(resolve('/'));
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Signup failed. Please try again.';
@@ -45,7 +64,7 @@
 	async function handle_google_sso() {
 		const { error } = await auth_client.signIn.social({
 			provider: 'google',
-			callbackURL: resolve('/')
+			callbackURL: resolve('/home')
 		});
 		if (error) {
 			console.error(error);
@@ -55,7 +74,7 @@
 	async function handle_github_sso() {
 		const { error } = await auth_client.signIn.social({
 			provider: 'github',
-			callbackURL: resolve('/')
+			callbackURL: resolve('/home')
 		});
 		if (error) {
 			console.error(error);
@@ -235,6 +254,24 @@
 				</div>
 
 				<div class="field">
+					<label for="username" class="field-label">Username</label>
+					<input
+						id="username"
+						type="text"
+						class="field-input"
+						placeholder="your_username"
+						autocomplete="username"
+						pattern="[A-Za-z0-9_]+"
+						title="Username must be 2-15 characters using only letters, numbers, or underscores."
+						maxlength="15"
+						minlength="2"
+						required
+						disabled={loading}
+						bind:value={username}
+					/>
+				</div>
+
+				<div class="field">
 					<label for="email" class="field-label">Email</label>
 					<input
 						id="email"
@@ -280,7 +317,7 @@
 					id="signup-submit"
 					type="submit"
 					class="btn-primary"
-					disabled={loading || !name || !email || !password || !confirm_password}
+					disabled={loading || !name || !username.trim() || !email || !password || !confirm_password}
 				>
 					{#if loading}
 						<span class="spinner" aria-hidden="true"></span>

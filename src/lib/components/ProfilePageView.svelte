@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { enhance } from '$app/forms';
+	import { goto, invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { ArrowLeft, Calendar, Camera } from 'lucide-svelte';
 	import AvatarUploader from '$lib/components/AvatarUploader.svelte';
@@ -6,7 +8,6 @@
 	import ProfilePostTabs from '$lib/components/profile/ProfilePostTabs.svelte';
 	import ProfileConnectionsModal from '$lib/components/profile/ProfileConnectionsModal.svelte';
 	import type { ProfileData, ProfilePost, ProfilePostMetricChange } from '$lib/components/profile/types';
-	import { invalidateAll } from '$app/navigation';
 	import { SvelteSet } from 'svelte/reactivity';
 
 	interface ProfilePageViewProps {
@@ -22,7 +23,10 @@
 	const show_back_button = $derived(props.show_back_button ?? false);
 	const enable_follow_ui = $derived(props.enable_follow_ui ?? false);
 
-	const is_following = $derived(props.data.access?.is_following ?? false);
+	let is_following_override = $state<boolean | null>(null);
+	let followers_count_override = $state<number | null>(null);
+
+	const is_following = $derived(is_following_override ?? (props.data.access?.is_following ?? false));
 
 	let show_avatar_uploader = $state(false);
 	let avatar_url = $state<string | null>(null);
@@ -31,6 +35,7 @@
 	let show_connections_modal = $state<'followers' | 'following' | null>(null);
 
 	const profile = $derived(props.data.profile);
+	const followers_count = $derived(followers_count_override ?? profile.followers);
 	const posts_source = $derived(props.data.posts as ProfilePost[]);
 	const reposted_posts_source = $derived(props.data.reposted_posts as ProfilePost[]);
 	const liked_posts_source = $derived(props.data.liked_posts as ProfilePost[]);
@@ -114,6 +119,40 @@
 
 	function stop_event_propagation(event: Event) {
 		event.stopPropagation();
+	}
+
+	async function open_connection_profile(event: MouseEvent, handle: string): Promise<void> {
+		event.preventDefault();
+		show_connections_modal = null;
+		await goto(resolve('/profile/[handle]', { handle }));
+	}
+
+	function enhance_follow_form() {
+		const was_following = is_following;
+		const previous_followers_count = followers_count;
+
+		is_following_override = !was_following;
+		followers_count_override = Math.max(0, previous_followers_count + (was_following ? -1 : 1));
+
+		return async ({ result, update }: { result: { type: string; data?: unknown }; update: () => Promise<void> }) => {
+			if (result.type === 'success') {
+				const data = result.data as { is_following?: boolean; followers_count?: number } | undefined;
+				if (typeof data?.is_following === 'boolean') {
+					is_following_override = data.is_following;
+				}
+
+				if (typeof data?.followers_count === 'number') {
+					followers_count_override = data.followers_count;
+				}
+
+				return;
+			}
+
+			is_following_override = was_following;
+			followers_count_override = previous_followers_count;
+
+			await update();
+		};
 	}
 
 	function handle_metric_change(
@@ -205,7 +244,7 @@
 					{#if is_owner}
 						<a href={resolve('/profile/edit')} class="btn btn-outline">Edit profile</a>
 					{:else if enable_follow_ui}
-						<form method="POST" action="?/toggle_follow">
+						<form method="POST" action="?/toggle_follow" use:enhance={enhance_follow_form}>
 							<button type="submit" class={`btn ${is_following ? 'btn-outline' : 'btn-muted'}`}>
 								{is_following ? 'Following' : 'Follow'}
 							</button>
@@ -237,7 +276,7 @@
 						<span class="stat-label">Following</span>
 					</button>
 					<button type="button" class="stat-link" onclick={() => (show_connections_modal = 'followers')}>
-						<span class="stat-value">{profile.followers >= 1000 ? `${(profile.followers / 1000).toFixed(1)}K` : profile.followers}</span>
+						<span class="stat-value">{followers_count >= 1000 ? `${(followers_count / 1000).toFixed(1)}K` : followers_count}</span>
 						<span class="stat-label">Followers</span>
 					</button>
 				</div>
@@ -310,6 +349,7 @@
 		mode={show_connections_modal}
 		followers={props.data.followers}
 		following={props.data.following}
+		on_item_click={open_connection_profile}
 		on_close={() => (show_connections_modal = null)}
 	/>
 </div>
