@@ -2,7 +2,6 @@ import type { PageServerLoad } from './$types';
 import { ensure_schema } from '$lib/server/db';
 import { error, redirect, fail } from '@sveltejs/kit';
 import { auth } from '$lib/auth';
-import { normalize_handle } from '$lib';
 import {
 	get_profile_user_by_handle,
 	get_follow_counts,
@@ -92,6 +91,13 @@ export const actions: Actions = {
 			await create_follow_notification(target_user_id, session.user.id);
 		}
 
-		throw redirect(303, `/profile/${normalize_handle(handle)}`);
+		const counts = await get_follow_counts(target_user_id);
+
+		return {
+			success: true,
+			is_following: result.is_following,
+			followers_count: counts.followers,
+			following_count: counts.following
+		};
 	}
 };
