@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { Bell, Search } from 'lucide-svelte';
+	import { Bell, Menu, Search } from 'lucide-svelte';
 	import { resolve } from '$app/paths';
 	import { auth_client } from '$lib/auth-client';
 	import { normalize_handle } from '$lib';
@@ -15,6 +15,7 @@
 	let timer: ReturnType<typeof setTimeout>;
 	let unseen_notifications_count = $state(0);
 	let on_notifications_page = $state(false);
+	let is_sidebar_collapsed = $state(false);
 
  	const read_notifications_key = 'pigeon_notifications_read_ids';
 
@@ -96,18 +97,31 @@
 		goto(resolve('/notifications'));
 	}
 
+	function toggle_sidebar_from_navbar(): void {
+		if (typeof window === 'undefined') return;
+		window.dispatchEvent(new Event('sidebar-toggle-requested'));
+	}
+
 	$effect(() => {
 		refresh_notification_dot();
 		const interval = setInterval(refresh_notification_dot, 8000);
+
+		const handle_sidebar_state_change = (event: Event): void => {
+			const detail = event instanceof CustomEvent ? event.detail as { is_collapsed?: boolean } : undefined;
+			is_sidebar_collapsed = Boolean(detail?.is_collapsed);
+		};
+
 		window.addEventListener('focus', refresh_notification_dot);
 		window.addEventListener('visibilitychange', refresh_notification_dot);
 		window.addEventListener('notifications-seen-updated', refresh_notification_dot);
+		window.addEventListener('sidebar-state-changed', handle_sidebar_state_change as EventListener);
 
 		return () => {
 			clearInterval(interval);
 			window.removeEventListener('focus', refresh_notification_dot);
 			window.removeEventListener('visibilitychange', refresh_notification_dot);
 			window.removeEventListener('notifications-seen-updated', refresh_notification_dot);
+			window.removeEventListener('sidebar-state-changed', handle_sidebar_state_change as EventListener);
 		};
 	});
 
@@ -117,6 +131,18 @@
 </script>
 
 <header class="navbar">
+	<div class="left">
+		{#if !is_sidebar_collapsed}
+			<button
+				class="mobile-menu-btn"
+				type="button"
+				aria-label="Toggle sidebar"
+				onclick={toggle_sidebar_from_navbar}
+			>
+				<Menu size={20} />
+			</button>
+		{/if}
+	</div>
 	<div class="right">
 		<div class="search-container">
 			<div class="search-box">
