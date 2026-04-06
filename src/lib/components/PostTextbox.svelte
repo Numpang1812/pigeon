@@ -19,6 +19,7 @@
 			audience: string;
 			post_tag: string;
 			post_tags: string[];
+			allowed_user_ids: string[];
 		}) => void;
 	}
 
@@ -41,7 +42,7 @@
 		{
 			value: 'followers_friends',
 			label: 'Connections',
-			hint: 'Followers and friends only',
+			hint: 'Followers and Following only',
 			icon: Users
 		},
 		{
@@ -65,11 +66,16 @@
 	let mention_results = $state<{ id: string; name: string; username: string; image: string | null }[]>([]);
 	let is_mention_menu_open = $state(false);
 	let is_mention_loading = $state(false);
+	let is_close_friend_loading = $state(false);
 	let active_mention_index = $state(0);
 	let mention_timer: ReturnType<typeof setTimeout>;
 	let mention_request_id = 0;
+	let close_friend_request_id = 0;
 	let textarea_element = $state<HTMLTextAreaElement | null>(null);
 	let mention_context = $state<{ start: number; end: number } | null>(null);
+	let close_friend_candidates = $state<{ id: string; name: string; handle: string; avatar: string }[]>([]);
+	let selected_close_friend_ids = $state<string[]>([]);
+	let is_close_friend_list_collapsed = $state(false);
 	const hashtag_pattern = /(^|[^a-z0-9_])#([a-z0-9_]{2,24})\b/gi;
 	const sanitized_text_content = $derived.by(() =>
 		text_content
@@ -78,7 +84,11 @@
 			.replace(/\s+([.,!?;:])/g, '$1')
 			.trim()
 	);
-	const can_submit = $derived(sanitized_text_content.length > 0 && !is_submitting);
+	const can_submit = $derived(
+		sanitized_text_content.length > 0 &&
+		!is_submitting &&
+		(selected_audience !== 'close_friends' || selected_close_friend_ids.length > 0)
+	);
 	const selected_audience_option = $derived(
 		audience_options.find((option) => option.value === selected_audience) ?? audience_options[0]
 	);
@@ -89,6 +99,10 @@
 	});
 	const primary_post_tag = $derived(detected_hashtags[0] ?? 'other');
 	const has_detected_hashtags = $derived(detected_hashtags.length > 0);
+	const selected_close_friend_count = $derived(selected_close_friend_ids.length);
+	const selected_close_friend_roster = $derived.by(() =>
+		close_friend_candidates.filter((user) => selected_close_friend_ids.includes(user.id))
+	);
 
 	async function submit_post(event: SubmitEvent): Promise<void> {
 		event.preventDefault();
@@ -106,7 +120,8 @@
 					content: sanitized_text_content,
 					audience: selected_audience,
 					post_tag: primary_post_tag,
-					post_tags: has_detected_hashtags ? [...detected_hashtags] : ['other']
+					post_tags: has_detected_hashtags ? [...detected_hashtags] : ['other'],
+					allowed_user_ids: selected_audience === 'close_friends' ? [...selected_close_friend_ids] : []
 				})
 			});
 
@@ -118,11 +133,13 @@
 					content: sanitized_text_content,
 					audience: selected_audience_option.label,
 					post_tag: primary_post_tag,
-					post_tags: has_detected_hashtags ? [...detected_hashtags] : ['other']
+					post_tags: has_detected_hashtags ? [...detected_hashtags] : ['other'],
+					allowed_user_ids: selected_audience === 'close_friends' ? [...selected_close_friend_ids] : []
 				});
 				
 				text_content = '';
 				is_audience_menu_open = false;
+				selected_close_friend_ids = [];
 				
 				// Reload the page data to show the new post
 				const { invalidateAll: invalidate_all } = await import('$app/navigation');
@@ -145,6 +162,39 @@
 	function select_audience(value: string): void {
 		selected_audience = value;
 		is_audience_menu_open = false;
+		if (value === 'close_friends' && close_friend_candidates.length === 0) {
+			void fetch_close_friend_candidates();
+		}
+	}
+
+	function toggle_close_friend_list(): void {
+		is_close_friend_list_collapsed = !is_close_friend_list_collapsed;
+	}
+
+	function remove_close_friend(user_id: string): void {
+		selected_close_friend_ids = selected_close_friend_ids.filter((id) => id !== user_id);
+	}
+
+	async function fetch_close_friend_candidates(): Promise<void> {
+		const request_id = ++close_friend_request_id;
+		is_close_friend_loading = true;
+
+		try {
+			const response = await fetch('/api/users/following?limit=100');
+			if (!response.ok || request_id !== close_friend_request_id) return;
+
+			const data = await response.json();
+			close_friend_candidates = Array.isArray(data.users) ? data.users : [];
+		} catch (error) {
+			if (request_id === close_friend_request_id) {
+				console.error('Failed to load close friend candidates:', error);
+				close_friend_candidates = [];
+			}
+		} finally {
+			if (request_id === close_friend_request_id) {
+				is_close_friend_loading = false;
+			}
+		}
 	}
 
 	function handle_document_click(event: MouseEvent): void {
@@ -162,6 +212,14 @@
 		if (event.key === 'Escape') {
 			is_audience_menu_open = false;
 		}
+	}
+
+	function handle_textarea_click(): void {
+		if (selected_audience === 'close_friends') {
+			is_close_friend_list_collapsed = true;
+		}
+
+		update_mention_state();
 	}
 
 	function close_mention_menu(): void {
@@ -219,6 +277,15 @@
 				is_mention_loading = false;
 			}
 		}
+	}
+
+	function register_textarea(node: HTMLTextAreaElement) {
+		textarea_element = node;
+		return () => {
+			if (textarea_element === node) {
+				textarea_element = null;
+			}
+		};
 	}
 
 	function schedule_mention_lookup(query: string): void {
@@ -287,16 +354,6 @@
 		}
 	}
 
-	function register_textarea(node: HTMLTextAreaElement) {
-		textarea_element = node;
-		return {
-			destroy() {
-				if (textarea_element === node) {
-					textarea_element = null;
-				}
-			}
-		};
-	}
 </script>
 
 <svelte:document onclick={handle_document_click} />
@@ -363,12 +420,84 @@
 		</div>
 	</div>
 
+	{#if selected_audience === 'close_friends'}
+		<section class="close-friends-panel" aria-label="Who can see this post">
+			<div class="close-friends-header">
+				<div>
+					<strong>Who can see</strong>
+					<p>Select people from your following list.</p>
+				</div>
+				<div class="close-friends-controls">
+					<span>{selected_close_friend_count} selected</span>
+					{#if close_friend_candidates.length > 0}
+						<button
+							type="button"
+							class="close-friends-toggle"
+							onclick={toggle_close_friend_list}
+							aria-expanded={!is_close_friend_list_collapsed}
+							aria-label={is_close_friend_list_collapsed ? 'Expand close friends list' : 'Collapse close friends list'}
+						>
+							{is_close_friend_list_collapsed ? 'Expand list' : 'Collapse list'}
+						</button>
+					{/if}
+				</div>
+			</div>
+
+			{#if is_close_friend_loading}
+				<p class="close-friends-empty">Loading your following list...</p>
+			{:else if close_friend_candidates.length > 0}
+				{#if is_close_friend_list_collapsed}
+					{#if selected_close_friend_roster.length > 0}
+						<div class="close-friends-roster" aria-label="Selected close friends">
+							{#each selected_close_friend_roster as user (user.id)}
+								<span class="close-friend-badge">
+									<span>@{user.handle}</span>
+									<button
+										type="button"
+										class="close-friend-remove"
+										onclick={() => remove_close_friend(user.id)}
+										aria-label={`Remove @${user.handle}`}
+									>
+										x
+									</button>
+								</span>
+							{/each}
+						</div>
+					{/if}
+				{:else}
+					<div class="close-friends-list">
+						{#each close_friend_candidates as user (user.id)}
+							<label class="close-friends-item">
+								<input type="checkbox" bind:group={selected_close_friend_ids} value={user.id} />
+								<img
+									class="close-friends-avatar"
+									src={user.avatar || 'https://i.pravatar.cc/40'}
+									alt={user.name}
+								/>
+								<span class="close-friends-meta">
+									<strong>{user.name}</strong>
+									<small>@{user.handle}</small>
+								</span>
+							</label>
+						{/each}
+					</div>
+				{/if}
+			{:else}
+				<p class="close-friends-empty">You are not following anyone yet.</p>
+			{/if}
+
+			{#if close_friend_candidates.length > 0 && selected_close_friend_ids.length === 0}
+				<p class="close-friends-empty">Select at least one person before posting.</p>
+			{/if}
+		</section>
+	{/if}
+
 	<div class="mention-autocomplete">
 		<textarea
-			use:register_textarea
+			{@attach register_textarea}
 			bind:value={text_content}
 			oninput={update_mention_state}
-			onclick={update_mention_state}
+			onclick={handle_textarea_click}
 			onkeydown={handle_textarea_keydown}
 			placeholder={props.placeholder ?? 'What is floating in your mind?'}
 			maxlength="280"
@@ -465,6 +594,138 @@
 		position: relative;
 		width: 100%;
 		display: block;
+	}
+
+	.close-friends-panel {
+		display: grid;
+		gap: 0.75rem;
+		padding: 0.85rem;
+		border: 1px solid #dbe4ee;
+		border-radius: 12px;
+		background: #f8fbff;
+	}
+
+	.close-friends-header {
+		display: flex;
+		justify-content: space-between;
+		gap: 1rem;
+		align-items: flex-start;
+	}
+
+	.close-friends-controls {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-end;
+		gap: 0.35rem;
+	}
+
+	.close-friends-toggle {
+		border: 1px solid #bfdbfe;
+		border-radius: 999px;
+		padding: 0.2rem 0.55rem;
+		font-size: 0.74rem;
+		font-weight: 600;
+		color: #1d4ed8;
+		background: #eff6ff;
+		cursor: pointer;
+	}
+
+	.close-friends-toggle:hover {
+		background: #dbeafe;
+	}
+
+	.close-friends-header strong {
+		display: block;
+		font-size: 0.92rem;
+		color: #0f172a;
+	}
+
+	.close-friends-header p,
+	.close-friends-header span,
+	.close-friends-empty {
+		margin: 0;
+		font-size: 0.82rem;
+		color: #64748b;
+	}
+
+	.close-friends-list {
+		display: grid;
+		gap: 0.45rem;
+		max-height: 15rem;
+		overflow: auto;
+	}
+
+	.close-friends-roster {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.45rem;
+	}
+
+	.close-friend-badge {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.38rem;
+		padding: 0.24rem 0.5rem;
+		border-radius: 999px;
+		border: 1px solid #bfdbfe;
+		background: #eff6ff;
+		font-size: 0.78rem;
+		color: #1e3a8a;
+	}
+
+	.close-friend-remove {
+		width: 1.05rem;
+		height: 1.05rem;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		border: none;
+		border-radius: 999px;
+		background: #dbeafe;
+		color: #1d4ed8;
+		font-size: 0.78rem;
+		line-height: 1;
+		cursor: pointer;
+	}
+
+	.close-friend-remove:hover {
+		background: #bfdbfe;
+	}
+
+	.close-friends-item {
+		display: grid;
+		grid-template-columns: auto auto 1fr;
+		align-items: center;
+		gap: 0.65rem;
+		padding: 0.55rem 0.7rem;
+		border: 1px solid #dbe4ee;
+		border-radius: 10px;
+		background: #ffffff;
+		cursor: pointer;
+	}
+
+	.close-friends-item input {
+		margin: 0;
+	}
+
+	.close-friends-avatar {
+		width: 28px;
+		height: 28px;
+		border-radius: 999px;
+		object-fit: cover;
+	}
+
+	.close-friends-meta {
+		display: flex;
+		flex-direction: column;
+		min-width: 0;
+	}
+
+	.close-friends-meta strong,
+	.close-friends-meta small {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 
 	.mention-menu {

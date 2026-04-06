@@ -42,6 +42,15 @@
 
 	const props: PostProps = $props();
 
+	const audience_labels: Record<string, string> = {
+		public: 'Everyone',
+		followers_friends: 'Connections',
+		close_friends: 'Inner circle',
+		private: 'Just me'
+	};
+
+	const audience_label = $derived(props.audience ? audience_labels[props.audience] ?? props.audience : '');
+
 	const liked = $derived(props.user_liked ?? false);
 	const disliked = $derived(props.user_disliked ?? false);
 	const reposted = $derived(props.user_reposted ?? false);
@@ -342,8 +351,8 @@
 							#{tag}
 						</span>
 					{/each}
-					{#if props.audience}
-						<span>{props.audience}</span>
+					{#if audience_label}
+						<span>{audience_label}</span>
 					{/if}
 				</p>
 				<time class="timestamp">

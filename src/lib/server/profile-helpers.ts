@@ -1,5 +1,6 @@
 import { db } from './db';
 import { normalize_handle } from '$lib';
+import { build_post_visibility_clause } from './post-visibility';
 
 export type ProfileConnection = {
 	id: string;
@@ -162,51 +163,71 @@ export async function get_access_state(viewer_user_id: string, profile_user_id: 
 	};
 }
 
-function get_posts_where_clause(is_owner: boolean) {
+function get_posts_where_clause(is_owner: boolean, viewer_user_id: string) {
 	if (is_owner) {
-		return 'WHERE p.author_id = ?';
+		return {
+			where_clause: 'WHERE p.author_id = ?',
+			where_args: [] as (string | number)[]
+		};
 	}
 
-	return "WHERE p.author_id = ? AND p.audience = 'public'";
+	const visibility_clause = build_post_visibility_clause(viewer_user_id);
+	return {
+		where_clause: `WHERE p.author_id = ? AND ${visibility_clause.clause}`,
+		where_args: visibility_clause.args
+	};
 }
 
 type ProfilePostMode = 'posts' | 'liked' | 'reposted';
 
-function get_profile_posts_query_parts(mode: ProfilePostMode, is_owner: boolean) {
+function get_profile_posts_query_parts(mode: ProfilePostMode, is_owner: boolean, viewer_user_id: string) {
 	if (mode === 'liked') {
-		return {
-			from_clause: 'FROM like l JOIN post p ON p.id = l.post_id JOIN user u ON p.author_id = u.id',
-			where_clause: is_owner
-				? 'WHERE l.user_id = ?'
-				: "WHERE l.user_id = ? AND p.audience = 'public'",
-			order_clause: 'ORDER BY l.created_at DESC'
-		};
+		return get_interaction_posts_query_parts('like', 'l', viewer_user_id, is_owner);
 	}
 
 	if (mode === 'reposted') {
-		return {
-			from_clause: 'FROM repost r JOIN post p ON p.id = r.post_id JOIN user u ON p.author_id = u.id',
-			where_clause: is_owner
-				? 'WHERE r.user_id = ?'
-				: "WHERE r.user_id = ? AND p.audience = 'public'",
-			order_clause: 'ORDER BY r.created_at DESC'
-		};
+		return get_interaction_posts_query_parts('repost', 'r', viewer_user_id, is_owner);
 	}
+
+	return get_profile_posts_query_parts_for_posts(is_owner, viewer_user_id);
+}
+
+function get_profile_posts_query_parts_for_posts(is_owner: boolean, viewer_user_id: string) {
+	const { where_clause, where_args } = get_posts_where_clause(is_owner, viewer_user_id);
 
 	return {
 		from_clause: 'FROM post p JOIN user u ON p.author_id = u.id',
-		where_clause: get_posts_where_clause(is_owner),
+		where_clause,
+		where_args,
 		order_clause: 'ORDER BY p.created_at DESC'
 	};
 }
 
+function get_interaction_posts_query_parts(
+	column_name: 'like' | 'repost',
+	alias: 'l' | 'r',
+	viewer_user_id: string,
+	is_owner: boolean
+) {
+	const visibility_clause = is_owner ? null : build_post_visibility_clause(viewer_user_id);
+	const where_clause = is_owner
+		? `WHERE ${alias}.user_id = ?`
+		: `WHERE ${alias}.user_id = ? AND ${visibility_clause?.clause ?? ''}`;
+
+	return {
+		from_clause: `FROM ${column_name} ${alias} JOIN post p ON p.id = ${alias}.post_id JOIN user u ON p.author_id = u.id`,
+		where_clause,
+		where_args: is_owner ? [] as (string | number)[] : visibility_clause?.args ?? [],
+		order_clause: `ORDER BY ${alias}.created_at DESC`
+	};
+}
 export async function get_profile_posts(
 	viewer_user_id: string,
 	profile_user_id: string,
 	is_owner: boolean,
 	mode: ProfilePostMode = 'posts'
 ) {
-	const { from_clause, where_clause, order_clause } = get_profile_posts_query_parts(mode, is_owner);
+	const { from_clause, where_clause, where_args, order_clause } = get_profile_posts_query_parts(mode, is_owner, viewer_user_id);
 
 	return db.execute({
 		sql: `SELECT p.id, p.content, p.post_tag, p.audience, p.created_at, p.author_id, p.updated_at,
@@ -222,7 +243,7 @@ export async function get_profile_posts(
 			${where_clause}
 			${order_clause}
 			LIMIT 50`,
-		args: [viewer_user_id, viewer_user_id, viewer_user_id, profile_user_id]
+		args: [viewer_user_id, viewer_user_id, viewer_user_id, profile_user_id, ...where_args]
 	});
 }
 
