@@ -221,7 +221,6 @@ function get_interaction_posts_query_parts(
 		order_clause: `ORDER BY ${alias}.created_at DESC`
 	};
 }
-
 export async function get_profile_posts(
 	viewer_user_id: string,
 	profile_user_id: string,
@@ -232,18 +231,39 @@ export async function get_profile_posts(
 
 	return db.execute({
 		sql: `SELECT p.id, p.content, p.post_tag, p.audience, p.created_at, p.author_id, p.updated_at,
+			u.name as author_name, u.username as author_handle, u.bio as author_bio, u.image as author_avatar,
+			(SELECT GROUP_CONCAT(h.tag_name, ',') FROM post_hashtag ph JOIN hashtag h ON ph.hashtag_id = h.id WHERE ph.post_id = p.id) as hashtag_list,
 			(SELECT COUNT(*) FROM like WHERE post_id = p.id) as like_count,
 			(SELECT COUNT(*) FROM dislike WHERE post_id = p.id) as dislike_count,
 			(SELECT COUNT(*) FROM repost WHERE post_id = p.id) as repost_count,
 			(SELECT COUNT(*) > 0 FROM like WHERE post_id = p.id AND user_id = ?) as user_liked,
 			(SELECT COUNT(*) > 0 FROM dislike WHERE post_id = p.id AND user_id = ?) as user_disliked,
 			(SELECT COUNT(*) > 0 FROM repost WHERE post_id = p.id AND user_id = ?) as user_reposted
-			FROM post p
+			${from_clause}
 			${where_clause}
-			ORDER BY p.created_at DESC
+			${order_clause}
 			LIMIT 50`,
 		args: [viewer_user_id, viewer_user_id, viewer_user_id, profile_user_id, ...where_args]
 	});
+}
+
+export async function get_profile_post_sections(
+	viewer_user_id: string,
+	profile_user_id: string,
+	is_owner: boolean,
+	user: NonNullable<Awaited<ReturnType<typeof get_profile_user_by_handle>>>
+) {
+	const [posts_result, reposted_posts_result, liked_posts_result] = await Promise.all([
+		get_profile_posts(viewer_user_id, profile_user_id, is_owner, 'posts'),
+		get_profile_posts(viewer_user_id, profile_user_id, is_owner, 'reposted'),
+		get_profile_posts(viewer_user_id, profile_user_id, is_owner, 'liked')
+	]);
+
+	return {
+		posts: map_profile_posts(posts_result.rows, user, viewer_user_id),
+		reposted_posts: map_profile_posts(reposted_posts_result.rows, user, viewer_user_id),
+		liked_posts: map_profile_posts(liked_posts_result.rows, user, viewer_user_id)
+	};
 }
 
 export function format_time_ago(date_string: string): string {
@@ -288,13 +308,19 @@ export function map_profile_posts(
 	return posts_rows.map((row) => ({
 		id: row.id as string,
 		post_tag: row.post_tag as string,
-		post_tags: [row.post_tag as string],
+		post_tags:
+			typeof row.hashtag_list === 'string' && row.hashtag_list.length > 0
+				? row.hashtag_list
+						.split(',')
+						.map((tag) => tag.trim().toLowerCase())
+						.filter((tag) => tag.length > 0)
+				: [row.post_tag as string],
 		posted_at: format_time_ago(row.created_at as string),
-		author_name: (user.name as string) || 'Unknown',
-		author_handle: normalize_handle(user.username) || 'user',
+		author_name: (row.author_name as string) || (user.name as string) || 'Unknown',
+		author_handle: normalize_handle(row.author_handle) || normalize_handle(user.username) || 'user',
 		content: row.content as string,
 		audience: row.audience as string,
-		author_bio: (user.bio as string) || '',
+		author_bio: (row.author_bio as string) || (user.bio as string) || '',
 		verified: false,
 		metrics: {
 			likes: Number(row.like_count ?? 0),
@@ -304,7 +330,7 @@ export function map_profile_posts(
 		user_liked: Boolean(row.user_liked),
 		user_disliked: Boolean(row.user_disliked),
 		user_reposted: Boolean(row.user_reposted),
-		avatar_url: (user.image as string) || '',
+		avatar_url: (row.author_avatar as string) || (user.image as string) || '',
 		is_author: row.author_id === viewer_user_id,
 		is_edited: row.updated_at !== row.created_at
 	}));
