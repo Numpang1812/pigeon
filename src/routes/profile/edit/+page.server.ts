@@ -56,7 +56,22 @@ export const actions: Actions = {
 			return fail(400, { message: 'Username is required' });
 		}
 
+		if (!/^[a-z0-9_]{2,15}$/.test(username)) {
+			return fail(400, {
+				message: 'Username must be 2-15 characters using only letters, numbers, or underscores.'
+			});
+		}
+
 		try {
+			const existing = await db.execute({
+				sql: 'SELECT id FROM user WHERE lower(username) = lower(?) AND id != ? LIMIT 1',
+				args: [username, session.user.id]
+			});
+
+			if (existing.rows.length > 0) {
+				return fail(409, { message: 'Username is already taken' });
+			}
+
 			await db.execute({
 				sql: 'UPDATE user SET name = ?, username = ?, bio = ? WHERE id = ?',
 				args: [name, username, bio, session.user.id]
