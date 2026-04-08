@@ -3,6 +3,7 @@
 	import { resolve } from '$app/paths';
 	import { auth_client } from '$lib/auth-client';
 	import { normalize_handle } from '$lib';
+	import { SvelteSet } from 'svelte/reactivity';
 	import {
 		Bell,
 		Check,
@@ -41,6 +42,7 @@
 	let active_filter = $state<NotificationFilter>('all');
 	let notifications = $state<NotificationItem[]>([]);
 	let loading_notifications = $state(true);
+	const following_back = new SvelteSet<string>();
 
 	const unread_count = $derived(notifications.filter((n) => n.unread).length);
 
@@ -174,6 +176,33 @@
 		if (!normalized) return;
 		await goto(resolve('/profile/[handle]', { handle: normalized }));
 	}
+
+	async function follow_back(notification_id: string, actor_handle?: string): Promise<void> {
+		if (!actor_handle) return;
+		
+		following_back.add(notification_id);
+		
+		try {
+			const follow_res = await fetch(`/api/users/follow/${encodeURIComponent(actor_handle)}`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' }
+			});
+			
+			if (follow_res.ok) {
+				const notification_index = notifications.findIndex((n) => n.id === notification_id);
+				if (notification_index !== -1) {
+					notifications[notification_index].is_following_actor = true;
+					mark_as_read(notification_id);
+				}
+			} else {
+				console.error('Failed to follow user:', follow_res.statusText);
+			}
+		} catch (error) {
+			console.error('Failed to follow back:', error);
+		} finally {
+			following_back.delete(notification_id);
+		}
+	}
 </script>
 
 <svelte:head>
@@ -297,8 +326,15 @@
 													View profile
 												</button>
 												{#if should_show_follow_back(item)}
-													<button type="button" class="inline-action">Follow back</button>
-												{/if}
+												<button 
+													type="button" 
+													class="inline-action"
+													disabled={following_back.has(item.id)}
+													onclick={() => follow_back(item.id, item.actor_handle)}
+												>
+													{following_back.has(item.id) ? 'Following...' : 'Follow back'}
+												</button>
+											{/if}
 											{/if}
 										</div>
 									</div>
