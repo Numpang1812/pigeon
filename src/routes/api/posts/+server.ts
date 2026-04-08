@@ -33,7 +33,7 @@ export const POST: RequestHandler = async ({ request }) => {
 			const allowed_following_ids = new Set(
 				following_result.rows.map((row) => String(row.following_id))
 			);
-			validated_allowed_user_ids = requested_allowed_user_ids.filter((user_id) =>
+			validated_allowed_user_ids = (requested_allowed_user_ids || []).filter((user_id) =>
 				allowed_following_ids.has(user_id)
 			);
 

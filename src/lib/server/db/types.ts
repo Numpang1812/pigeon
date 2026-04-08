@@ -25,6 +25,8 @@ export interface User {
 	location: string | null;
 	website: string | null;
 	birthdate: string | null;
+	failedLoginAttempts: number;
+	lockoutUntil: string | null;
 	createdAt: GeneratedDate;
 	updatedAt: GeneratedDate;
 }
