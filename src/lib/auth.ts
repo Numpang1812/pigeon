@@ -219,12 +219,7 @@ export const auth = betterAuth({
 		expiresIn: 60 * 60 * 24 * 7 // 7 days
 	},
 	advanced: {
-		useSecureCookies: env.NODE_ENV === 'production',
-		defaultCookieAttributes: {
-			sameSite: 'lax',
-			httpOnly: true,
-			secure: env.NODE_ENV === 'production'
-		}
+		useSecureCookies: env.NODE_ENV === 'production'
 	},
 	rateLimit: {
 		enabled: false // Disable built-in rate limiting; we use custom account lockout
