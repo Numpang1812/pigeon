@@ -9,7 +9,6 @@ import { sequence } from '@sveltejs/kit/hooks';
 const safe_methods = new Set(['GET', 'HEAD', 'OPTIONS']);
 
 const security_headers = {
-	'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' https: data: blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
 	'X-Frame-Options': 'DENY',
 	'X-Content-Type-Options': 'nosniff',
 	'Referrer-Policy': 'strict-origin-when-cross-origin',
@@ -23,7 +22,7 @@ const security_headers = {
 const security_headers_handler: Handle = async ({ event, resolve }) => {
 	const response = await resolve(event);
 
-	// Apply security headers to all responses
+	// Apply security headers
 	for (const [header, value] of Object.entries(security_headers)) {
 		response.headers.set(header, value);
 	}
