@@ -3,7 +3,18 @@ import { db } from '$lib/server/db';
 import { auth } from '$lib/auth';
 import { nanoid } from 'nanoid';
 import { build_post_visibility_clause, normalize_user_id_list } from '$lib/server/post-visibility';
-import { postCreateLimiter } from '$lib/server/rate-limiter';
+import { post_create_limiter } from '$lib/server/rate-limiter';
+	
+function check_rate_limit(user_id: string) {
+	const rate_limit = post_create_limiter.check(user_id, 1, 5_000);
+	if (!rate_limit.allowed) {
+		return json(
+			{ error: `Too many posts. Try again in ${Math.ceil(rate_limit.retry_after_ms! / 1000)}s.` },
+			{ status: 429 }
+		);
+	}
+	return null;
+}
 
 function normalize_tag(raw_tag: unknown): string | null {
 	if (typeof raw_tag !== 'string') return null;
@@ -18,13 +29,8 @@ export const POST: RequestHandler = async ({ request }) => {
 		if (!session) return json({ error: 'Unauthorized' }, { status: 401 });
 
 		// Rate limit: 1 post per 5 seconds
-		const rateLimit = postCreateLimiter.check(session.user.id, 1, 5_000);
-		if (!rateLimit.allowed) {
-			return json(
-				{ error: `Too many posts. Try again in ${Math.ceil(rateLimit.retryAfterMs! / 1000)}s.` },
-				{ status: 429 }
-			);
-		}
+		const rate_limit_response = check_rate_limit(session.user.id);
+		if (rate_limit_response) return rate_limit_response;
 
 		const body = await request.json();
 		const validation = validate_post_input(body);
@@ -35,29 +41,13 @@ export const POST: RequestHandler = async ({ request }) => {
 
 		let validated_allowed_user_ids: string[] = [];
 		if (audience === 'close_friends') {
-			const following_result = await db.execute({
-				sql: 'SELECT following_id FROM follow WHERE follower_id = ?',
-				args: [session.user.id]
-			});
-
-			const allowed_following_ids = new Set(
-				following_result.rows.map((row) => String(row.following_id))
-			);
-			validated_allowed_user_ids = (requested_allowed_user_ids || []).filter((user_id) =>
-				allowed_following_ids.has(user_id)
-			);
-
+			validated_allowed_user_ids = await validate_close_friends_audience(session.user.id, requested_allowed_user_ids);
 			if (validated_allowed_user_ids.length === 0) {
 				return json({ error: 'Select who can see this post' }, { status: 400 });
 			}
 		}
 
-		const post_id = nanoid();
-		await db.execute({
-			sql: `INSERT INTO post (id, author_id, content, audience, post_tag, created_at, updated_at)
-				  VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
-			args: [post_id, session.user.id, content.trim(), audience, validated_post_tag]
-		});
+		const post_id = await create_post_record(session.user.id, content.trim(), audience, validated_post_tag);
 
 		if (audience === 'close_friends') {
 			await handle_post_visibility(post_id, validated_allowed_user_ids);
@@ -135,6 +125,28 @@ function validate_post_input(body: Record<string, unknown>): PostInput {
 	const requested_allowed_user_ids = normalize_user_id_list(allowed_user_ids);
 
 	return { content, audience: validated_audience, normalized_tags, validated_post_tag, requested_allowed_user_ids };
+}
+
+async function validate_close_friends_audience(user_id: string, requested_ids: string[] = []) {
+	const following_result = await db.execute({
+		sql: 'SELECT following_id FROM follow WHERE follower_id = ?',
+		args: [user_id]
+	});
+
+	const allowed_following_ids = new Set(
+		following_result.rows.map((row) => String(row.following_id))
+	);
+	return requested_ids.filter((id) => allowed_following_ids.has(id));
+}
+
+async function create_post_record(author_id: string, content: string, audience: string, post_tag: string) {
+	const post_id = nanoid();
+	await db.execute({
+		sql: `INSERT INTO post (id, author_id, content, audience, post_tag, created_at, updated_at)
+			  VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
+		args: [post_id, author_id, content, audience, post_tag]
+	});
+	return post_id;
 }
 
 async function handle_post_media(post_id: string, media: unknown[]) {

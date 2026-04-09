@@ -11,7 +11,7 @@
 
 interface RateLimitResult {
 	allowed: boolean;
-	retryAfterMs?: number; // How long until the user can make another request
+	retry_after_ms?: number; // How long until the user can make another request
 }
 
 export class RateLimiter {
@@ -30,20 +30,20 @@ export class RateLimiter {
 		const timestamps = this.requests.get(key) || [];
 
 		// Remove expired timestamps (outside the window)
-		const activeTimestamps = timestamps.filter((ts) => now - ts < windowMs);
+		const active_timestamps = timestamps.filter((ts) => now - ts < windowMs);
 
-		if (activeTimestamps.length >= limit) {
+		if (active_timestamps.length >= limit) {
 			// Rate limited — calculate how long until the oldest active timestamp expires
-			const oldestInWindow = activeTimestamps[0];
-			const retryAfterMs = windowMs - (now - oldestInWindow);
+			const oldest_in_window = active_timestamps[0];
+			const retry_after_ms = windowMs - (now - oldest_in_window);
 
-			this.requests.set(key, activeTimestamps);
-			return { allowed: false, retryAfterMs: Math.max(retryAfterMs, 0) };
+			this.requests.set(key, active_timestamps);
+			return { allowed: false, retry_after_ms: Math.max(retry_after_ms, 0) };
 		}
 
 		// Allow the request and record the timestamp
-		activeTimestamps.push(now);
-		this.requests.set(key, activeTimestamps);
+		active_timestamps.push(now);
+		this.requests.set(key, active_timestamps);
 		return { allowed: true };
 	}
 
@@ -63,8 +63,8 @@ export class RateLimiter {
 }
 
 // Named instances for different action types
-export const postCreateLimiter = new RateLimiter();
-export const postEditLimiter = new RateLimiter();
-export const postReactionLimiter = new RateLimiter();
-export const postRepostLimiter = new RateLimiter();
-export const profileImageLimiter = new RateLimiter();
+export const post_create_limiter = new RateLimiter();
+export const post_edit_limiter = new RateLimiter();
+export const post_reaction_limiter = new RateLimiter();
+export const post_repost_limiter = new RateLimiter();
+export const profile_image_limiter = new RateLimiter();

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import { goto } from '$app/navigation';
+
 	import type { ActionData, PageData } from './$types';
 	import { resolve } from '$app/paths';
 	import { ArrowLeft, Camera, KeyRound, Trash2, AlertTriangle } from 'lucide-svelte';
@@ -45,7 +45,7 @@
 	// Delete account state
 	let show_delete_modal = $state(false);
 	let delete_confirmation = $state('');
-	const DELETE_CONFIRMATION = 'IWANTTODELETEMYACCOUNT';
+	const delete_confirmation_text = 'IWANTTODELETEMYACCOUNT';
 
 	function open_delete_modal() {
 		show_delete_modal = true;
@@ -290,7 +290,7 @@
 							<li>Remove you from all notifications</li>
 						</ul>
 						<p>
-							To confirm, type <code>{DELETE_CONFIRMATION}</code> in the field below:
+							To confirm, type <code>{delete_confirmation_text}</code> in the field below:
 						</p>
 						<input
 							type="text"
@@ -300,9 +300,9 @@
 							bind:value={delete_confirmation}
 							required
 						/>
-						{#if delete_confirmation && delete_confirmation !== DELETE_CONFIRMATION}
+						{#if delete_confirmation && delete_confirmation !== delete_confirmation_text}
 							<p class="delete-hint">
-								{#if delete_confirmation.length < DELETE_CONFIRMATION.length}
+								{#if delete_confirmation.length < delete_confirmation_text.length}
 									Keep typing...
 								{:else}
 									Confirmation text does not match
@@ -317,7 +317,7 @@
 						<button
 							type="submit"
 							class="btn btn-danger"
-							disabled={delete_confirmation !== DELETE_CONFIRMATION}
+							disabled={delete_confirmation !== delete_confirmation_text}
 						>
 							Delete my account
 						</button>

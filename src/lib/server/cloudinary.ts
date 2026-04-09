@@ -22,7 +22,9 @@ function ensure_configured() {
 			api_secret: env.CLOUDINARY_API_SECRET
 		});
 		configured = true;
-		console.info('[Cloudinary] Configured for cloud:', env.CLOUDINARY_CLOUD_NAME);
+		if (process.env.NODE_ENV !== 'production') {
+			console.info('[Cloudinary] Configured for cloud:', env.CLOUDINARY_CLOUD_NAME);
+		}
 	}
 }
 
@@ -91,7 +93,9 @@ export async function upload_profile_picture(
 		`avatar_${user_id}`
 	);
 
-	console.info('[Cloudinary] Uploaded avatar:', result.url);
+	if (process.env.NODE_ENV !== 'production') {
+		console.info('[Cloudinary] Uploaded avatar:', result.url);
+	}
 	return result.url;
 }
 
@@ -112,7 +116,9 @@ export async function upload_cover_photo(
 		`cover_${user_id}`
 	);
 
-	console.info('[Cloudinary] Uploaded cover:', result.url);
+	if (process.env.NODE_ENV !== 'production') {
+		console.info('[Cloudinary] Uploaded cover:', result.url);
+	}
 	return result.url;
 }
 
