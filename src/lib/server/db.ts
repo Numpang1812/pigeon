@@ -5,13 +5,17 @@ import { create_tables_sql, create_indexes_sql } from './db/schema';
 let db_client: Client | null = null;
 let init_promise: Promise<void> | null = null;
 
+const is_dev = process.env.NODE_ENV !== 'production';
+
 export function get_client() {
 	if (!db_client) {
 		const url = env.TURSO_DB_URL;
 		const token = env.TURSO_DB_TOKEN;
 
-		console.info('[DB] TURSO_DB_URL:', url ? 'set' : 'undefined');
-		console.info('[DB] TURSO_DB_TOKEN:', token ? 'set' : 'undefined');
+		if (is_dev) {
+			console.info('[DB] TURSO_DB_URL:', url ? 'set' : 'undefined');
+			console.info('[DB] TURSO_DB_TOKEN:', token ? 'set' : 'undefined');
+		}
 
 		if (!url || !token) {
 			throw new Error(
@@ -23,7 +27,10 @@ export function get_client() {
 			url,
 			authToken: token
 		});
-		console.info('[DB] Client created successfully');
+
+		if (is_dev) {
+			console.info('[DB] Client created successfully');
+		}
 	}
 	return db_client;
 }
@@ -50,8 +57,10 @@ export async function ensure_schema(): Promise<void> {
 	}
 
 	init_promise = (async () => {
-		console.info('[DB Schema] ========== STARTING SCHEMA INITIALIZATION ==========');
-		console.info('[DB Schema] Tables to create:', Object.keys(create_tables_sql).join(', '));
+		if (is_dev) {
+			console.info('[DB Schema] ========== STARTING SCHEMA INITIALIZATION ==========');
+			console.info('[DB Schema] Tables to create:', Object.keys(create_tables_sql).join(', '));
+		}
 
 		try {
 			// Create application tables
@@ -59,15 +68,23 @@ export async function ensure_schema(): Promise<void> {
 			for (const [name, sql] of table_entries) {
 				await handle_table_creation(name, sql);
 			}
-			console.info('[DB Schema] All application tables verified');
+
+			if (is_dev) {
+				console.info('[DB Schema] All application tables verified');
+			}
 
 			// Create indexes
-			console.info('[DB Schema] Creating indexes...');
+			if (is_dev) {
+				console.info('[DB Schema] Creating indexes...');
+			}
 			for (const sql of create_indexes_sql) {
 				await handle_index_creation(sql);
 			}
-			console.info('[DB Schema] All indexes verified');
-			console.info('[DB Schema] ========== DATABASE INITIALIZATION COMPLETE ✅ ==========');
+
+			if (is_dev) {
+				console.info('[DB Schema] All indexes verified');
+				console.info('[DB Schema] ========== DATABASE INITIALIZATION COMPLETE ✅ ==========');
+			}
 		} catch (error) {
 			console.error('[DB Schema] ========== FATAL SCHEMA INITIALIZATION ERROR ==========');
 			console.error('[DB Schema] Error:', error);
@@ -79,16 +96,22 @@ export async function ensure_schema(): Promise<void> {
 }
 
 async function handle_table_creation(name: string, sql: string) {
-	console.info(`[DB Schema] ${sql.startsWith('CREATE TABLE') ? 'Creating table' : 'Altering table'}: ${name}...`);
+	if (is_dev) {
+		console.info(`[DB Schema] ${sql.startsWith('CREATE TABLE') ? 'Creating table' : 'Altering table'}: ${name}...`);
+	}
 	try {
 		await db.execute({ sql, args: [] });
-		console.info(`[DB Schema] ✅ Success: ${name}`);
+		if (is_dev) {
+			console.info(`[DB Schema] ✅ Success: ${name}`);
+		}
 	} catch (table_err: unknown) {
 		const table_error = table_err as { message?: string };
 		const msg = table_error.message?.toLowerCase() || '';
 		// Ignore "already exists" or "duplicate column" errors
 		if (msg.includes('already exists') || msg.includes('duplicate column')) {
-			console.info(`[DB Schema] ℹ️  Already exists: ${name}`);
+			if (is_dev) {
+				console.info(`[DB Schema] ℹ️  Already exists: ${name}`);
+			}
 		} else {
 			console.error(`[DB Schema] ❌ Error on ${name}:`, table_error.message);
 			throw table_error;

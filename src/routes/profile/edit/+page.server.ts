@@ -49,9 +49,21 @@ export const actions: Actions = {
 		}
 
 		const data = await request.formData();
-		const name = data.get('name')?.toString() || '';
+		const raw_name = data.get('name')?.toString() || '';
 		const username = normalize_handle(data.get('username'));
-		const bio = data.get('bio')?.toString() || '';
+		const raw_bio = data.get('bio')?.toString() || '';
+
+		// Sanitize inputs: strip HTML tags and enforce length limits
+		const name = raw_name.replace(/<[^>]*>/g, '').trim();
+		const bio = raw_bio.replace(/<[^>]*>/g, '').trim();
+
+		if (!name || name.length > 50) {
+			return fail(400, { message: 'Name must be between 1 and 50 characters' });
+		}
+
+		if (bio.length > 160) {
+			return fail(400, { message: 'Bio must be 160 characters or less' });
+		}
 
 		if (!username) {
 			return fail(400, { message: 'Username is required' });
