@@ -265,7 +265,7 @@
 				</div>
 			{/if}
 
-			<form id="login-form" onsubmit={handle_submit} novalidate>
+			<form id="login-form" onsubmit={handle_submit}>
 				<div class="field">
 					<label for="email" class="field-label">Email</label>
 					<input
@@ -300,7 +300,7 @@
 					id="login-submit"
 					type="submit"
 					class="btn-primary"
-					disabled={loading || !email || !password}
+					disabled={loading}
 				>
 					{#if loading}
 						<span class="spinner" aria-hidden="true"></span>

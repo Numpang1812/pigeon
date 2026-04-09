@@ -238,7 +238,7 @@
 				</div>
 			{/if}
 
-			<form id="signup-form" onsubmit={handle_submit} novalidate>
+			<form id="signup-form" onsubmit={handle_submit}>
 				<div class="field">
 					<label for="name" class="field-label">Full Name</label>
 					<input
@@ -317,7 +317,7 @@
 					id="signup-submit"
 					type="submit"
 					class="btn-primary"
-					disabled={loading || !name || !username.trim() || !email || !password || !confirm_password}
+					disabled={loading}
 				>
 					{#if loading}
 						<span class="spinner" aria-hidden="true"></span>
