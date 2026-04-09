@@ -6,7 +6,6 @@
 <main class="compose-page" aria-label="Compose page">
 	<section class="compose-container">
 		<div class="compose-card">
-			
 			<!-- Top Row -->
 			<div class="compose-top">
 				<div class="compose-title">
@@ -25,7 +24,6 @@
 				<Sparkles size={14} />
 				<span>Tip: Use #hashtags to reach more people</span>
 			</p>
-
 		</div>
 	</section>
 </main>
@@ -38,7 +36,6 @@
 		display: flex;
 		justify-content: center;
 		padding: 2rem 1rem;
-		
 	}
 
 	.compose-container {
@@ -101,7 +98,5 @@
 			width: calc(100% + 2rem);
 			margin: -1rem;
 		}
-
 	}
-
 </style>

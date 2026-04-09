@@ -1,7 +1,7 @@
 import { json, type RequestHandler } from '@sveltejs/kit';
 import { auth } from '$lib/auth';
-import { 
-	get_profile_user_by_handle, 
+import {
+	get_profile_user_by_handle,
 	toggle_follow_relationship,
 	create_follow_notification,
 	get_follow_counts

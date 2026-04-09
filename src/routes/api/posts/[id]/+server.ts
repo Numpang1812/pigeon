@@ -104,8 +104,8 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
 			args: [content.trim(), post_id]
 		});
 
-		return json({ 
-			success: true, 
+		return json({
+			success: true,
 			message: 'Post updated successfully',
 			content: content.trim()
 		});

@@ -4,7 +4,7 @@ import { auth } from '$lib/auth';
 import { nanoid } from 'nanoid';
 import { build_post_visibility_clause, normalize_user_id_list } from '$lib/server/post-visibility';
 import { post_create_limiter } from '$lib/server/rate-limiter';
-	
+
 function check_rate_limit(user_id: string) {
 	const rate_limit = post_create_limiter.check(user_id, 1, 5_000);
 	if (!rate_limit.allowed) {
@@ -36,33 +36,47 @@ export const POST: RequestHandler = async ({ request }) => {
 		const validation = validate_post_input(body);
 		if (validation.error) return json({ error: validation.error }, { status: 400 });
 
-		const { content, audience, normalized_tags, validated_post_tag, requested_allowed_user_ids } = validation;
-		if (!content || !audience || !validated_post_tag) return json({ error: 'Invalid input' }, { status: 400 });
+		const { content, audience, normalized_tags, validated_post_tag, requested_allowed_user_ids } =
+			validation;
+		if (!content || !audience || !validated_post_tag)
+			return json({ error: 'Invalid input' }, { status: 400 });
 
 		let validated_allowed_user_ids: string[] = [];
 		if (audience === 'close_friends') {
-			validated_allowed_user_ids = await validate_close_friends_audience(session.user.id, requested_allowed_user_ids);
+			validated_allowed_user_ids = await validate_close_friends_audience(
+				session.user.id,
+				requested_allowed_user_ids
+			);
 			if (validated_allowed_user_ids.length === 0) {
 				return json({ error: 'Select who can see this post' }, { status: 400 });
 			}
 		}
 
-		const post_id = await create_post_record(session.user.id, content.trim(), audience, validated_post_tag);
+		const post_id = await create_post_record(
+			session.user.id,
+			content.trim(),
+			audience,
+			validated_post_tag
+		);
 
 		if (audience === 'close_friends') {
 			await handle_post_visibility(post_id, validated_allowed_user_ids);
 		}
 
 		if (body.media) await handle_post_media(post_id, body.media);
-		if (normalized_tags && normalized_tags.length > 0) await handle_post_hashtags(post_id, normalized_tags);
+		if (normalized_tags && normalized_tags.length > 0)
+			await handle_post_hashtags(post_id, normalized_tags);
 
 		const post = await fetch_created_post(post_id);
 		if (!post) return json({ error: 'Failed to create post' }, { status: 500 });
 
-		return json({
-			success: true,
-			post: map_post_row(post, session.user.id, normalized_tags)
-		}, { status: 201 });
+		return json(
+			{
+				success: true,
+				post: map_post_row(post, session.user.id, normalized_tags)
+			},
+			{ status: 201 }
+		);
 	} catch (error) {
 		console.error('[POST API] Error:', error);
 		return json({ error: 'Internal server error' }, { status: 500 });
@@ -84,11 +98,18 @@ export const GET: RequestHandler = async ({ url, request }) => {
 			const target = await fetch_specific_post(post_id, session.user.id);
 			if (target) {
 				rows.push(target);
-				rows.sort((a, b) => new Date(String(b.created_at) + 'Z').getTime() - new Date(String(a.created_at) + 'Z').getTime());
+				rows.sort(
+					(a, b) =>
+						new Date(String(b.created_at) + 'Z').getTime() -
+						new Date(String(a.created_at) + 'Z').getTime()
+				);
 			}
 		}
 
-		return json({ success: true, posts: rows.map(r => map_post_row(r, session.user.id)) }, { status: 200 });
+		return json(
+			{ success: true, posts: rows.map((r) => map_post_row(r, session.user.id)) },
+			{ status: 200 }
+		);
 	} catch (error) {
 		console.error('[POSTS API] Error:', error);
 		return json({ error: 'Internal server error' }, { status: 500 });
@@ -114,17 +135,26 @@ function validate_post_input(body: Record<string, unknown>): PostInput {
 	}
 
 	const valid_audiences = ['public', 'followers_friends', 'close_friends', 'private'];
-	const validated_audience = typeof audience === 'string' && valid_audiences.includes(audience) ? audience : 'public';
+	const validated_audience =
+		typeof audience === 'string' && valid_audiences.includes(audience) ? audience : 'public';
 
 	const normalized_tags = Array.isArray(post_tags)
-		? Array.from(new Set(post_tags.map(normalize_tag).filter((t): t is string => t !== null))).slice(0, 6)
+		? Array.from(
+				new Set(post_tags.map(normalize_tag).filter((t): t is string => t !== null))
+			).slice(0, 6)
 		: [];
 
 	const normalized_primary = normalize_tag(post_tag);
 	const validated_post_tag = normalized_tags[0] ?? normalized_primary ?? 'other';
 	const requested_allowed_user_ids = normalize_user_id_list(allowed_user_ids);
 
-	return { content, audience: validated_audience, normalized_tags, validated_post_tag, requested_allowed_user_ids };
+	return {
+		content,
+		audience: validated_audience,
+		normalized_tags,
+		validated_post_tag,
+		requested_allowed_user_ids
+	};
 }
 
 async function validate_close_friends_audience(user_id: string, requested_ids: string[] = []) {
@@ -139,7 +169,12 @@ async function validate_close_friends_audience(user_id: string, requested_ids: s
 	return requested_ids.filter((id) => allowed_following_ids.has(id));
 }
 
-async function create_post_record(author_id: string, content: string, audience: string, post_tag: string) {
+async function create_post_record(
+	author_id: string,
+	content: string,
+	audience: string,
+	post_tag: string
+) {
 	const post_id = nanoid();
 	await db.execute({
 		sql: `INSERT INTO post (id, author_id, content, audience, post_tag, created_at, updated_at)
@@ -168,7 +203,10 @@ async function handle_post_hashtags(post_id: string, tags: string[]) {
 				  VALUES (?, ?, 1) ON CONFLICT(tag_name) DO UPDATE SET usage_count = usage_count + 1`,
 			args: [nanoid(), tag]
 		});
-		const result = await db.execute({ sql: `SELECT id FROM hashtag WHERE tag_name = ?`, args: [tag] });
+		const result = await db.execute({
+			sql: `SELECT id FROM hashtag WHERE tag_name = ?`,
+			args: [tag]
+		});
 		if (result.rows.length > 0) {
 			await db.execute({
 				sql: `INSERT OR IGNORE INTO post_hashtag (post_id, hashtag_id) VALUES (?, ?)`,
@@ -200,8 +238,13 @@ async function fetch_created_post(post_id: string) {
 function map_post_row(row_raw: unknown, current_user_id: string, tags: string[] = []) {
 	const row = row_raw as Record<string, unknown>;
 	const hashtag_list = (row.hashtag_list as string | null) ?? '';
-	const parsed_tags = tags.length > 0 ? tags : 
-		hashtag_list.split(',').map(tag => tag.trim().toLowerCase()).filter(tag => tag.length > 0);
+	const parsed_tags =
+		tags.length > 0
+			? tags
+			: hashtag_list
+					.split(',')
+					.map((tag) => tag.trim().toLowerCase())
+					.filter((tag) => tag.length > 0);
 
 	return {
 		id: row.id as string,
@@ -265,13 +308,18 @@ function build_posts_query(url: URL, current_user_id: string) {
 		if (tag === 'other') {
 			where.push("p.post_tag = 'other'");
 		} else {
-			where.push("EXISTS (SELECT 1 FROM post_hashtag ph JOIN hashtag h ON ph.hashtag_id = h.id WHERE ph.post_id = p.id AND h.tag_name = ?)");
+			where.push(
+				'EXISTS (SELECT 1 FROM post_hashtag ph JOIN hashtag h ON ph.hashtag_id = h.id WHERE ph.post_id = p.id AND h.tag_name = ?)'
+			);
 			args.push(tag);
 		}
 	}
 
 	if (where.length > 0) query += ' WHERE ' + where.join(' AND ');
-	query += tag === 'trending' ? ' ORDER BY like_count DESC, p.created_at DESC' : ' ORDER BY p.created_at DESC';
+	query +=
+		tag === 'trending'
+			? ' ORDER BY like_count DESC, p.created_at DESC'
+			: ' ORDER BY p.created_at DESC';
 	query += ' LIMIT ? OFFSET ?';
 	args.push(limit, offset);
 
@@ -290,7 +338,13 @@ async function fetch_specific_post(post_id: string, current_user_id: string) {
 				EXISTS(SELECT 1 FROM repost WHERE post_id = p.id AND user_id = ?) as user_reposted
 			  FROM post p JOIN user u ON p.author_id = u.id
 			  WHERE p.id = ? AND ${build_post_visibility_clause(current_user_id).clause}`,
-		args: [current_user_id, current_user_id, current_user_id, post_id, ...build_post_visibility_clause(current_user_id).args]
+		args: [
+			current_user_id,
+			current_user_id,
+			current_user_id,
+			post_id,
+			...build_post_visibility_clause(current_user_id).args
+		]
 	});
 	return result.rows[0];
 }

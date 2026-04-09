@@ -5,4 +5,4 @@
 	const { data } = $props<{ data: PageData }>();
 </script>
 
-<ProfileRouteShell data={data} force_owner={true} />
+<ProfileRouteShell {data} force_owner={true} />

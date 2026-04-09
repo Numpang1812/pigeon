@@ -1,5 +1,15 @@
 <script lang="ts">
-	import { BadgeCheck, Check, Repeat2, Heart, ThumbsDown, Trash2, Pencil, X, AlertTriangle } from 'lucide-svelte';
+	import {
+		BadgeCheck,
+		Check,
+		Repeat2,
+		Heart,
+		ThumbsDown,
+		Trash2,
+		Pencil,
+		X,
+		AlertTriangle
+	} from 'lucide-svelte';
 	import { resolve } from '$app/paths';
 	import { normalize_handle } from '$lib';
 	import { fly } from 'svelte/transition';
@@ -28,14 +38,18 @@
 		user_reposted?: boolean;
 		is_author?: boolean;
 		is_edited?: boolean;
-		on_metric_change?: (post_id: string, type: 'like' | 'dislike' | 'repost', new_metrics: {
-			likes: number;
-			dislikes: number;
-			reposts: number;
-			user_liked: boolean;
-			user_disliked: boolean;
-			user_reposted: boolean;
-		}) => void;
+		on_metric_change?: (
+			post_id: string,
+			type: 'like' | 'dislike' | 'repost',
+			new_metrics: {
+				likes: number;
+				dislikes: number;
+				reposts: number;
+				user_liked: boolean;
+				user_disliked: boolean;
+				user_reposted: boolean;
+			}
+		) => void;
 		on_delete?: (post_id: string) => void;
 		on_edit?: (post_id: string, new_content: string) => void;
 	}
@@ -49,7 +63,9 @@
 		private: 'Just me'
 	};
 
-	const audience_label = $derived(props.audience ? audience_labels[props.audience] ?? props.audience : '');
+	const audience_label = $derived(
+		props.audience ? (audience_labels[props.audience] ?? props.audience) : ''
+	);
 
 	const liked = $derived(props.user_liked ?? false);
 	const disliked = $derived(props.user_disliked ?? false);
@@ -133,7 +149,7 @@
 	const like_count = $derived(props.metrics?.likes ?? 0);
 	const dislike_count = $derived(props.metrics?.dislikes ?? 0);
 	const repost_count = $derived(props.metrics?.reposts ?? 0);
-	
+
 	const normalized_tags = $derived.by(() => {
 		const source_tags = props.post_tags?.length ? props.post_tags : [props.post_tag];
 		const normalized = source_tags
@@ -334,11 +350,7 @@
 	}
 </script>
 
-<article
-	id={`post-${props.post_id}`}
-	class="post-shell"
-	aria-label="Feed post"
->
+<article id={`post-${props.post_id}`} class="post-shell" aria-label="Feed post">
 	<div class="card">
 		<section class="content-section">
 			<header class="content-header">
@@ -363,17 +375,17 @@
 				</time>
 				{#if props.is_author && !is_editing}
 					<div class="author-actions">
-						<button 
-							type="button" 
-							class="action-btn edit-btn" 
+						<button
+							type="button"
+							class="action-btn edit-btn"
 							onclick={start_edit}
 							aria-label="Edit post"
 						>
 							<Pencil size={14} />
 						</button>
-						<button 
-							type="button" 
-							class="action-btn delete-btn" 
+						<button
+							type="button"
+							class="action-btn delete-btn"
 							onclick={request_delete}
 							aria-label="Delete post"
 						>
@@ -496,7 +508,9 @@
 					{:else}
 						<div class="avatar-placeholder" aria-hidden="true">
 							<svg viewBox="0 0 24 24" fill="currentColor">
-								<path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+								<path
+									d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"
+								/>
 							</svg>
 						</div>
 					{/if}
@@ -508,7 +522,9 @@
 					{:else}
 						<div class="avatar-placeholder" aria-hidden="true">
 							<svg viewBox="0 0 24 24" fill="currentColor">
-								<path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+								<path
+									d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"
+								/>
 							</svg>
 						</div>
 					{/if}
@@ -526,12 +542,14 @@
 					</h2>
 					{#if props.verified}
 						<span class="verified-icon" aria-label="Verified account" title="Verified account">
-							<BadgeCheck size={18} aria-hidden="true" fill="#0ea5e9"/>
+							<BadgeCheck size={18} aria-hidden="true" fill="#0ea5e9" />
 						</span>
 					{/if}
 				</div>
 				{#if author_handle_safe}
-					<a class="author-handle author-link" href={resolve(author_profile_path)}>@{props.author_handle}</a>
+					<a class="author-handle author-link" href={resolve(author_profile_path)}
+						>@{props.author_handle}</a
+					>
 				{:else}
 					<span class="author-handle">@{props.author_handle}</span>
 				{/if}
@@ -557,7 +575,9 @@
 
 	:global(.post-shell.flash-target) .card {
 		border-color: #38bdf8;
-		box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.18), 0 14px 30px -18px rgba(14, 165, 233, 0.7);
+		box-shadow:
+			0 0 0 3px rgba(56, 189, 248, 0.18),
+			0 14px 30px -18px rgba(14, 165, 233, 0.7);
 		animation: post-pop-in 680ms cubic-bezier(0.2, 0.9, 0.2, 1);
 	}
 
@@ -700,7 +720,7 @@
 		display: flex;
 		align-items: center;
 		gap: 0.8rem;
-		background: linear-gradient(#fafeff,#fcfcff);
+		background: linear-gradient(#fafeff, #fcfcff);
 	}
 
 	.avatar-wrapper {
@@ -784,7 +804,8 @@
 		display: block;
 		margin-top: 0.1rem;
 		font-size: 0.83rem;
-		color: #49afde	}
+		color: #49afde;
+	}
 
 	.author-bio {
 		margin: 0.45rem 0 0 0;

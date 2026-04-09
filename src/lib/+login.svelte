@@ -296,12 +296,7 @@
 
 				<a href={resolve('/')} class="forgot-link">Forgot password?</a>
 
-				<button
-					id="login-submit"
-					type="submit"
-					class="btn-primary"
-					disabled={loading}
-				>
+				<button id="login-submit" type="submit" class="btn-primary" disabled={loading}>
 					{#if loading}
 						<span class="spinner" aria-hidden="true"></span>
 						Signing in…

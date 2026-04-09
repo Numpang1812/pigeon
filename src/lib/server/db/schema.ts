@@ -1,6 +1,6 @@
 /**
  * Database Schema Definitions
- * 
+ *
  * All table definitions for the Pigeon application.
  * These schemas will be created in the Turso database on initialization.
  */

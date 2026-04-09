@@ -5,4 +5,4 @@
 	const { data } = $props<{ data: PageData }>();
 </script>
 
-<ProfileRouteShell data={data} show_back_button={true} enable_follow_ui={true} />
+<ProfileRouteShell {data} show_back_button={true} enable_follow_ui={true} />

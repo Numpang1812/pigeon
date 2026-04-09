@@ -172,7 +172,6 @@
 </script>
 
 <main class="home-feed-page" aria-label="Home feed page">
-
 	<div class="composer-wrap">
 		<PostTextbox on_submit={handle_post_submit} isExpanded={false} />
 	</div>

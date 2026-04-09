@@ -57,7 +57,12 @@
 	</div>
 
 	{#if data.username_required}
-		<div class="username-lock" role="dialog" aria-modal="true" aria-labelledby="username-lock-title">
+		<div
+			class="username-lock"
+			role="dialog"
+			aria-modal="true"
+			aria-labelledby="username-lock-title"
+		>
 			<div class="username-lock__backdrop"></div>
 			<div class="username-lock__panel">
 				<h2 id="username-lock-title">Choose your username</h2>

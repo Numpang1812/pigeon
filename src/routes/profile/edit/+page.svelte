@@ -32,7 +32,7 @@
 		password_error = '';
 
 		if (new_password !== confirm_password) {
-			password_error = 'Your passwords don\'t match';
+			password_error = "Your passwords don't match";
 			return;
 		}
 
@@ -103,14 +103,17 @@
 		<div class="form-container">
 			{#if active_tab === 'profile'}
 				<form method="POST" action="?/profile" use:enhance class="edit-form">
-
 					<!-- Avatar Edit -->
 					<div class="avatar-section">
 						<span class="section-label">Profile Picture</span>
 						<!-- svelte-ignore a11y_click_events_have_key_events -->
 						<!-- svelte-ignore a11y_no_static_element_interactions -->
 						<div class="avatar-container" onclick={() => (show_avatar_uploader = true)}>
-							<img src={profile.avatar || 'https://ui-avatars.com/api/?name=' + profile.name} alt="Avatar" class="avatar-image" />
+							<img
+								src={profile.avatar || 'https://ui-avatars.com/api/?name=' + profile.name}
+								alt="Avatar"
+								class="avatar-image"
+							/>
 							<div class="avatar-overlay">
 								<Camera size={24} />
 							</div>
@@ -148,12 +151,7 @@
 
 					<div class="form-group">
 						<label for="bio">Bio</label>
-						<textarea
-							id="bio"
-							name="bio"
-							bind:value={profile.bio}
-							rows="4"
-							maxlength="160"
+						<textarea id="bio" name="bio" bind:value={profile.bio} rows="4" maxlength="160"
 						></textarea>
 						<div class="char-count">{(profile.bio || '').length} / 160</div>
 					</div>
@@ -247,9 +245,7 @@
 								<p>Permanently delete your account and all your data</p>
 							</div>
 						</div>
-						<button class="btn btn-danger" onclick={open_delete_modal}>
-							Delete
-						</button>
+						<button class="btn btn-danger" onclick={open_delete_modal}> Delete </button>
 					</div>
 				</div>
 			{/if}
@@ -259,7 +255,7 @@
 	<!-- Avatar Uploader Modal -->
 	{#if show_avatar_uploader}
 		<!-- svelte-ignore a11y_click_events_have_key_events -->
-        <!-- svelte-ignore a11y_no_static_element_interactions -->
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div class="modal-backdrop" onclick={() => (show_avatar_uploader = false)}>
 			<div class="modal-content" onclick={(e) => e.stopPropagation()}>
 				<AvatarUploader
@@ -274,7 +270,7 @@
 	<!-- Delete Account Modal -->
 	{#if show_delete_modal}
 		<!-- svelte-ignore a11y_click_events_have_key_events -->
-        <!-- svelte-ignore a11y_no_static_element_interactions -->
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div class="modal-backdrop" onclick={cancel_delete}>
 			<div class="modal-content modal-delete" onclick={(e) => e.stopPropagation()}>
 				<form method="POST" action="?/delete" use:enhance>
@@ -311,9 +307,7 @@
 						{/if}
 					</div>
 					<div class="modal-footer">
-						<button type="button" class="btn btn-outline" onclick={cancel_delete}>
-							Cancel
-						</button>
+						<button type="button" class="btn btn-outline" onclick={cancel_delete}> Cancel </button>
 						<button
 							type="submit"
 							class="btn btn-danger"
@@ -334,7 +328,11 @@
 		width: 100%;
 		display: flex;
 		justify-content: center;
-		font-family: 'Inter', system-ui, -apple-system, sans-serif;
+		font-family:
+			'Inter',
+			system-ui,
+			-apple-system,
+			sans-serif;
 	}
 
 	.main-column {
@@ -345,8 +343,8 @@
 	}
 
 	.border-x {
-		border-left: 1px solid #E1E8ED;
-		border-right: 1px solid #E1E8ED;
+		border-left: 1px solid #e1e8ed;
+		border-right: 1px solid #e1e8ed;
 	}
 
 	.header {
@@ -354,7 +352,7 @@
 		align-items: center;
 		padding: 0 16px;
 		height: 53px;
-		border-bottom: 1px solid #E1E8ED;
+		border-bottom: 1px solid #e1e8ed;
 		position: sticky;
 		top: 0;
 		background: rgba(255, 255, 255, 0.85);
@@ -369,25 +367,25 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		color: #14171A;
+		color: #14171a;
 		margin-right: 16px;
 		transition: background-color 0.2s;
 	}
 
 	.back-btn:hover {
-		background-color: #F5F8FA;
+		background-color: #f5f8fa;
 	}
 
 	.page-title {
 		font-size: 20px;
 		font-weight: 800;
-		color: #14171A;
+		color: #14171a;
 		margin: 0;
 	}
 
 	.tabs {
 		display: flex;
-		border-bottom: 1px solid #E1E8ED;
+		border-bottom: 1px solid #e1e8ed;
 	}
 
 	.tab {
@@ -405,12 +403,12 @@
 	}
 
 	.tab:hover {
-		background-color: #F5F8FA;
+		background-color: #f5f8fa;
 	}
 
 	.tab.active {
 		font-weight: 700;
-		color: #14171A;
+		color: #14171a;
 	}
 
 	.tab-indicator {
@@ -421,7 +419,7 @@
 		width: 56px;
 		height: 4px;
 		border-radius: 9999px;
-		background-color: #1DA1F2;
+		background-color: #1da1f2;
 	}
 
 	.alert {
@@ -432,15 +430,15 @@
 	}
 
 	.success {
-		background-color: #E8F5E9;
-		color: #2E7D32;
-		border: 1px solid #C8E6C9;
+		background-color: #e8f5e9;
+		color: #2e7d32;
+		border: 1px solid #c8e6c9;
 	}
 
 	.error {
-		background-color: #FFEBEE;
-		color: #C62828;
-		border: 1px solid #FFCDD2;
+		background-color: #ffebee;
+		color: #c62828;
+		border: 1px solid #ffcdd2;
 	}
 
 	.form-container {
@@ -462,19 +460,19 @@
 	.section-label {
 		font-size: 15px;
 		font-weight: 700;
-		color: #14171A;
+		color: #14171a;
 	}
 
 	.avatar-container {
 		width: 96px;
 		height: 96px;
 		border-radius: 50%;
-		background-color: #F5F8FA;
+		background-color: #f5f8fa;
 		overflow: hidden;
 		position: relative;
 		cursor: pointer;
 		border: 2px solid white;
-		box-shadow: 0 0 0 1px #E1E8ED;
+		box-shadow: 0 0 0 1px #e1e8ed;
 	}
 
 	.avatar-image {
@@ -511,29 +509,29 @@
 	label {
 		font-size: 15px;
 		font-weight: 700;
-		color: #14171A;
+		color: #14171a;
 	}
 
-	input[type="text"],
-	input[type="password"],
+	input[type='text'],
+	input[type='password'],
 	textarea {
 		font-family: inherit;
 		font-size: 15px;
 		padding: 12px 16px;
 		border-radius: 8px;
-		border: 1px solid #E1E8ED;
-		background-color: #F5F8FA;
-		color: #14171A;
+		border: 1px solid #e1e8ed;
+		background-color: #f5f8fa;
+		color: #14171a;
 		transition: all 0.2s;
 	}
 
-	input[type="text"]:focus,
-	input[type="password"]:focus,
+	input[type='text']:focus,
+	input[type='password']:focus,
 	textarea:focus {
 		outline: none;
-		border-color: #1DA1F2;
+		border-color: #1da1f2;
 		background-color: white;
-		box-shadow: 0 0 0 1px #1DA1F2;
+		box-shadow: 0 0 0 1px #1da1f2;
 	}
 
 	.input-with-prefix {
@@ -547,19 +545,19 @@
 		left: 16px;
 		color: #657786;
 		pointer-events: none;
-        font-size: 15px;
+		font-size: 15px;
 	}
 
 	.input-with-prefix input {
 		padding-left: 36px;
 		width: 100%;
-        box-sizing: border-box;
+		box-sizing: border-box;
 	}
 
 	textarea {
 		resize: vertical;
 		min-height: 96px;
-        box-sizing: border-box;
+		box-sizing: border-box;
 	}
 
 	.char-count {
@@ -573,14 +571,14 @@
 		align-items: center;
 		gap: 12px;
 		padding: 16px;
-		background-color: #F5F8FA;
+		background-color: #f5f8fa;
 		border-radius: 8px;
 		color: #657786;
 		font-size: 15px;
 	}
 
 	.security-intro :global(svg) {
-		color: #14171A;
+		color: #14171a;
 	}
 
 	.form-actions {
@@ -588,7 +586,7 @@
 		justify-content: flex-end;
 		margin-top: 8px;
 		padding-top: 16px;
-		border-top: 1px solid #E1E8ED;
+		border-top: 1px solid #e1e8ed;
 	}
 
 	.btn {
@@ -607,44 +605,44 @@
 	}
 
 	.btn-primary {
-		background-color: #1DA1F2;
+		background-color: #1da1f2;
 		color: white;
 	}
 
 	.btn-primary:hover {
-		background-color: #1A91DA;
+		background-color: #1a91da;
 	}
 
-    .btn-primary:active {
-		background-color: #167CB8;
+	.btn-primary:active {
+		background-color: #167cb8;
 	}
 
 	.btn-outline {
 		background-color: transparent;
-		color: #1DA1F2;
-		border: 2px solid #1DA1F2;
+		color: #1da1f2;
+		border: 2px solid #1da1f2;
 	}
 
 	.btn-outline:hover {
-		background-color: #F0F8FF;
+		background-color: #f0f8ff;
 	}
 
 	.btn-danger {
-		background-color: #DC3545;
+		background-color: #dc3545;
 		color: white;
 	}
 
 	.btn-danger:hover {
-		background-color: #C82333;
+		background-color: #c82333;
 	}
 
 	.btn-danger:active {
-		background-color: #BD2130;
+		background-color: #bd2130;
 	}
 
 	.btn-danger:disabled {
-		background-color: #F5C6CB;
-		color: #6C757D;
+		background-color: #f5c6cb;
+		color: #6c757d;
 		cursor: not-allowed;
 	}
 
@@ -711,7 +709,7 @@
 	}
 
 	.security-back-btn:hover {
-		color: #14171A;
+		color: #14171a;
 	}
 
 	.security-options {
@@ -726,13 +724,13 @@
 		justify-content: space-between;
 		padding: 16px;
 		border-radius: 12px;
-		border: 1px solid #E1E8ED;
-		background-color: #F5F8FA;
+		border: 1px solid #e1e8ed;
+		background-color: #f5f8fa;
 	}
 
 	.security-option.danger {
-		border-color: #FFCDD2;
-		background-color: #FFF8F8;
+		border-color: #ffcdd2;
+		background-color: #fff8f8;
 	}
 
 	.security-option-content {
@@ -744,18 +742,18 @@
 	}
 
 	.security-option.danger .security-option-content {
-		color: #C62828;
+		color: #c62828;
 	}
 
 	.security-option-text h3 {
 		font-size: 15px;
 		font-weight: 700;
-		color: #14171A;
+		color: #14171a;
 		margin: 0 0 2px;
 	}
 
 	.security-option.danger .security-option-text h3 {
-		color: #C62828;
+		color: #c62828;
 	}
 
 	.security-option-text p {
@@ -765,7 +763,7 @@
 	}
 
 	.security-option.danger .security-option-text p {
-		color: #A94442;
+		color: #a94442;
 	}
 
 	/* Delete Modal */
@@ -780,24 +778,24 @@
 		align-items: center;
 		gap: 12px;
 		padding: 20px 24px;
-		background-color: #F5F8FA;
-		border-bottom: 1px solid #E1E8ED;
+		background-color: #f5f8fa;
+		border-bottom: 1px solid #e1e8ed;
 	}
 
 	.modal-header h2 {
 		margin: 0;
 		font-size: 18px;
 		font-weight: 800;
-		color: #14171A;
+		color: #14171a;
 	}
 
 	.modal-header.danger {
-		background-color: #FFF8F8;
-		border-bottom-color: #FFCDD2;
+		background-color: #fff8f8;
+		border-bottom-color: #ffcdd2;
 	}
 
 	.modal-header.danger :global(svg) {
-		color: #DC3545;
+		color: #dc3545;
 	}
 
 	.modal-body {
@@ -812,16 +810,16 @@
 	}
 
 	.modal-body p strong {
-		color: #C62828;
+		color: #c62828;
 	}
 
 	.modal-body code {
-		background-color: #F5F8FA;
+		background-color: #f5f8fa;
 		padding: 2px 6px;
 		border-radius: 4px;
 		font-size: 13px;
 		font-weight: 600;
-		color: #14171A;
+		color: #14171a;
 	}
 
 	.delete-consequences {
@@ -839,8 +837,8 @@
 		width: 100%;
 		padding: 12px 16px;
 		border-radius: 8px;
-		border: 1px solid #E1E8ED;
-		background-color: #F5F8FA;
+		border: 1px solid #e1e8ed;
+		background-color: #f5f8fa;
 		font-family: inherit;
 		font-size: 14px;
 		transition: all 0.2s;
@@ -849,14 +847,14 @@
 
 	.delete-input:focus {
 		outline: none;
-		border-color: #DC3545;
+		border-color: #dc3545;
 		background-color: white;
-		box-shadow: 0 0 0 1px #DC3545;
+		box-shadow: 0 0 0 1px #dc3545;
 	}
 
 	.delete-hint {
 		font-size: 13px !important;
-		color: #C62828 !important;
+		color: #c62828 !important;
 		margin-top: 8px !important;
 	}
 
@@ -865,6 +863,6 @@
 		justify-content: flex-end;
 		gap: 12px;
 		padding: 16px 24px;
-		border-top: 1px solid #E1E8ED;
+		border-top: 1px solid #e1e8ed;
 	}
 </style>

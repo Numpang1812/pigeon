@@ -52,7 +52,10 @@ export async function get_follow_counts(profile_user_id: string) {
 	};
 }
 
-export async function get_profile_followers(profile_user_id: string, limit = 12): Promise<ProfileConnection[]> {
+export async function get_profile_followers(
+	profile_user_id: string,
+	limit = 12
+): Promise<ProfileConnection[]> {
 	const result = await db.execute({
 		sql: `
 			SELECT
@@ -79,7 +82,10 @@ export async function get_profile_followers(profile_user_id: string, limit = 12)
 	}));
 }
 
-export async function get_profile_following(profile_user_id: string, limit = 12): Promise<ProfileConnection[]> {
+export async function get_profile_following(
+	profile_user_id: string,
+	limit = 12
+): Promise<ProfileConnection[]> {
 	const result = await db.execute({
 		sql: `
 			SELECT
@@ -126,14 +132,17 @@ export async function toggle_follow_relationship(follower_id: string, following_
 	}
 
 	await db.execute({
-		sql: 'INSERT INTO follow (id, follower_id, following_id, created_at) VALUES (?, ?, ?, datetime(\'now\'))',
+		sql: "INSERT INTO follow (id, follower_id, following_id, created_at) VALUES (?, ?, ?, datetime('now'))",
 		args: [crypto.randomUUID(), follower_id, following_id]
 	});
 
 	return { is_following: true, changed: true };
 }
 
-export async function create_follow_notification(target_user_id: string, source_user_id: string): Promise<void> {
+export async function create_follow_notification(
+	target_user_id: string,
+	source_user_id: string
+): Promise<void> {
 	if (target_user_id === source_user_id) return;
 
 	const notification_id = crypto.randomUUID();
@@ -144,7 +153,11 @@ export async function create_follow_notification(target_user_id: string, source_
 	});
 }
 
-export async function get_access_state(viewer_user_id: string, profile_user_id: string, is_owner: boolean) {
+export async function get_access_state(
+	viewer_user_id: string,
+	profile_user_id: string,
+	is_owner: boolean
+) {
 	if (is_owner) {
 		return {
 			is_owner: true,
@@ -180,7 +193,11 @@ function get_posts_where_clause(is_owner: boolean, viewer_user_id: string) {
 
 type ProfilePostMode = 'posts' | 'liked' | 'reposted';
 
-function get_profile_posts_query_parts(mode: ProfilePostMode, is_owner: boolean, viewer_user_id: string) {
+function get_profile_posts_query_parts(
+	mode: ProfilePostMode,
+	is_owner: boolean,
+	viewer_user_id: string
+) {
 	if (mode === 'liked') {
 		return get_interaction_posts_query_parts('like', 'l', viewer_user_id, is_owner);
 	}
@@ -217,7 +234,7 @@ function get_interaction_posts_query_parts(
 	return {
 		from_clause: `FROM ${column_name} ${alias} JOIN post p ON p.id = ${alias}.post_id JOIN user u ON p.author_id = u.id`,
 		where_clause,
-		where_args: is_owner ? [] as (string | number)[] : visibility_clause?.args ?? [],
+		where_args: is_owner ? ([] as (string | number)[]) : (visibility_clause?.args ?? []),
 		order_clause: `ORDER BY ${alias}.created_at DESC`
 	};
 }
@@ -227,7 +244,11 @@ export async function get_profile_posts(
 	is_owner: boolean,
 	mode: ProfilePostMode = 'posts'
 ) {
-	const { from_clause, where_clause, where_args, order_clause } = get_profile_posts_query_parts(mode, is_owner, viewer_user_id);
+	const { from_clause, where_clause, where_args, order_clause } = get_profile_posts_query_parts(
+		mode,
+		is_owner,
+		viewer_user_id
+	);
 
 	return db.execute({
 		sql: `SELECT p.id, p.content, p.post_tag, p.audience, p.created_at, p.author_id, p.updated_at,
@@ -294,7 +315,9 @@ export function map_profile(
 		bio: (user.bio as string) || '',
 		joined: `Joined ${joined_date}`,
 		avatar: (user.image as string) || '',
-		cover: (user.cover as string) || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80',
+		cover:
+			(user.cover as string) ||
+			'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80',
 		following: counts.following,
 		followers: counts.followers
 	};

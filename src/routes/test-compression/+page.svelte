@@ -84,7 +84,7 @@
 
 	function get_reduction(): number {
 		if (!original_file || !compressed_file) return 0;
-		return ((1 - compressed_file.size / original_file.size) * 100);
+		return (1 - compressed_file.size / original_file.size) * 100;
 	}
 
 	function download_compressed() {
@@ -114,11 +114,7 @@
 		<label class="upload-btn">
 			<Upload size={24} />
 			<span>Select Image</span>
-			<input
-				type="file"
-				accept="image/*"
-				onchange={handle_file_select}
-			/>
+			<input type="file" accept="image/*" onchange={handle_file_select} />
 		</label>
 	</div>
 
@@ -206,8 +202,9 @@
 					<h3>✅ Quality Assessment</h3>
 					{#if get_reduction() > 70}
 						<p class="excellent">
-							<strong>Excellent compression!</strong> File size reduced by {get_reduction().toFixed(1)}%.
-							Suitable for fast uploads with minimal quality loss.
+							<strong>Excellent compression!</strong> File size reduced by {get_reduction().toFixed(
+								1
+							)}%. Suitable for fast uploads with minimal quality loss.
 						</p>
 					{:else if get_reduction() > 50}
 						<p class="good">
@@ -216,8 +213,9 @@
 						</p>
 					{:else}
 						<p class="moderate">
-							<strong>Moderate compression.</strong> File size reduced by {get_reduction().toFixed(1)}%.
-							Image was already small or optimized.
+							<strong>Moderate compression.</strong> File size reduced by {get_reduction().toFixed(
+								1
+							)}%. Image was already small or optimized.
 						</p>
 					{/if}
 				</div>
@@ -228,20 +226,24 @@
 
 <style>
 	:global(body) {
-		background: #F5F8FA;
+		background: #f5f8fa;
 	}
 
 	.container {
 		max-width: 1200px;
 		margin: 0 auto;
 		padding: 40px 20px;
-		font-family: 'Inter', system-ui, -apple-system, sans-serif;
+		font-family:
+			'Inter',
+			system-ui,
+			-apple-system,
+			sans-serif;
 	}
 
 	h1 {
 		font-size: 32px;
 		font-weight: 800;
-		color: #14171A;
+		color: #14171a;
 		margin: 0 0 8px 0;
 	}
 
@@ -260,7 +262,7 @@
 		align-items: center;
 		gap: 12px;
 		padding: 16px 32px;
-		background: #1DA1F2;
+		background: #1da1f2;
 		color: white;
 		border-radius: 9999px;
 		cursor: pointer;
@@ -270,7 +272,7 @@
 	}
 
 	.upload-btn:hover {
-		background: #1A91DA;
+		background: #1a91da;
 	}
 
 	.upload-btn input[type='file'] {
@@ -282,8 +284,8 @@
 		align-items: center;
 		gap: 12px;
 		padding: 16px;
-		background: #FEE;
-		color: #E0245E;
+		background: #fee;
+		color: #e0245e;
 		border-radius: 8px;
 		margin-bottom: 24px;
 	}
@@ -311,7 +313,7 @@
 		display: flex;
 		justify-content: space-between;
 		padding: 8px 0;
-		border-bottom: 1px solid #E1E8ED;
+		border-bottom: 1px solid #e1e8ed;
 	}
 
 	.setting:last-child {
@@ -324,7 +326,7 @@
 	}
 
 	.setting .value {
-		color: #14171A;
+		color: #14171a;
 		font-weight: 700;
 	}
 
@@ -382,12 +384,12 @@
 	.size {
 		font-size: 20px;
 		font-weight: 700;
-		color: #14171A;
+		color: #14171a;
 		margin: 0 0 12px 0;
 	}
 
 	.size.compressed {
-		color: #17BF63;
+		color: #17bf63;
 	}
 
 	.arrow-section {
@@ -409,9 +411,9 @@
 		align-items: center;
 		gap: 8px;
 		padding: 20px;
-		background: #E8F5E9;
+		background: #e8f5e9;
 		border-radius: 12px;
-		color: #17BF63;
+		color: #17bf63;
 	}
 
 	.success-badge p {
@@ -425,7 +427,7 @@
 		align-items: center;
 		gap: 8px;
 		padding: 10px 20px;
-		background: #1DA1F2;
+		background: #1da1f2;
 		color: white;
 		border: none;
 		border-radius: 9999px;
@@ -438,7 +440,7 @@
 	}
 
 	.download-btn:hover {
-		background: #1A91DA;
+		background: #1a91da;
 	}
 
 	.quality-box {
@@ -462,11 +464,11 @@
 	}
 
 	.excellent {
-		color: #17BF63 !important;
+		color: #17bf63 !important;
 	}
 
 	.good {
-		color: #1DA1F2 !important;
+		color: #1da1f2 !important;
 	}
 
 	.moderate {

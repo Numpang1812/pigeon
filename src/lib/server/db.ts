@@ -97,7 +97,9 @@ export async function ensure_schema(): Promise<void> {
 
 async function handle_table_creation(name: string, sql: string) {
 	if (is_dev) {
-		console.info(`[DB Schema] ${sql.startsWith('CREATE TABLE') ? 'Creating table' : 'Altering table'}: ${name}...`);
+		console.info(
+			`[DB Schema] ${sql.startsWith('CREATE TABLE') ? 'Creating table' : 'Altering table'}: ${name}...`
+		);
 	}
 	try {
 		await db.execute({ sql, args: [] });

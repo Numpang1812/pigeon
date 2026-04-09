@@ -17,7 +17,7 @@
 	let on_notifications_page = $state(false);
 	let is_sidebar_collapsed = $state(false);
 
- 	const read_notifications_key = 'pigeon_notifications_read_ids';
+	const read_notifications_key = 'pigeon_notifications_read_ids';
 
 	type NavbarNotificationItem = { id?: string };
 
@@ -52,7 +52,9 @@
 			}
 
 			const read_ids = get_read_notification_ids();
-			unseen_notifications_count = notifications.filter((item) => !item.id || !read_ids.has(item.id)).length;
+			unseen_notifications_count = notifications.filter(
+				(item) => !item.id || !read_ids.has(item.id)
+			).length;
 		} catch (error) {
 			console.error('Failed to fetch latest notification state:', error);
 		}
@@ -112,7 +114,8 @@
 		const interval = setInterval(refresh_notification_dot, 8000);
 
 		const handle_sidebar_state_change = (event: Event): void => {
-			const detail = event instanceof CustomEvent ? event.detail as { is_collapsed?: boolean } : undefined;
+			const detail =
+				event instanceof CustomEvent ? (event.detail as { is_collapsed?: boolean }) : undefined;
 			is_sidebar_collapsed = Boolean(detail?.is_collapsed);
 		};
 
@@ -126,7 +129,10 @@
 			window.removeEventListener('focus', refresh_notification_dot);
 			window.removeEventListener('visibilitychange', refresh_notification_dot);
 			window.removeEventListener('notifications-seen-updated', refresh_notification_dot);
-			window.removeEventListener('sidebar-state-changed', handle_sidebar_state_change as EventListener);
+			window.removeEventListener(
+				'sidebar-state-changed',
+				handle_sidebar_state_change as EventListener
+			);
 		};
 	});
 
@@ -157,10 +163,12 @@
 					placeholder="Search Pigeon..."
 					bind:value={search}
 					oninput={handle_search}
-					onfocus={() => { if(search) show_dropdown = true; }}
+					onfocus={() => {
+						if (search) show_dropdown = true;
+					}}
 				/>
 			</div>
-			
+
 			{#if show_dropdown}
 				<div class="search-dropdown">
 					{#if is_loading}
@@ -178,7 +186,11 @@
 									}
 								}}
 							>
-								<img src={user.image || 'https://i.pravatar.cc/40'} alt={user.name} class="search-avatar" />
+								<img
+									src={user.image || 'https://i.pravatar.cc/40'}
+									alt={user.name}
+									class="search-avatar"
+								/>
 								<div class="search-info">
 									<p class="search-name">{user.name}</p>
 									<p class="search-email">@{user.username}</p>
@@ -195,7 +207,10 @@
 		<button class="icon-btn" type="button" aria-label="Notifications" onclick={open_notifications}>
 			<span class="notify-icon"><Bell /></span>
 			{#if unseen_notifications_count > 0 && !on_notifications_page}
-				<span class="notify-count" aria-label={`${unseen_notifications_count} unread notifications`}>
+				<span
+					class="notify-count"
+					aria-label={`${unseen_notifications_count} unread notifications`}
+				>
 					{notification_badge_text}
 				</span>
 			{/if}

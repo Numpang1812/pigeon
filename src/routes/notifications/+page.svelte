@@ -4,14 +4,7 @@
 	import { auth_client } from '$lib/auth-client';
 	import { normalize_handle } from '$lib';
 	import { SvelteSet } from 'svelte/reactivity';
-	import {
-		Bell,
-		Check,
-		Heart,
-		Repeat2,
-		ThumbsDown,
-		UserPlus
-	} from 'lucide-svelte';
+	import { Bell, Check, Heart, Repeat2, ThumbsDown, UserPlus } from 'lucide-svelte';
 
 	const session = auth_client.useSession();
 
@@ -132,7 +125,9 @@
 	});
 
 	function should_show_view_post_action(item: NotificationItem): boolean {
-		return (item.type === 'like' || item.type === 'dislike' || item.type === 'repost') && !!item.post_id;
+		return (
+			(item.type === 'like' || item.type === 'dislike' || item.type === 'repost') && !!item.post_id
+		);
 	}
 
 	function should_show_follow_actions(item: NotificationItem): boolean {
@@ -179,15 +174,15 @@
 
 	async function follow_back(notification_id: string, actor_handle?: string): Promise<void> {
 		if (!actor_handle) return;
-		
+
 		following_back.add(notification_id);
-		
+
 		try {
 			const follow_res = await fetch(`/api/users/follow/${encodeURIComponent(actor_handle)}`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' }
 			});
-			
+
 			if (follow_res.ok) {
 				const notification_index = notifications.findIndex((n) => n.id === notification_id);
 				if (notification_index !== -1) {
@@ -273,13 +268,18 @@
 									</div>
 
 									<button
-							type="button"
-							class="avatar-btn"
-							onclick={() => view_profile(item.id, item.actor_handle)}
-							aria-label={`View ${item.actor_name} profile`}
-						>
-							<img class="avatar" src={item.avatar_url} alt={item.actor_name} loading="lazy" />
-						</button>
+										type="button"
+										class="avatar-btn"
+										onclick={() => view_profile(item.id, item.actor_handle)}
+										aria-label={`View ${item.actor_name} profile`}
+									>
+										<img
+											class="avatar"
+											src={item.avatar_url}
+											alt={item.actor_name}
+											loading="lazy"
+										/>
+									</button>
 
 									<div class="content-block">
 										<p class="message-line">
@@ -313,7 +313,11 @@
 												</button>
 											{/if}
 											{#if should_show_view_post_action(item)}
-												<button type="button" class="inline-action" onclick={() => view_post(item.id, item.post_id)}>
+												<button
+													type="button"
+													class="inline-action"
+													onclick={() => view_post(item.id, item.post_id)}
+												>
 													{action_label(item.type)}
 												</button>
 											{/if}
@@ -326,15 +330,15 @@
 													View profile
 												</button>
 												{#if should_show_follow_back(item)}
-												<button 
-													type="button" 
-													class="inline-action"
-													disabled={following_back.has(item.id)}
-													onclick={() => follow_back(item.id, item.actor_handle)}
-												>
-													{following_back.has(item.id) ? 'Following...' : 'Follow back'}
-												</button>
-											{/if}
+													<button
+														type="button"
+														class="inline-action"
+														disabled={following_back.has(item.id)}
+														onclick={() => follow_back(item.id, item.actor_handle)}
+													>
+														{following_back.has(item.id) ? 'Following...' : 'Follow back'}
+													</button>
+												{/if}
 											{/if}
 										</div>
 									</div>

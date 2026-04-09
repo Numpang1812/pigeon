@@ -26,13 +26,13 @@
 
 	// Compression settings - wider for cover photos
 	const compression_options = {
-		maxSizeMB: 2,              // Target 1-2MB after compression
-		maxWidthOrHeight: 1920,    // Max dimension for cover photos (wide)
-		useWebWorker: true,        // Don't block UI thread
-		fileType: 'image/jpeg',    // Always output JPEG for consistency
-		initialQuality: 0.8,       // Start with 80% quality
-		maxIteration: 3,           // Max compression iterations
-		preserveExif: false        // Remove metadata to save space
+		maxSizeMB: 2, // Target 1-2MB after compression
+		maxWidthOrHeight: 1920, // Max dimension for cover photos (wide)
+		useWebWorker: true, // Don't block UI thread
+		fileType: 'image/jpeg', // Always output JPEG for consistency
+		initialQuality: 0.8, // Start with 80% quality
+		maxIteration: 3, // Max compression iterations
+		preserveExif: false // Remove metadata to save space
 	};
 
 	const max_file_size = 10 * 1024 * 1024; // 10MB before compression
@@ -170,7 +170,6 @@
 					props.on_close();
 				}
 			}, 2000);
-
 		} catch (err: unknown) {
 			const message = err instanceof Error ? err.message : String(err);
 			console.error('Upload error:', err);
@@ -286,9 +285,7 @@
 				disabled={is_uploading || is_compressing}
 			/>
 		</label>
-		<p class="hint">
-			Max 10MB • Auto-compressed • JPEG, PNG, WebP
-		</p>
+		<p class="hint">Max 10MB • Auto-compressed • JPEG, PNG, WebP</p>
 	</div>
 </div>
 
@@ -313,7 +310,7 @@
 		margin: 0;
 		font-size: 20px;
 		font-weight: 700;
-		color: #14171A;
+		color: #14171a;
 	}
 
 	.close-btn {
@@ -326,7 +323,7 @@
 	}
 
 	.close-btn:hover {
-		color: #14171A;
+		color: #14171a;
 	}
 
 	.current-cover,
@@ -349,7 +346,7 @@
 		height: 200px;
 		border-radius: 12px;
 		object-fit: cover;
-		border: 4px solid #E1E8ED;
+		border: 4px solid #e1e8ed;
 	}
 
 	.preview-area img.compressing {
@@ -359,7 +356,7 @@
 	.compression-info {
 		margin-top: 12px;
 		padding: 12px;
-		background: #F5F8FA;
+		background: #f5f8fa;
 		border-radius: 8px;
 	}
 
@@ -378,11 +375,11 @@
 	}
 
 	.arrow {
-		color: #1DA1F2;
+		color: #1da1f2;
 	}
 
 	.compressed {
-		color: #17BF63;
+		color: #17bf63;
 	}
 
 	.reduction {
@@ -392,7 +389,7 @@
 		gap: 4px;
 		margin: 8px 0 0 0;
 		font-size: 13px;
-		color: #17BF63;
+		color: #17bf63;
 		font-weight: 600;
 	}
 
@@ -407,13 +404,13 @@
 	}
 
 	.error-message {
-		background: #FEE;
-		color: #E0245E;
+		background: #fee;
+		color: #e0245e;
 	}
 
 	.success-message {
-		background: #E8F5E9;
-		color: #17BF63;
+		background: #e8f5e9;
+		color: #17bf63;
 	}
 
 	.error-message p,
@@ -432,7 +429,7 @@
 		align-items: center;
 		gap: 8px;
 		padding: 12px 24px;
-		background: #1DA1F2;
+		background: #1da1f2;
 		color: white;
 		border-radius: 9999px;
 		cursor: pointer;
@@ -442,7 +439,7 @@
 	}
 
 	.upload-btn:hover:not(.disabled) {
-		background: #1A91DA;
+		background: #1a91da;
 	}
 
 	.upload-btn.disabled {

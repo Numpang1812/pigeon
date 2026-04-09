@@ -39,7 +39,9 @@ export async function fetch_activity_notifications_for_user(
 	user_id: string,
 	options: FetchNotificationsOptions = {}
 ): Promise<ActivityNotificationItem[]> {
-	const limit = Number.isFinite(options.limit) ? Math.min(Math.max(options.limit ?? 30, 1), 100) : 30;
+	const limit = Number.isFinite(options.limit)
+		? Math.min(Math.max(options.limit ?? 30, 1), 100)
+		: 30;
 	const offset = Number.isFinite(options.offset) ? Math.max(options.offset ?? 0, 0) : 0;
 
 	const result = await db.execute({
@@ -135,11 +137,20 @@ export async function fetch_activity_notifications_for_user(
 			LIMIT ? OFFSET ?
 		`,
 		args: [
-			user_id, user_id, user_id,
-			user_id, user_id, user_id,
-			user_id, user_id, user_id,
-			user_id, user_id, user_id,
-			limit, offset
+			user_id,
+			user_id,
+			user_id,
+			user_id,
+			user_id,
+			user_id,
+			user_id,
+			user_id,
+			user_id,
+			user_id,
+			user_id,
+			user_id,
+			limit,
+			offset
 		]
 	});
 

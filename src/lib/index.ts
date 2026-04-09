@@ -1,5 +1,5 @@
 // place files you want to import through the `$lib` alias in this folder.
-export {default as Post} from './components/Post.svelte'
-export {default as PostTextbox} from './components/PostTextbox.svelte'
-export {default as ProfilePageView} from './components/ProfilePageView.svelte'
-export { normalize_handle } from './handle'
+export { default as Post } from './components/Post.svelte';
+export { default as PostTextbox } from './components/PostTextbox.svelte';
+export { default as ProfilePageView } from './components/ProfilePageView.svelte';
+export { normalize_handle } from './handle';

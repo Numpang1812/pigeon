@@ -7,7 +7,11 @@
 	import CoverUploader from '$lib/components/CoverUploader.svelte';
 	import ProfilePostTabs from '$lib/components/profile/ProfilePostTabs.svelte';
 	import ProfileConnectionsModal from '$lib/components/profile/ProfileConnectionsModal.svelte';
-	import type { ProfileData, ProfilePost, ProfilePostMetricChange } from '$lib/components/profile/types';
+	import type {
+		ProfileData,
+		ProfilePost,
+		ProfilePostMetricChange
+	} from '$lib/components/profile/types';
 	import { SvelteSet } from 'svelte/reactivity';
 
 	interface ProfilePageViewProps {
@@ -26,7 +30,7 @@
 	let is_following_override = $state<boolean | null>(null);
 	let followers_count_override = $state<number | null>(null);
 
-	const is_following = $derived(is_following_override ?? (props.data.access?.is_following ?? false));
+	const is_following = $derived(is_following_override ?? props.data.access?.is_following ?? false);
 
 	let show_avatar_uploader = $state(false);
 	let avatar_url = $state<string | null>(null);
@@ -134,9 +138,17 @@
 		is_following_override = !was_following;
 		followers_count_override = Math.max(0, previous_followers_count + (was_following ? -1 : 1));
 
-		return async ({ result, update }: { result: { type: string; data?: unknown }; update: () => Promise<void> }) => {
+		return async ({
+			result,
+			update
+		}: {
+			result: { type: string; data?: unknown };
+			update: () => Promise<void>;
+		}) => {
 			if (result.type === 'success') {
-				const data = result.data as { is_following?: boolean; followers_count?: number } | undefined;
+				const data = result.data as
+					| { is_following?: boolean; followers_count?: number }
+					| undefined;
 				if (typeof data?.is_following === 'boolean') {
 					is_following_override = data.is_following;
 				}
@@ -215,7 +227,12 @@
 
 		<div class="profile-header">
 			{#if is_owner}
-				<button class="cover-image-container" onclick={handle_cover_click} aria-label="Change cover photo" type="button">
+				<button
+					class="cover-image-container"
+					onclick={handle_cover_click}
+					aria-label="Change cover photo"
+					type="button"
+				>
 					<img src={cover_url || profile.cover} alt="Cover" class="cover-image" />
 					<div class="cover-overlay">
 						<Camera size={32} />
@@ -230,14 +247,26 @@
 			<div class="profile-actions-row">
 				{#if is_owner}
 					<button class="avatar-container" onclick={handle_avatar_click} aria-label="Change avatar">
-						<img src={avatar_url || profile.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name)}&size=256&background=1DA1F2&color=fff`} alt="Avatar" class="avatar-image" />
+						<img
+							src={avatar_url ||
+								profile.avatar ||
+								`https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name)}&size=256&background=1DA1F2&color=fff`}
+							alt="Avatar"
+							class="avatar-image"
+						/>
 						<div class="avatar-overlay">
 							<Camera size={32} />
 						</div>
 					</button>
 				{:else}
 					<div class="avatar-container static-avatar" aria-hidden="true">
-						<img src={avatar_url || profile.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name)}&size=256&background=1DA1F2&color=fff`} alt="Avatar" class="avatar-image" />
+						<img
+							src={avatar_url ||
+								profile.avatar ||
+								`https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name)}&size=256&background=1DA1F2&color=fff`}
+							alt="Avatar"
+							class="avatar-image"
+						/>
 					</div>
 				{/if}
 				<div class="action-buttons">
@@ -271,12 +300,24 @@
 						<span class="stat-value">{local_posts.length}</span>
 						<span class="stat-label">Posts</span>
 					</button>
-					<button type="button" class="stat-link" onclick={() => (show_connections_modal = 'following')}>
+					<button
+						type="button"
+						class="stat-link"
+						onclick={() => (show_connections_modal = 'following')}
+					>
 						<span class="stat-value">{profile.following}</span>
 						<span class="stat-label">Following</span>
 					</button>
-					<button type="button" class="stat-link" onclick={() => (show_connections_modal = 'followers')}>
-						<span class="stat-value">{followers_count >= 1000 ? `${(followers_count / 1000).toFixed(1)}K` : followers_count}</span>
+					<button
+						type="button"
+						class="stat-link"
+						onclick={() => (show_connections_modal = 'followers')}
+					>
+						<span class="stat-value"
+							>{followers_count >= 1000
+								? `${(followers_count / 1000).toFixed(1)}K`
+								: followers_count}</span
+						>
 						<span class="stat-label">Followers</span>
 					</button>
 				</div>
@@ -360,7 +401,11 @@
 		width: 100%;
 		display: flex;
 		justify-content: center;
-		font-family: 'Inter', system-ui, -apple-system, sans-serif;
+		font-family:
+			'Inter',
+			system-ui,
+			-apple-system,
+			sans-serif;
 	}
 
 	.main-feed {
@@ -628,7 +673,6 @@
 	.stat-label {
 		color: #657786;
 	}
-
 
 	@media (max-width: 900px) {
 		.profile-layout {

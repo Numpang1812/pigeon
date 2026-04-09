@@ -9,6 +9,8 @@ import { sequence } from '@sveltejs/kit/hooks';
 const safe_methods = new Set(['GET', 'HEAD', 'OPTIONS']);
 
 const security_headers = {
+	'Content-Security-Policy':
+		"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' https: data: blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
 	'X-Frame-Options': 'DENY',
 	'X-Content-Type-Options': 'nosniff',
 	'Referrer-Policy': 'strict-origin-when-cross-origin',
@@ -54,11 +56,10 @@ const csrf_handler: Handle = async ({ event, resolve }) => {
 	// If Origin header is present and doesn't match our host, reject
 	// Browsers always send Origin on cross-origin requests
 	if (origin && origin !== host) {
-		console.warn(`[CSRF] Blocked cross-origin request: ${origin} -> ${host} (${event.request.method} ${event.url.pathname})`);
-		return json(
-			{ error: 'Cross-origin requests are not allowed' },
-			{ status: 403 }
+		console.warn(
+			`[CSRF] Blocked cross-origin request: ${origin} -> ${host} (${event.request.method} ${event.url.pathname})`
 		);
+		return json({ error: 'Cross-origin requests are not allowed' }, { status: 403 });
 	}
 
 	return resolve(event);
@@ -135,9 +136,4 @@ const auth_handler: Handle = async ({ event, resolve }) => {
 // Export (order matters: first handler runs first)
 // ==========================================
 
-export const handle = sequence(
-	security_headers_handler,
-	csrf_handler,
-	init_handler,
-	auth_handler
-);
+export const handle = sequence(security_headers_handler, csrf_handler, init_handler, auth_handler);

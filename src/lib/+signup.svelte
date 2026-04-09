@@ -313,12 +313,7 @@
 					/>
 				</div>
 
-				<button
-					id="signup-submit"
-					type="submit"
-					class="btn-primary"
-					disabled={loading}
-				>
+				<button id="signup-submit" type="submit" class="btn-primary" disabled={loading}>
 					{#if loading}
 						<span class="spinner" aria-hidden="true"></span>
 						Creating account…

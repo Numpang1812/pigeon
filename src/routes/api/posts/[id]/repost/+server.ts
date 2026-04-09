@@ -19,7 +19,9 @@ export const POST: RequestHandler = async ({ request, params }) => {
 		const rate_limit = post_repost_limiter.check(session.user.id, 1, 2_000);
 		if (!rate_limit.allowed) {
 			return json(
-				{ error: `Too many reposts. Try again in ${Math.ceil(rate_limit.retry_after_ms! / 1000)}s.` },
+				{
+					error: `Too many reposts. Try again in ${Math.ceil(rate_limit.retry_after_ms! / 1000)}s.`
+				},
 				{ status: 429 }
 			);
 		}
@@ -49,7 +51,7 @@ export const POST: RequestHandler = async ({ request, params }) => {
 			// Remove repost
 			await db.execute({
 				sql: `DELETE FROM repost WHERE id = ?`,
-				args: [(existing_repost.rows[0].id as string)]
+				args: [existing_repost.rows[0].id as string]
 			});
 		} else {
 			// Repost
@@ -75,7 +77,6 @@ export const POST: RequestHandler = async ({ request, params }) => {
 		const counts = await get_post_counts(post_id, session.user.id);
 
 		return json({ success: true, ...counts }, { status: 200 });
-
 	} catch (error) {
 		console.error('[REPOST API] Error:', error);
 		return json({ error: 'Internal server error' }, { status: 500 });
@@ -90,9 +91,18 @@ async function get_post_counts(post_id: string, user_id: string) {
 	]);
 
 	const [user_like, user_dislike, user_repost] = await Promise.all([
-		db.execute({ sql: `SELECT id FROM like WHERE user_id = ? AND post_id = ?`, args: [user_id, post_id] }),
-		db.execute({ sql: `SELECT id FROM dislike WHERE user_id = ? AND post_id = ?`, args: [user_id, post_id] }),
-		db.execute({ sql: `SELECT id FROM repost WHERE user_id = ? AND post_id = ?`, args: [user_id, post_id] })
+		db.execute({
+			sql: `SELECT id FROM like WHERE user_id = ? AND post_id = ?`,
+			args: [user_id, post_id]
+		}),
+		db.execute({
+			sql: `SELECT id FROM dislike WHERE user_id = ? AND post_id = ?`,
+			args: [user_id, post_id]
+		}),
+		db.execute({
+			sql: `SELECT id FROM repost WHERE user_id = ? AND post_id = ?`,
+			args: [user_id, post_id]
+		})
 	]);
 
 	return {

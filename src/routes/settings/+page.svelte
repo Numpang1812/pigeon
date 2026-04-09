@@ -79,7 +79,9 @@
 		<header class="settings-header">
 			<div class="settings-title-block">
 				<h1 class="settings-title">Settings</h1>
-				<p class="settings-sub">Manage your account, security, and preferences. (Design-only for now.)</p>
+				<p class="settings-sub">
+					Manage your account, security, and preferences. (Design-only for now.)
+				</p>
 			</div>
 		</header>
 
@@ -315,7 +317,8 @@
 		width: 2.15rem;
 		height: 2.15rem;
 		border-radius: 0.8rem;
-		background: radial-gradient(circle at 25% 20%, rgba(186, 230, 253, 0.65), transparent 55%),
+		background:
+			radial-gradient(circle at 25% 20%, rgba(186, 230, 253, 0.65), transparent 55%),
 			linear-gradient(180deg, rgba(15, 23, 42, 0.08), rgba(15, 23, 42, 0.02));
 		border: 1px solid rgba(148, 163, 184, 0.35);
 		color: #0f172a;
@@ -374,7 +377,8 @@
 
 	.danger-action .action-icon {
 		border-color: rgba(244, 63, 94, 0.25);
-		background: radial-gradient(circle at 25% 20%, rgba(254, 202, 202, 0.75), transparent 55%),
+		background:
+			radial-gradient(circle at 25% 20%, rgba(254, 202, 202, 0.75), transparent 55%),
 			linear-gradient(180deg, rgba(244, 63, 94, 0.08), rgba(15, 23, 42, 0.02));
 	}
 
@@ -389,7 +393,11 @@
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
-		font-family: 'Inter', system-ui, -apple-system, sans-serif;
+		font-family:
+			'Inter',
+			system-ui,
+			-apple-system,
+			sans-serif;
 		gap: 1rem;
 	}
 
@@ -408,7 +416,11 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		font-family: 'Inter', system-ui, -apple-system, sans-serif;
+		font-family:
+			'Inter',
+			system-ui,
+			-apple-system,
+			sans-serif;
 	}
 
 	@media (max-width: 900px) {
@@ -421,4 +433,3 @@
 		}
 	}
 </style>
-

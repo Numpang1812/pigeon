@@ -5,11 +5,14 @@
 	--sidebar-offset: 260px;
 }
 
-*, *::before, *::after {
+*,
+*::before,
+*::after {
 	box-sizing: border-box;
 }
 
-html, body {
+html,
+body {
 	overflow-x: hidden;
 	width: 100%;
 	margin: 0;

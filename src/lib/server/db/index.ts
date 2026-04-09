@@ -1,6 +1,6 @@
 /**
  * Kysely Database Type Definition
- * 
+ *
  * This interface maps all database tables to their TypeScript types
  * enabling type-safe SQL queries with Kysely.
  */

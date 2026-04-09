@@ -54,9 +54,7 @@ async function upload_buffer(
 				public_id,
 				resource_type: 'image',
 				overwrite: true,
-				transformation: [
-					{ quality: 'auto', fetch_format: 'auto' }
-				]
+				transformation: [{ quality: 'auto', fetch_format: 'auto' }]
 			},
 			(error, result) => {
 				if (error) {
@@ -87,11 +85,7 @@ export async function upload_profile_picture(
 	user_id: string,
 	file_buffer: Buffer
 ): Promise<string> {
-	const result = await upload_buffer(
-		file_buffer,
-		'pigeon/avatars',
-		`avatar_${user_id}`
-	);
+	const result = await upload_buffer(file_buffer, 'pigeon/avatars', `avatar_${user_id}`);
 
 	if (process.env.NODE_ENV !== 'production') {
 		console.info('[Cloudinary] Uploaded avatar:', result.url);
@@ -106,15 +100,8 @@ export async function upload_profile_picture(
  * @param file_buffer - Image buffer
  * @returns The public URL of the uploaded cover photo
  */
-export async function upload_cover_photo(
-	user_id: string,
-	file_buffer: Buffer
-): Promise<string> {
-	const result = await upload_buffer(
-		file_buffer,
-		'pigeon/covers',
-		`cover_${user_id}`
-	);
+export async function upload_cover_photo(user_id: string, file_buffer: Buffer): Promise<string> {
+	const result = await upload_buffer(file_buffer, 'pigeon/covers', `cover_${user_id}`);
 
 	if (process.env.NODE_ENV !== 'production') {
 		console.info('[Cloudinary] Uploaded cover:', result.url);
@@ -135,11 +122,7 @@ export async function upload_post_media(
 	file_buffer: Buffer
 ): Promise<{ url: string; key: string }> {
 	const timestamp = Date.now();
-	const result = await upload_buffer(
-		file_buffer,
-		`pigeon/posts/${user_id}`,
-		`post_${timestamp}`
-	);
+	const result = await upload_buffer(file_buffer, `pigeon/posts/${user_id}`, `post_${timestamp}`);
 
 	return { url: result.url, key: result.public_id };
 }

@@ -80,7 +80,7 @@ export const POST: RequestHandler = async ({ request }) => {
 		// Note: No need to delete old cover - Cloudinary's overwrite: true
 		// automatically replaces the old image with the new one at the same public_id
 		await db.execute({
-			sql: 'UPDATE user SET cover = ?, updatedAt = datetime(\'now\') WHERE id = ?',
+			sql: "UPDATE user SET cover = ?, updatedAt = datetime('now') WHERE id = ?",
 			args: [new_cover_url, user_id]
 		});
 

@@ -271,7 +271,7 @@
 		justify-content: center;
 		transition: all 0.15s ease;
 		flex-shrink: 0;
-		box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+		box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 	}
 
 	.scroll-btn:hover {

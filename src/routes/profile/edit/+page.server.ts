@@ -139,14 +139,21 @@ export const actions: Actions = {
 
 			// 6. Revoke all sessions from BetterAuth (server-side API call)
 			// Note: User is already deleted, this cleans up any remaining sessions
-			await auth.api.revokeSession({
-				body: { token: '' },
-				headers: request.headers
-			}).catch(() => {}); // Ignore errors since user is already deleted
+			await auth.api
+				.revokeSession({
+					body: { token: '' },
+					headers: request.headers
+				})
+				.catch(() => {}); // Ignore errors since user is already deleted
 
 			throw redirect(303, '/');
 		} catch (e: unknown) {
-			if (e && typeof e === 'object' && 'status' in e && typeof (e as { status: number }).status === 'number') {
+			if (
+				e &&
+				typeof e === 'object' &&
+				'status' in e &&
+				typeof (e as { status: number }).status === 'number'
+			) {
 				throw e;
 			}
 			console.error('Error deleting account:', e);
@@ -219,7 +226,10 @@ function validate_password_data(data: FormData) {
 function handle_password_error(e: unknown) {
 	const message = e instanceof Error ? e.message : 'Failed to change password';
 	console.error('Error changing password:', e);
-	if (message.toLowerCase().includes('current password') || message.toLowerCase().includes('incorrect')) {
+	if (
+		message.toLowerCase().includes('current password') ||
+		message.toLowerCase().includes('incorrect')
+	) {
 		return fail(400, { message: 'Wrong Password' });
 	}
 	return fail(500, { message });

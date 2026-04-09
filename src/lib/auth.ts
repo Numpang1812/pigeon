@@ -73,7 +73,12 @@ async function reset_lockout(user_id: string) {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function handle_before_signin(ctx: { path: string; body?: any; context: any; [key: string]: any }) {
+export async function handle_before_signin(ctx: {
+	path: string;
+	body?: any;
+	context: any;
+	[key: string]: any;
+}) {
 	if (!ctx.path.startsWith('/sign-in/email')) return;
 
 	const email = ctx.body?.email;
@@ -99,7 +104,9 @@ export async function handle_before_signin(ctx: { path: string; body?: any; cont
 		}
 
 		if (import.meta.env.DEV) {
-			console.info(`[Auth Hook] BEFORE: ✅ Not locked (attempts: ${user_info.failed_login_attempts})`);
+			console.info(
+				`[Auth Hook] BEFORE: ✅ Not locked (attempts: ${user_info.failed_login_attempts})`
+			);
 		}
 	} catch (err) {
 		if (err instanceof APIError) throw err;
@@ -107,11 +114,18 @@ export async function handle_before_signin(ctx: { path: string; body?: any; cont
 	}
 }
 
-function check_lockout_time(lockout_time: number, now: number, email: string, lockout_until: string) {
+function check_lockout_time(
+	lockout_time: number,
+	now: number,
+	email: string,
+	lockout_until: string
+) {
 	if (lockout_time > now) {
 		if (import.meta.env.DEV) {
 			const remaining_minutes = Math.ceil((lockout_time - now) / 60000);
-			console.info(`[Auth Hook] BEFORE: 🚫 Account LOCKED for ${email} (${remaining_minutes}min remaining)`);
+			console.info(
+				`[Auth Hook] BEFORE: 🚫 Account LOCKED for ${email} (${remaining_minutes}min remaining)`
+			);
 		}
 		throw new APIError('FORBIDDEN', {
 			message: `LOCKOUT|${lockout_until}`
@@ -120,7 +134,12 @@ function check_lockout_time(lockout_time: number, now: number, email: string, lo
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function handle_after_signin(ctx: { path: string; body?: any; context: any; [key: string]: any }) {
+export async function handle_after_signin(ctx: {
+	path: string;
+	body?: any;
+	context: any;
+	[key: string]: any;
+}) {
 	if (!ctx.path.startsWith('/sign-in/email')) return;
 
 	const email = ctx.body?.email;
@@ -160,7 +179,10 @@ export async function handle_after_signin(ctx: { path: string; body?: any; conte
 type UserLockoutInfo = NonNullable<Awaited<ReturnType<typeof get_user_lockout_info>>>;
 
 function handle_is_locked(user_info: UserLockoutInfo, email: string): boolean {
-	const is_locked = user_info.lockout_until && user_info.lockout_until !== '' && new Date(user_info.lockout_until).getTime() > Date.now();
+	const is_locked =
+		user_info.lockout_until &&
+		user_info.lockout_until !== '' &&
+		new Date(user_info.lockout_until).getTime() > Date.now();
 	if (is_locked) {
 		log_after_action('ALREADY_LOCKED', email);
 		return true;
@@ -168,14 +190,22 @@ function handle_is_locked(user_info: UserLockoutInfo, email: string): boolean {
 	return false;
 }
 
-function log_after_action(action: 'SUCCESS' | 'LOCKED' | 'FAILED' | 'ALREADY_LOCKED', email: string, attempts?: number) {
+function log_after_action(
+	action: 'SUCCESS' | 'LOCKED' | 'FAILED' | 'ALREADY_LOCKED',
+	email: string,
+	attempts?: number
+) {
 	if (!import.meta.env.DEV) return;
 	switch (action) {
 		case 'SUCCESS':
-			console.info(`[Auth Hook] AFTER: ✅ Successful login for ${email}, reset counter from ${attempts}`);
+			console.info(
+				`[Auth Hook] AFTER: ✅ Successful login for ${email}, reset counter from ${attempts}`
+			);
 			break;
 		case 'LOCKED':
-			console.info(`[Auth Hook] AFTER: 🔒 Account LOCKED for ${email} after ${attempts} failed attempts`);
+			console.info(
+				`[Auth Hook] AFTER: 🔒 Account LOCKED for ${email} after ${attempts} failed attempts`
+			);
 			break;
 		case 'FAILED':
 			console.info(`[Auth Hook] AFTER: ❌ Failed login #${attempts} for ${email}`);

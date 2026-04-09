@@ -1,6 +1,6 @@
 /**
  * TypeScript Type Definitions for Database Tables
- * 
+ *
  * These types map to the database schema and are used with Kysely
  * for type-safe SQL queries.
  */

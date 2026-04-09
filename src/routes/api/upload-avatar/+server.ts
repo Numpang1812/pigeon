@@ -80,7 +80,7 @@ export const POST: RequestHandler = async ({ request }) => {
 		// Note: No need to delete old avatar - Cloudinary's overwrite: true
 		// automatically replaces the old image with the new one at the same public_id
 		await db.execute({
-			sql: 'UPDATE user SET image = ?, updatedAt = datetime(\'now\') WHERE id = ?',
+			sql: "UPDATE user SET image = ?, updatedAt = datetime('now') WHERE id = ?",
 			args: [new_avatar_url, user_id]
 		});
 

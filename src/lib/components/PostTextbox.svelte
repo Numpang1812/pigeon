@@ -63,7 +63,9 @@
 	let selected_audience = $state<string>(audience_options[0].value);
 	let is_audience_menu_open = $state(false);
 	let is_submitting = $state(false);
-	let mention_results = $state<{ id: string; name: string; username: string; image: string | null }[]>([]);
+	let mention_results = $state<
+		{ id: string; name: string; username: string; image: string | null }[]
+	>([]);
 	let is_mention_menu_open = $state(false);
 	let is_mention_loading = $state(false);
 	let is_close_friend_loading = $state(false);
@@ -73,7 +75,9 @@
 	let close_friend_request_id = 0;
 	let textarea_element = $state<HTMLTextAreaElement | null>(null);
 	let mention_context = $state<{ start: number; end: number } | null>(null);
-	let close_friend_candidates = $state<{ id: string; name: string; handle: string; avatar: string }[]>([]);
+	let close_friend_candidates = $state<
+		{ id: string; name: string; handle: string; avatar: string }[]
+	>([]);
 	let selected_close_friend_ids = $state<string[]>([]);
 	let is_close_friend_list_collapsed = $state(false);
 	const hashtag_pattern = /(^|[^a-z0-9_])#([a-z0-9_]{2,24})\b/gi;
@@ -86,8 +90,8 @@
 	);
 	const can_submit = $derived(
 		sanitized_text_content.length > 0 &&
-		!is_submitting &&
-		(selected_audience !== 'close_friends' || selected_close_friend_ids.length > 0)
+			!is_submitting &&
+			(selected_audience !== 'close_friends' || selected_close_friend_ids.length > 0)
 	);
 	const selected_audience_option = $derived(
 		audience_options.find((option) => option.value === selected_audience) ?? audience_options[0]
@@ -121,26 +125,28 @@
 					audience: selected_audience,
 					post_tag: primary_post_tag,
 					post_tags: has_detected_hashtags ? [...detected_hashtags] : ['other'],
-					allowed_user_ids: selected_audience === 'close_friends' ? [...selected_close_friend_ids] : []
+					allowed_user_ids:
+						selected_audience === 'close_friends' ? [...selected_close_friend_ids] : []
 				})
 			});
 
 			if (response.ok) {
 				await response.json();
-				
+
 				// Call the callback if provided
 				props.on_submit?.({
 					content: sanitized_text_content,
 					audience: selected_audience_option.label,
 					post_tag: primary_post_tag,
 					post_tags: has_detected_hashtags ? [...detected_hashtags] : ['other'],
-					allowed_user_ids: selected_audience === 'close_friends' ? [...selected_close_friend_ids] : []
+					allowed_user_ids:
+						selected_audience === 'close_friends' ? [...selected_close_friend_ids] : []
 				});
-				
+
 				text_content = '';
 				is_audience_menu_open = false;
 				selected_close_friend_ids = [];
-				
+
 				// Reload the page data to show the new post
 				const { invalidateAll: invalidate_all } = await import('$app/navigation');
 				await invalidate_all();
@@ -230,9 +236,10 @@
 		mention_context = null;
 	}
 
-	function get_mention_query_context(content: string, caret_position: number):
-		| { query: string; start: number; end: number }
-		| null {
+	function get_mention_query_context(
+		content: string,
+		caret_position: number
+	): { query: string; start: number; end: number } | null {
 		const at_index = content.lastIndexOf('@', Math.max(0, caret_position - 1));
 		if (at_index < 0) return null;
 
@@ -298,7 +305,10 @@
 	function update_mention_state(): void {
 		if (!textarea_element) return;
 
-		const context = get_mention_query_context(text_content, textarea_element.selectionStart ?? text_content.length);
+		const context = get_mention_query_context(
+			text_content,
+			textarea_element.selectionStart ?? text_content.length
+		);
 		if (!context) {
 			close_mention_menu();
 			return;
@@ -353,7 +363,6 @@
 			close_mention_menu();
 		}
 	}
-
 </script>
 
 <svelte:document onclick={handle_document_click} />
@@ -435,7 +444,9 @@
 							class="close-friends-toggle"
 							onclick={toggle_close_friend_list}
 							aria-expanded={!is_close_friend_list_collapsed}
-							aria-label={is_close_friend_list_collapsed ? 'Expand close friends list' : 'Collapse close friends list'}
+							aria-label={is_close_friend_list_collapsed
+								? 'Expand close friends list'
+								: 'Collapse close friends list'}
 						>
 							{is_close_friend_list_collapsed ? 'Expand list' : 'Collapse list'}
 						</button>
@@ -544,8 +555,23 @@
 		<button type="submit" disabled={!can_submit}>
 			{#if is_submitting}
 				<svg class="spinner" viewBox="0 0 24 24" fill="none">
-					<circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-dasharray="31.4 31.4" stroke-dashoffset="0">
-						<animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="1s" repeatCount="indefinite"/>
+					<circle
+						cx="12"
+						cy="12"
+						r="10"
+						stroke="currentColor"
+						stroke-width="3"
+						stroke-dasharray="31.4 31.4"
+						stroke-dashoffset="0"
+					>
+						<animateTransform
+							attributeName="transform"
+							type="rotate"
+							from="0 12 12"
+							to="360 12 12"
+							dur="1s"
+							repeatCount="indefinite"
+						/>
 					</circle>
 				</svg>
 			{:else}
@@ -564,7 +590,7 @@
 		padding: 1rem;
 		display: grid;
 		gap: 0.75rem;
-        box-shadow: 0 5px 5px #cad1db ;
+		box-shadow: 0 5px 5px #cad1db;
 	}
 
 	textarea {
@@ -579,10 +605,14 @@
 		font-size: 0.95rem;
 		line-height: 1.45;
 		color: #0f172a;
-		transition: border-color 150ms ease, box-shadow 150ms ease, background 150ms ease, height 200ms ease;
+		transition:
+			border-color 150ms ease,
+			box-shadow 150ms ease,
+			background 150ms ease,
+			height 200ms ease;
 	}
 
-	textarea[data-expanded="true"] {
+	textarea[data-expanded='true'] {
 		min-height: 14rem;
 	}
 
