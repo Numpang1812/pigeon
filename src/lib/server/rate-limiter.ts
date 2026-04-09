@@ -67,3 +67,4 @@ export const postCreateLimiter = new RateLimiter();
 export const postEditLimiter = new RateLimiter();
 export const postReactionLimiter = new RateLimiter();
 export const postRepostLimiter = new RateLimiter();
+export const profileImageLimiter = new RateLimiter();
