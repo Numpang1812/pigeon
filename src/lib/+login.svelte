@@ -8,6 +8,31 @@
 	let password = $state('');
 	let error = $state<string | null>(null);
 	let loading = $state(false);
+	let lockoutTime = $state<Date | null>(null);
+	let lockoutCountdown = $state<string>('');
+
+	// Update lockout countdown every second
+	let countdownInterval: ReturnType<typeof setInterval> | null = null;
+
+	$effect(() => {
+		if (lockoutTime) {
+			const activeLockoutTime = lockoutTime;
+			countdownInterval = setInterval(() => {
+				const now = new Date();
+				const diff = activeLockoutTime.getTime() - now.getTime();
+
+				if (diff <= 0) {
+					lockoutTime = null;
+					lockoutCountdown = '';
+					if (countdownInterval) clearInterval(countdownInterval);
+				} else {
+					const minutes = Math.floor(diff / 60000);
+					const seconds = Math.floor((diff % 60000) / 1000);
+					lockoutCountdown = `${minutes}m ${seconds}s`;
+				}
+			}, 1000);
+		}
+	});
 
 	async function handle_submit(e: SubmitEvent) {
 		e.preventDefault();
@@ -22,10 +47,27 @@
 			});
 
 			if (auth_error) {
-				throw new Error(auth_error.message);
-			}
+				// Check if it's a lockout error (format: "LOCKOUT|2026-04-08T18:00:00.000Z")
+				const message = auth_error.message || '';
+				const lockoutMatch = message.match(/^LOCKOUT\|(.+)$/);
 
-			goto(resolve('/home'));
+				if (lockoutMatch) {
+					const lockoutDate = new Date(lockoutMatch[1]);
+
+					// Only set lockoutTime if not already locked (prevents countdown reset)
+					if (!lockoutTime || lockoutTime <= new Date()) {
+						lockoutTime = lockoutDate;
+					}
+					error = `Account locked due to too many failed attempts.`;
+				} else {
+					// Non-lockout error: clear lockout state
+					lockoutTime = null;
+					lockoutCountdown = '';
+					throw new Error(message || 'Login failed. Please try again.');
+				}
+			} else {
+				goto(resolve('/home'));
+			}
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Login failed. Please try again.';
 		} finally {
@@ -206,7 +248,21 @@
 							clip-rule="evenodd"
 						/>
 					</svg>
-					{error}
+					<div class="alert-content">
+						<div class="alert-message">{error}</div>
+						{#if lockoutTime}
+							<div class="alert-countdown">
+								<svg viewBox="0 0 20 20" fill="currentColor" class="alert-countdown-icon">
+									<path
+										fill-rule="evenodd"
+										d="M10 18a8 8 0 100-16 8 8 0 000 16zm.75-13a.75.75 0 00-1.5 0v5c0 .414.336.75.75.75h4a.75.75 0 000-1.5h-3.25V5z"
+										clip-rule="evenodd"
+									/>
+								</svg>
+								Try again in {lockoutCountdown}
+							</div>
+						{/if}
+					</div>
 				</div>
 			{/if}
 
@@ -457,6 +513,30 @@
 		height: 18px;
 		flex-shrink: 0;
 		margin-top: 1px;
+	}
+
+	.alert-content {
+		flex: 1;
+	}
+
+	.alert-message {
+		font-weight: 500;
+		margin-bottom: 4px;
+	}
+
+	.alert-countdown {
+		display: flex;
+		align-items: center;
+		gap: 4px;
+		font-size: 0.8125rem;
+		color: #9b2c2c;
+		font-weight: 600;
+	}
+
+	.alert-countdown-icon {
+		width: 14px;
+		height: 14px;
+		flex-shrink: 0;
 	}
 
 	/* ---- Form fields -------------------------------------------------- */

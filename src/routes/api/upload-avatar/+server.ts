@@ -14,6 +14,7 @@ import type { RequestHandler } from './$types';
 import { auth } from '$lib/auth';
 import { upload_profile_picture } from '$lib/server/cloudinary';
 import { db } from '$lib/server/db';
+import { profileImageLimiter } from '$lib/server/rate-limiter';
 
 // ==========================================
 // Constants
@@ -52,6 +53,12 @@ export const POST: RequestHandler = async ({ request }) => {
 		}
 
 		const user_id = session.user.id;
+
+		// Rate limit: 5 profile image changes per 24 hours (shared with cover)
+		const rateLimit = profileImageLimiter.check(user_id, 5, 24 * 60 * 60 * 1000);
+		if (!rateLimit.allowed) {
+			throw error(429, 'Too many changes per day. Please try again later.');
+		}
 
 		// 2. Parse multipart form data
 		const form_data = await request.formData();

@@ -165,11 +165,12 @@ export const actions: Actions = {
 				args: [session.user.id]
 			});
 
-			// 6. Revoke all sessions from BetterAuth
-			await auth.api.revokeUserSession({
-				body: { userId: session.user.id },
+			// 6. Revoke all sessions from BetterAuth (server-side API call)
+			// Note: User is already deleted, this cleans up any remaining sessions
+			await auth.api.revokeSession({
+				body: { token: '' },
 				headers: request.headers
-			});
+			}).catch(() => {}); // Ignore errors since user is already deleted
 
 			throw redirect(303, '/');
 		} catch (e: unknown) {

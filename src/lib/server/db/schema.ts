@@ -27,6 +27,10 @@ export const create_tables_sql = {
 	add_website: `ALTER TABLE user ADD COLUMN website TEXT`,
 	add_cover: `ALTER TABLE user ADD COLUMN cover TEXT`,
 
+	// Account lockout for rate limiting
+	add_failed_login_attempts: `ALTER TABLE user ADD COLUMN failed_login_attempts INTEGER NOT NULL DEFAULT 0`,
+	add_lockout_until: `ALTER TABLE user ADD COLUMN lockout_until TEXT`,
+
 	// Application tables - Posts
 	post: `
 		CREATE TABLE IF NOT EXISTS post (

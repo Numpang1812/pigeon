@@ -2,6 +2,7 @@ import { json, type RequestHandler } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
 import { auth } from '$lib/auth';
 import { nanoid } from 'nanoid';
+import { postRepostLimiter } from '$lib/server/rate-limiter';
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
 export const POST: RequestHandler = async ({ request, params }) => {
@@ -12,6 +13,15 @@ export const POST: RequestHandler = async ({ request, params }) => {
 
 		if (!session) {
 			return json({ error: 'Unauthorized' }, { status: 401 });
+		}
+
+		// Rate limit: 1 repost per 2 seconds
+		const rateLimit = postRepostLimiter.check(session.user.id, 1, 2_000);
+		if (!rateLimit.allowed) {
+			return json(
+				{ error: `Too many reposts. Try again in ${Math.ceil(rateLimit.retryAfterMs! / 1000)}s.` },
+				{ status: 429 }
+			);
 		}
 
 		const post_id = params.id;

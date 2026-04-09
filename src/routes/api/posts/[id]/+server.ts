@@ -1,6 +1,7 @@
 import { json, type RequestHandler } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
 import { auth } from '$lib/auth';
+import { postEditLimiter } from '$lib/server/rate-limiter';
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
 export const DELETE: RequestHandler = async ({ params, request }) => {
@@ -55,6 +56,15 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
 
 		if (!session) {
 			return json({ error: 'Unauthorized' }, { status: 401 });
+		}
+
+		// Rate limit: 1 edit per 3 seconds
+		const rateLimit = postEditLimiter.check(session.user.id, 1, 3_000);
+		if (!rateLimit.allowed) {
+			return json(
+				{ error: `Too many edits. Try again in ${Math.ceil(rateLimit.retryAfterMs! / 1000)}s.` },
+				{ status: 429 }
+			);
 		}
 
 		const post_id = params.id;
