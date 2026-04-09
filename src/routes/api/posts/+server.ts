@@ -3,6 +3,7 @@ import { db } from '$lib/server/db';
 import { auth } from '$lib/auth';
 import { nanoid } from 'nanoid';
 import { build_post_visibility_clause, normalize_user_id_list } from '$lib/server/post-visibility';
+import { postCreateLimiter } from '$lib/server/rate-limiter';
 
 function normalize_tag(raw_tag: unknown): string | null {
 	if (typeof raw_tag !== 'string') return null;
@@ -15,6 +16,15 @@ export const POST: RequestHandler = async ({ request }) => {
 	try {
 		const session = await auth.api.getSession({ headers: request.headers });
 		if (!session) return json({ error: 'Unauthorized' }, { status: 401 });
+
+		// Rate limit: 1 post per 5 seconds
+		const rateLimit = postCreateLimiter.check(session.user.id, 1, 5_000);
+		if (!rateLimit.allowed) {
+			return json(
+				{ error: `Too many posts. Try again in ${Math.ceil(rateLimit.retryAfterMs! / 1000)}s.` },
+				{ status: 429 }
+			);
+		}
 
 		const body = await request.json();
 		const validation = validate_post_input(body);
