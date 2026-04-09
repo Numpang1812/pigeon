@@ -14,7 +14,7 @@ import type { RequestHandler } from './$types';
 import { auth } from '$lib/auth';
 import { upload_cover_photo } from '$lib/server/cloudinary';
 import { db } from '$lib/server/db';
-import { profileImageLimiter } from '$lib/server/rate-limiter';
+import { profile_image_limiter } from '$lib/server/rate-limiter';
 
 // ==========================================
 // Constants
@@ -55,8 +55,8 @@ export const POST: RequestHandler = async ({ request }) => {
 		const user_id = session.user.id;
 
 		// Rate limit: 5 profile image changes per 24 hours (shared with avatar)
-		const rateLimit = profileImageLimiter.check(user_id, 5, 24 * 60 * 60 * 1000);
-		if (!rateLimit.allowed) {
+		const rate_limit = profile_image_limiter.check(user_id, 5, 24 * 60 * 60 * 1000);
+		if (!rate_limit.allowed) {
 			throw error(429, 'Too many changes per day. Please try again later.');
 		}
 

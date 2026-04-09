@@ -6,9 +6,9 @@ import { sequence } from '@sveltejs/kit/hooks';
 // Constants
 // ==========================================
 
-const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
+const safe_methods = new Set(['GET', 'HEAD', 'OPTIONS']);
 
-const SECURITY_HEADERS = {
+const security_headers = {
 	'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' https: data: blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
 	'X-Frame-Options': 'DENY',
 	'X-Content-Type-Options': 'nosniff',
@@ -24,7 +24,7 @@ const security_headers_handler: Handle = async ({ event, resolve }) => {
 	const response = await resolve(event);
 
 	// Apply security headers to all responses
-	for (const [header, value] of Object.entries(SECURITY_HEADERS)) {
+	for (const [header, value] of Object.entries(security_headers)) {
 		response.headers.set(header, value);
 	}
 
@@ -45,7 +45,7 @@ const security_headers_handler: Handle = async ({ event, resolve }) => {
 
 const csrf_handler: Handle = async ({ event, resolve }) => {
 	// Allow safe methods without CSRF check
-	if (SAFE_METHODS.has(event.request.method)) {
+	if (safe_methods.has(event.request.method)) {
 		return resolve(event);
 	}
 

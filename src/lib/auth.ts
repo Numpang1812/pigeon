@@ -4,8 +4,8 @@ import { env } from '$env/dynamic/private';
 import { get_auth_db_dialect } from './server/auth-db';
 import { get_client } from './server/db';
 
-const MAX_FAILED_ATTEMPTS = 5;
-const LOCKOUT_DURATION_MS = 60 * 60 * 1000; // 1 hour
+const max_failed_attempts = 5;
+const lockout_duration_ms = 60 * 60 * 1000; // 1 hour
 
 if (import.meta.env.DEV) {
 	console.info('[Auth] Initializing BetterAuth...');
@@ -72,6 +72,120 @@ async function reset_lockout(user_id: string) {
 	});
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function handle_before_signin(ctx: { path: string; body?: any; context: any; [key: string]: any }) {
+	if (!ctx.path.startsWith('/sign-in/email')) return;
+
+	const email = ctx.body?.email;
+	if (!email) return;
+
+	if (import.meta.env.DEV) {
+		console.info(`[Auth Hook] BEFORE signIn: checking lockout for ${email}`);
+	}
+
+	try {
+		const user_info = await get_user_lockout_info(email);
+		if (!user_info) {
+			if (import.meta.env.DEV) {
+				console.info(`[Auth Hook] BEFORE: User not found: ${email}`);
+			}
+			return;
+		}
+
+		if (user_info.lockout_until && user_info.lockout_until !== '') {
+			const lockout_time = new Date(user_info.lockout_until).getTime();
+			const now = Date.now();
+			check_lockout_time(lockout_time, now, email, user_info.lockout_until);
+		}
+
+		if (import.meta.env.DEV) {
+			console.info(`[Auth Hook] BEFORE: ✅ Not locked (attempts: ${user_info.failed_login_attempts})`);
+		}
+	} catch (err) {
+		if (err instanceof APIError) throw err;
+		console.error('[Auth Hook] BEFORE error:', err);
+	}
+}
+
+function check_lockout_time(lockout_time: number, now: number, email: string, lockout_until: string) {
+	if (lockout_time > now) {
+		if (import.meta.env.DEV) {
+			const remaining_minutes = Math.ceil((lockout_time - now) / 60000);
+			console.info(`[Auth Hook] BEFORE: 🚫 Account LOCKED for ${email} (${remaining_minutes}min remaining)`);
+		}
+		throw new APIError('FORBIDDEN', {
+			message: `LOCKOUT|${lockout_until}`
+		});
+	}
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function handle_after_signin(ctx: { path: string; body?: any; context: any; [key: string]: any }) {
+	if (!ctx.path.startsWith('/sign-in/email')) return;
+
+	const email = ctx.body?.email;
+	if (!email) return;
+
+	try {
+		const new_session = ctx.context.newSession;
+		const user_info = await get_user_lockout_info(email);
+		if (!user_info) return;
+
+		if (new_session) {
+			if (user_info.failed_login_attempts > 0) {
+				await reset_lockout(user_info.user_id);
+				log_after_action('SUCCESS', email, user_info.failed_login_attempts);
+			}
+			return;
+		}
+
+		const is_locked = handle_is_locked(user_info, email);
+		if (is_locked) return;
+
+		const new_attempts = user_info.failed_login_attempts + 1;
+		await increment_failed_attempts(user_info.user_id, new_attempts);
+
+		if (new_attempts >= max_failed_attempts) {
+			const lockout_until = new Date(Date.now() + lockout_duration_ms).toISOString();
+			await lock_account(user_info.user_id, lockout_until);
+			log_after_action('LOCKED', email, new_attempts);
+		} else {
+			log_after_action('FAILED', email, new_attempts);
+		}
+	} catch (err) {
+		console.error('[Auth Hook] AFTER error:', err);
+	}
+}
+
+type UserLockoutInfo = NonNullable<Awaited<ReturnType<typeof get_user_lockout_info>>>;
+
+function handle_is_locked(user_info: UserLockoutInfo, email: string): boolean {
+	const is_locked = user_info.lockout_until && user_info.lockout_until !== '' && new Date(user_info.lockout_until).getTime() > Date.now();
+	if (is_locked) {
+		log_after_action('ALREADY_LOCKED', email);
+		return true;
+	}
+	return false;
+}
+
+function log_after_action(action: 'SUCCESS' | 'LOCKED' | 'FAILED' | 'ALREADY_LOCKED', email: string, attempts?: number) {
+	if (!import.meta.env.DEV) return;
+	switch (action) {
+		case 'SUCCESS':
+			console.info(`[Auth Hook] AFTER: ✅ Successful login for ${email}, reset counter from ${attempts}`);
+			break;
+		case 'LOCKED':
+			console.info(`[Auth Hook] AFTER: 🔒 Account LOCKED for ${email} after ${attempts} failed attempts`);
+			break;
+		case 'FAILED':
+			console.info(`[Auth Hook] AFTER: ❌ Failed login #${attempts} for ${email}`);
+			break;
+		case 'ALREADY_LOCKED':
+			console.info(`[Auth Hook] AFTER: ⏸️ Already locked, skipping increment for ${email}`);
+			break;
+	}
+}
+
 export const auth = betterAuth({
 	baseURL: env.BETTER_AUTH_URL,
 	secret: env.BETTER_AUTH_SECRET,
@@ -116,119 +230,8 @@ export const auth = betterAuth({
 		enabled: false // Disable built-in rate limiting; we use custom account lockout
 	},
 	hooks: {
-		before: createAuthMiddleware(async (ctx) => {
-			if (!ctx.path.startsWith('/sign-in/email')) return;
-
-			const email = ctx.body?.email;
-			if (!email) return;
-
-			if (import.meta.env.DEV) {
-				console.log(`[Auth Hook] BEFORE signIn: checking lockout for ${email}`);
-			}
-
-			try {
-				const user_info = await get_user_lockout_info(email);
-
-				if (!user_info) {
-					if (import.meta.env.DEV) {
-						console.log(`[Auth Hook] BEFORE: User not found: ${email}`);
-					}
-					return;
-				}
-
-				if (user_info.lockout_until && user_info.lockout_until !== '') {
-					const lockout_time = new Date(user_info.lockout_until).getTime();
-					const now = Date.now();
-
-					if (lockout_time > now) {
-						if (import.meta.env.DEV) {
-							const remaining_minutes = Math.ceil((lockout_time - now) / 60000);
-							console.log(
-								`[Auth Hook] BEFORE: 🚫 Account LOCKED for ${email} (${remaining_minutes}min remaining)`
-							);
-						}
-
-						// Send the actual lockout timestamp so client can compute remaining time
-						throw new APIError('FORBIDDEN', {
-							message: `LOCKOUT|${user_info.lockout_until}`
-						});
-					}
-				}
-
-				if (import.meta.env.DEV) {
-					console.log(
-						`[Auth Hook] BEFORE: ✅ Not locked (attempts: ${user_info.failed_login_attempts})`
-					);
-				}
-			} catch (err) {
-				if (err instanceof APIError) throw err;
-				console.error('[Auth Hook] BEFORE error:', err);
-			}
-		}),
-		after: createAuthMiddleware(async (ctx) => {
-			if (!ctx.path.startsWith('/sign-in/email')) return;
-
-			const email = ctx.body?.email;
-			if (!email) return;
-
-			try {
-				// Check if sign-in succeeded by looking for newSession
-				const new_session = ctx.context.newSession;
-
-				const user_info = await get_user_lockout_info(email);
-
-				if (!user_info) return;
-
-				if (!new_session) {
-					// Don't increment if already locked and not expired
-					const is_locked = user_info.lockout_until && user_info.lockout_until !== '' && new Date(user_info.lockout_until).getTime() > Date.now();
-					if (is_locked) {
-						if (import.meta.env.DEV) {
-							console.log(
-								`[Auth Hook] AFTER: ⏸️ Already locked, skipping increment for ${email}`
-							);
-						}
-						return;
-					}
-
-					// FAILED login - increment counter
-					const new_attempts = user_info.failed_login_attempts + 1;
-					await increment_failed_attempts(user_info.user_id, new_attempts);
-
-					// Lock if max attempts reached
-					if (new_attempts >= MAX_FAILED_ATTEMPTS) {
-						const lockout_until = new Date(
-							Date.now() + LOCKOUT_DURATION_MS
-						).toISOString();
-						await lock_account(user_info.user_id, lockout_until);
-
-						if (import.meta.env.DEV) {
-							console.log(
-								`[Auth Hook] AFTER: 🔒 Account LOCKED for ${email} after ${new_attempts} failed attempts`
-							);
-						}
-					} else {
-						if (import.meta.env.DEV) {
-							console.log(
-								`[Auth Hook] AFTER: ❌ Failed login #${new_attempts} for ${email}`
-							);
-						}
-					}
-				} else {
-					// SUCCESSFUL login - reset counter
-					if (user_info.failed_login_attempts > 0) {
-						await reset_lockout(user_info.user_id);
-						if (import.meta.env.DEV) {
-							console.log(
-								`[Auth Hook] AFTER: ✅ Successful login for ${email}, reset counter from ${user_info.failed_login_attempts}`
-							);
-						}
-					}
-				}
-			} catch (err) {
-				console.error('[Auth Hook] AFTER error:', err);
-			}
-		})
+		before: createAuthMiddleware(handle_before_signin),
+		after: createAuthMiddleware(handle_after_signin)
 	}
 });
 

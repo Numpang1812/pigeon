@@ -8,27 +8,27 @@
 	let password = $state('');
 	let error = $state<string | null>(null);
 	let loading = $state(false);
-	let lockoutTime = $state<Date | null>(null);
-	let lockoutCountdown = $state<string>('');
+	let lockout_time = $state<Date | null>(null);
+	let lockout_countdown = $state<string>('');
 
 	// Update lockout countdown every second
-	let countdownInterval: ReturnType<typeof setInterval> | null = null;
+	let countdown_interval: ReturnType<typeof setInterval> | null = null;
 
 	$effect(() => {
-		if (lockoutTime) {
-			const activeLockoutTime = lockoutTime;
-			countdownInterval = setInterval(() => {
+		if (lockout_time) {
+			const active_lockout_time = lockout_time;
+			countdown_interval = setInterval(() => {
 				const now = new Date();
-				const diff = activeLockoutTime.getTime() - now.getTime();
+				const diff = active_lockout_time.getTime() - now.getTime();
 
 				if (diff <= 0) {
-					lockoutTime = null;
-					lockoutCountdown = '';
-					if (countdownInterval) clearInterval(countdownInterval);
+					lockout_time = null;
+					lockout_countdown = '';
+					if (countdown_interval) clearInterval(countdown_interval);
 				} else {
 					const minutes = Math.floor(diff / 60000);
 					const seconds = Math.floor((diff % 60000) / 1000);
-					lockoutCountdown = `${minutes}m ${seconds}s`;
+					lockout_countdown = `${minutes}m ${seconds}s`;
 				}
 			}, 1000);
 		}
@@ -47,24 +47,23 @@
 			});
 
 			if (auth_error) {
-				// Check if it's a lockout error (format: "LOCKOUT|2026-04-08T18:00:00.000Z")
 				const message = auth_error.message || '';
-				const lockoutMatch = message.match(/^LOCKOUT\|(.+)$/);
+				const lockout_match = message.match(/^LOCKOUT\|(.+)$/);
 
-				if (lockoutMatch) {
-					const lockoutDate = new Date(lockoutMatch[1]);
-
-					// Only set lockoutTime if not already locked (prevents countdown reset)
-					if (!lockoutTime || lockoutTime <= new Date()) {
-						lockoutTime = lockoutDate;
-					}
-					error = `Account locked due to too many failed attempts.`;
-				} else {
+				if (!lockout_match) {
 					// Non-lockout error: clear lockout state
-					lockoutTime = null;
-					lockoutCountdown = '';
+					lockout_time = null;
+					lockout_countdown = '';
 					throw new Error(message || 'Login failed. Please try again.');
 				}
+
+				const lockout_date = new Date(lockout_match[1]);
+
+				// Only set lockoutTime if not already locked (prevents countdown reset)
+				if (!lockout_time || lockout_time <= new Date()) {
+					lockout_time = lockout_date;
+				}
+				error = `Account locked due to too many failed attempts.`;
 			} else {
 				goto(resolve('/home'));
 			}
@@ -250,7 +249,7 @@
 					</svg>
 					<div class="alert-content">
 						<div class="alert-message">{error}</div>
-						{#if lockoutTime}
+						{#if lockout_time}
 							<div class="alert-countdown">
 								<svg viewBox="0 0 20 20" fill="currentColor" class="alert-countdown-icon">
 									<path
@@ -259,7 +258,7 @@
 										clip-rule="evenodd"
 									/>
 								</svg>
-								Try again in {lockoutCountdown}
+								Try again in {lockout_countdown}
 							</div>
 						{/if}
 					</div>
