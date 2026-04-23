@@ -3,7 +3,8 @@
 
 	import type { ActionData, PageData } from './$types';
 	import { resolve } from '$app/paths';
-	import { ArrowLeft, Camera, KeyRound, Trash2, AlertTriangle } from 'lucide-svelte';
+	import { auth_client } from '$lib/auth-client';
+	import { ArrowLeft, Camera, KeyRound, Trash2, AlertTriangle, Loader2 } from 'lucide-svelte';
 	import AvatarUploader from '$lib/components/AvatarUploader.svelte';
 
 	const { data, form } = $props<{ data: PageData; form: ActionData }>();
@@ -43,6 +44,7 @@
 	}
 
 	// Delete account state
+	let is_deleting = $state(false);
 	let show_delete_modal = $state(false);
 	let delete_confirmation = $state('');
 	const delete_confirmation_text = 'IWANTTODELETEMYACCOUNT';
@@ -277,7 +279,24 @@
         <!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div class="modal-backdrop" onclick={cancel_delete}>
 			<div class="modal-content modal-delete" onclick={(e) => e.stopPropagation()}>
-				<form method="POST" action="?/delete" use:enhance>
+				<form
+					method="POST"
+					action="?/delete"
+					use:enhance={() => {
+						is_deleting = true;
+						return async ({ result }) => {
+							if (result.type === 'success' && result.data?.deleted) {
+								await auth_client.signOut();
+								window.location.href = '/';
+								return;
+							}
+							is_deleting = false;
+							if (result.type === 'error' || result.type === 'failure') {
+								show_delete_modal = false;
+							}
+						};
+					}}
+				>
 					<div class="modal-header danger">
 						<Trash2 size={20} />
 						<h2>Delete Account</h2>
@@ -323,6 +342,17 @@
 						</button>
 					</div>
 				</form>
+			</div>
+		</div>
+	{/if}
+
+	<!-- Deleting Overlay -->
+	{#if is_deleting}
+		<div class="deleting-overlay">
+			<div class="deleting-content">
+				<Loader2 class="spin-icon" size={48} />
+				<h2>Deleting account...</h2>
+				<p>Setting things right. Please wait a moment.</p>
 			</div>
 		</div>
 	{/if}
@@ -798,6 +828,64 @@
 
 	.modal-header.danger :global(svg) {
 		color: #DC3545;
+	}
+
+	/* Deleting Overlay */
+	.deleting-overlay {
+		position: fixed;
+		inset: 0;
+		z-index: 9999;
+		background: rgba(255, 255, 255, 0.95);
+		backdrop-filter: blur(8px);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		text-align: center;
+		animation: fadeIn 0.3s ease-out;
+	}
+
+	.deleting-content {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 1.5rem;
+		color: #0f172a;
+	}
+
+	.deleting-content h2 {
+		margin: 0;
+		font-size: 1.5rem;
+		font-weight: 800;
+		letter-spacing: -0.025em;
+	}
+
+	.deleting-content p {
+		margin: 0;
+		color: #64748b;
+		font-size: 1.05rem;
+	}
+
+	:global(.spin-icon) {
+		color: #0ea5e9;
+		animation: spin 2s linear infinite;
+	}
+
+	@keyframes spin {
+		from {
+			transform: rotate(0deg);
+		}
+		to {
+			transform: rotate(360deg);
+		}
+	}
+
+	@keyframes fadeIn {
+		from {
+			opacity: 0;
+		}
+		to {
+			opacity: 1;
+		}
 	}
 
 	.modal-body {
