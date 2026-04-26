@@ -52,7 +52,7 @@
 <svelte:head><link rel="icon" href={favicon} /></svelte:head>
 
 {#if data.is_authenticated}
-	<Navbar />
+	<Navbar current_user_image={data.current_user_image} />
 	<div class="app-shell">
 		<Sidebar />
 		<main class="page-content">

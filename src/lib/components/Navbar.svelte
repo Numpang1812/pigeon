@@ -6,6 +6,8 @@
 	import { normalize_handle } from '$lib';
 	import './styles/navbar.css';
 
+	const { current_user_image = null } = $props<{ current_user_image?: string | null }>();
+
 	const session = auth_client.useSession();
 
 	let search = $state('');
@@ -178,7 +180,11 @@
 									}
 								}}
 							>
-								<img src={user.image || 'https://i.pravatar.cc/40'} alt={user.name} class="search-avatar" />
+								{#if user.image}
+									<img src={user.image} alt={user.name} class="search-avatar" />
+								{:else}
+									<img src="/default-avatar.svg" alt={`${user.name} default avatar`} class="search-avatar" />
+								{/if}
 								<div class="search-info">
 									<p class="search-name">{user.name}</p>
 									<p class="search-email">@{user.username}</p>
@@ -202,7 +208,11 @@
 		</button>
 
 		<a class="avatar" href={resolve('/profile')} aria-label="View profile">
-			<img src={$session.data?.user?.image || 'https://i.pravatar.cc/40'} alt="user" />
+			{#if current_user_image || $session.data?.user?.image}
+				<img src={current_user_image || $session.data?.user?.image} alt="user" />
+			{:else}
+				<img src="/default-avatar.svg" alt="Default user avatar" class="avatar-fallback" />
+			{/if}
 		</a>
 	</div>
 </header>

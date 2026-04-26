@@ -57,7 +57,11 @@
 								href={resolve(`/profile/${user.handle}`)}
 								onclick={(event) => props.on_item_click?.(event, user.handle)}
 							>
-								<img src={user.avatar || 'https://i.pravatar.cc/40'} alt={user.name} />
+								{#if user.avatar}
+									<img src={user.avatar} alt={user.name} />
+								{:else}
+									<img src="/default-avatar.svg" alt={`${user.name} default avatar`} />
+								{/if}
 								<div>
 									<strong>{user.name}</strong>
 									<p>@{user.handle}</p>
