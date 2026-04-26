@@ -3,7 +3,9 @@
 	import favicon from '$lib/assets/favicon.svg';
 	import Navbar from '$lib/components/Navbar.svelte';
 	import Sidebar from '$lib/components/Sidebar.svelte';
+	import ProfileLoadingSkeleton from '$lib/components/profile/ProfileLoadingSkeleton.svelte';
 	import { invalidateAll } from '$app/navigation';
+	import { navigating } from '$app/state';
 	import type { LayoutData } from './$types';
 
 	const { children, data } = $props<{ children: import('svelte').Snippet; data: LayoutData }>();
@@ -53,7 +55,13 @@
 	<Navbar />
 	<div class="app-shell">
 		<Sidebar />
-		<main class="page-content">{@render children()}</main>
+		<main class="page-content">
+			{#if navigating?.to?.url.pathname.startsWith('/profile') && !navigating.to.url.pathname.startsWith('/profile/edit')}
+				<ProfileLoadingSkeleton />
+			{:else}
+				{@render children()}
+			{/if}
+		</main>
 	</div>
 
 	{#if data.username_required}
