@@ -8,6 +8,7 @@ export type ActivityNotificationItem = {
 	actor_name: string;
 	actor_handle: string;
 	avatar_url: string;
+	actor_verified: boolean;
 	is_following_actor: boolean;
 	message: string;
 	created_at: string;
@@ -30,6 +31,7 @@ type DbNotificationRow = {
 	actor_name: string | null;
 	actor_handle: string | null;
 	avatar_url: string | null;
+	actor_verified: number | boolean | null;
 	is_following_actor: number | boolean | null;
 	post_id: string | null;
 	post_content: string | null;
@@ -54,6 +56,7 @@ export async function fetch_activity_notifications_for_user(
 					u.name AS actor_name,
 					u.username AS actor_handle,
 					u.image AS avatar_url,
+					u.verified AS actor_verified,
 					EXISTS(
 						SELECT 1
 						FROM follow f2
@@ -76,6 +79,7 @@ export async function fetch_activity_notifications_for_user(
 					u.name AS actor_name,
 					u.username AS actor_handle,
 					u.image AS avatar_url,
+					u.verified AS actor_verified,
 					EXISTS(
 						SELECT 1
 						FROM follow f2
@@ -98,6 +102,7 @@ export async function fetch_activity_notifications_for_user(
 					u.name AS actor_name,
 					u.username AS actor_handle,
 					u.image AS avatar_url,
+					u.verified AS actor_verified,
 					EXISTS(
 						SELECT 1
 						FROM follow f2
@@ -120,6 +125,7 @@ export async function fetch_activity_notifications_for_user(
 					u.name AS actor_name,
 					u.username AS actor_handle,
 					u.image AS avatar_url,
+					u.verified AS actor_verified,
 					EXISTS(
 						SELECT 1
 						FROM follow f2
@@ -173,6 +179,7 @@ export async function fetch_activity_notifications_for_user(
 			actor_name,
 			actor_handle,
 			avatar_url: item.avatar_url ?? '',
+			actor_verified: Boolean(item.actor_verified),
 			is_following_actor: Boolean(item.is_following_actor),
 			message,
 			created_at: item.created_at,

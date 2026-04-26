@@ -596,7 +596,7 @@
 					</h2>
 					{#if props.verified}
 						<span class="verified-icon" aria-label="Verified account" title="Verified account">
-							<BadgeCheck size={18} aria-hidden="true" fill="#0ea5e9"/>
+							<BadgeCheck size={18} aria-hidden="true" fill="#0ea5e9" color="white" />
 						</span>
 					{/if}
 				</div>

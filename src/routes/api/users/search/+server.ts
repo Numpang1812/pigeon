@@ -24,7 +24,7 @@ export const GET: RequestHandler = async ({ request, url }) => {
 		if (query_term === '') {
 			const suggested = await db.execute({
 				sql: `
-					SELECT id, name, username, image
+					SELECT id, name, username, image, verified
 					FROM user
 					ORDER BY name ASC
 					LIMIT 10
@@ -37,7 +37,7 @@ export const GET: RequestHandler = async ({ request, url }) => {
 		const search_term = `%${query_term}%`;
 		const result = await db.execute({
 			sql: `
-				SELECT id, name, username, image 
+				SELECT id, name, username, image, verified
 				FROM user 
 				WHERE name LIKE ? OR username LIKE ? 
 				LIMIT 10

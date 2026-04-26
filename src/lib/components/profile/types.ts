@@ -38,6 +38,7 @@ export type ProfileConnection = {
 	name: string;
 	handle: string;
 	avatar: string;
+	verified: boolean;
 	followed_at: string;
 };
 
@@ -55,6 +56,7 @@ export type ProfileData = {
 		joined: string;
 		avatar: string;
 		cover: string;
+		verified: boolean;
 		following: number;
 		followers: number;
 	};

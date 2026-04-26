@@ -12,7 +12,7 @@ export type ProfileConnection = {
 
 export async function get_profile_user_by_id(user_id: string) {
 	const user_result = await db.execute({
-		sql: 'SELECT id, name, username, bio, image, cover, createdAt FROM user WHERE id = ?',
+		sql: 'SELECT id, name, username, bio, image, cover, verified, createdAt FROM user WHERE id = ?',
 		args: [user_id]
 	});
 
@@ -27,7 +27,7 @@ export async function get_profile_user_by_handle(handle: string) {
 	}
 
 	const user_result = await db.execute({
-		sql: 'SELECT id, name, username, bio, image, cover, createdAt FROM user WHERE lower(username) = lower(?) LIMIT 1',
+		sql: 'SELECT id, name, username, bio, image, cover, verified, createdAt FROM user WHERE lower(username) = lower(?) LIMIT 1',
 		args: [normalized_handle]
 	});
 
@@ -60,6 +60,7 @@ export async function get_profile_followers(profile_user_id: string, limit = 12)
 				u.name,
 				u.username,
 				u.image,
+				u.verified,
 				f.created_at AS followed_at
 			FROM follow f
 			JOIN user u ON u.id = f.follower_id
@@ -75,6 +76,7 @@ export async function get_profile_followers(profile_user_id: string, limit = 12)
 		name: (row.name as string) || 'Unknown',
 		handle: normalize_handle(row.username) || 'user',
 		avatar: (row.image as string) || '',
+		verified: Boolean(row.verified),
 		followed_at: row.followed_at as string
 	}));
 }
@@ -87,6 +89,7 @@ export async function get_profile_following(profile_user_id: string, limit = 12)
 				u.name,
 				u.username,
 				u.image,
+				u.verified,
 				f.created_at AS followed_at
 			FROM follow f
 			JOIN user u ON u.id = f.following_id
@@ -102,6 +105,7 @@ export async function get_profile_following(profile_user_id: string, limit = 12)
 		name: (row.name as string) || 'Unknown',
 		handle: normalize_handle(row.username) || 'user',
 		avatar: (row.image as string) || '',
+		verified: Boolean(row.verified),
 		followed_at: row.followed_at as string
 	}));
 }
@@ -231,7 +235,7 @@ export async function get_profile_posts(
 
 	return db.execute({
 		sql: `SELECT p.id, p.content, p.post_tag, p.audience, p.created_at, p.author_id, p.updated_at,
-			u.name as author_name, u.username as author_handle, u.bio as author_bio, u.image as author_avatar,
+			u.name as author_name, u.username as author_handle, u.bio as author_bio, u.image as author_avatar, u.verified as author_verified,
 			(SELECT GROUP_CONCAT(h.tag_name, ',') FROM post_hashtag ph JOIN hashtag h ON ph.hashtag_id = h.id WHERE ph.post_id = p.id) as hashtag_list,
 			(SELECT COUNT(*) FROM like WHERE post_id = p.id) as like_count,
 			(SELECT COUNT(*) FROM dislike WHERE post_id = p.id) as dislike_count,
@@ -295,6 +299,7 @@ export function map_profile(
 		joined: `Joined ${joined_date}`,
 		avatar: (user.image as string) || '',
 		cover: (user.cover as string) || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80',
+		verified: Boolean(user.verified),
 		following: counts.following,
 		followers: counts.followers
 	};
@@ -321,7 +326,7 @@ export function map_profile_posts(
 		content: row.content as string,
 		audience: row.audience as string,
 		author_bio: (row.author_bio as string) || (user.bio as string) || '',
-		verified: false,
+		verified: Boolean(row.author_verified ?? user.verified),
 		metrics: {
 			likes: Number(row.like_count ?? 0),
 			dislikes: Number(row.dislike_count ?? 0),

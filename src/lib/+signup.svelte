@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { goto, invalidateAll } from '$app/navigation';
+	import { invalidateAll } from '$app/navigation';
 	import SsoButton from '$lib/components/SsoButton.svelte';
 	import { auth_client } from '$lib/auth-client';
 
@@ -54,7 +54,7 @@
 			}
 
 			await invalidateAll();
-			goto(resolve('/home'));
+			window.location.href = resolve('/home');
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Signup failed. Please try again.';
 		} finally {

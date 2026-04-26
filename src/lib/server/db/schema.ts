@@ -31,6 +31,9 @@ export const create_tables_sql = {
 	add_failed_login_attempts: `ALTER TABLE user ADD COLUMN failed_login_attempts INTEGER NOT NULL DEFAULT 0`,
 	add_lockout_until: `ALTER TABLE user ADD COLUMN lockout_until TEXT`,
 
+	// Verification status
+	add_verified: `ALTER TABLE user ADD COLUMN verified INTEGER NOT NULL DEFAULT 0`,
+
 	// Application tables - Posts
 	post: `
 		CREATE TABLE IF NOT EXISTS post (
