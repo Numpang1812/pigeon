@@ -1,11 +1,18 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
 	import { ArrowLeft, Home, Search, Bell, User, Edit, LogOut, Menu } from 'lucide-svelte';
 	import { fly } from 'svelte/transition';
 	import './styles/sidebar.css';
 	import { auth_client } from '$lib/auth-client';
 
 	type AppRoute = '/' | '/home' | '/explore' | '/profile' | '/notifications' | '/compose';
+
+	const current_path = $derived(page.url.pathname);
+
+	function is_active(href: string): boolean {
+		return current_path === href || current_path.startsWith(href + '/');
+	}
 
 	let is_collapsed = $state(false);
 	let mobile_open = $state(false);
@@ -214,7 +221,13 @@
 
 	<nav class="nav">
 		{#each nav_items as item, index (item.label)}
-			<a class="nav-item nav-item-{index}" href={resolve(item.href)} aria-label={item.label}>
+			<a
+				class="nav-item nav-item-{index}"
+				class:active={is_active(item.href)}
+				href={resolve(item.href)}
+				aria-label={item.label}
+				aria-current={is_active(item.href) ? 'page' : undefined}
+			>
 				<span class="icon"><item.icon size={20} /></span>
 
 				<span class="label">{item.label}</span>
