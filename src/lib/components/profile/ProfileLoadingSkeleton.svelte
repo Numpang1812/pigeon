@@ -45,8 +45,12 @@
 
 <style>
 	@keyframes shimmer {
-		0% { background-position: -600px 0; }
-		100% { background-position: 600px 0; }
+		0% {
+			background-position: -600px 0;
+		}
+		100% {
+			background-position: 600px 0;
+		}
 	}
 
 	.shimmer {
@@ -61,7 +65,11 @@
 		width: 100%;
 		display: flex;
 		justify-content: center;
-		font-family: 'Inter', system-ui, -apple-system, sans-serif;
+		font-family:
+			'Inter',
+			system-ui,
+			-apple-system,
+			sans-serif;
 	}
 
 	.main-feed {
