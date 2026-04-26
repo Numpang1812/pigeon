@@ -2,7 +2,7 @@
 	import { enhance } from '$app/forms';
 	import { goto, invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { ArrowLeft, Calendar, Camera } from 'lucide-svelte';
+	import { ArrowLeft, Calendar, Camera, BadgeCheck } from 'lucide-svelte';
 	import AvatarUploader from '$lib/components/AvatarUploader.svelte';
 	import CoverUploader from '$lib/components/CoverUploader.svelte';
 	import ProfilePostTabs from '$lib/components/profile/ProfilePostTabs.svelte';
@@ -34,7 +34,7 @@
 	let cover_url = $state<string | null>(null);
 	let show_connections_modal = $state<'followers' | 'following' | null>(null);
 
-	const profile = $derived(props.data.profile);
+	const profile = $derived(props.data.profile as ProfileData['profile']);
 	const followers_count = $derived(followers_count_override ?? profile.followers);
 	const posts_source = $derived(props.data.posts as ProfilePost[]);
 	const reposted_posts_source = $derived(props.data.reposted_posts as ProfilePost[]);
@@ -213,7 +213,14 @@
 					<ArrowLeft size={20} />
 				</button>
 				<div class="topbar-meta">
-					<h2>{profile.name}</h2>
+					<div class="topbar-name-row">
+						<h2>{profile.name}</h2>
+						{#if profile.verified}
+							<span class="verified-icon" aria-label="Verified account" title="Verified account">
+								<BadgeCheck size={18} aria-hidden="true" fill="#0ea5e9" color="white" />
+							</span>
+						{/if}
+					</div>
 				</div>
 			</header>
 		{/if}
@@ -235,14 +242,22 @@
 			<div class="profile-actions-row">
 				{#if is_owner}
 					<button class="avatar-container" onclick={handle_avatar_click} aria-label="Change avatar">
-						<img src={avatar_url || profile.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name)}&size=256&background=1DA1F2&color=fff`} alt="Avatar" class="avatar-image" />
+						{#if avatar_url || profile.avatar}
+							<img src={avatar_url || profile.avatar} alt="Avatar" class="avatar-image" />
+						{:else}
+							<img src="/default-avatar.svg" alt="Default profile avatar" class="avatar-image" />
+						{/if}
 						<div class="avatar-overlay">
 							<Camera size={32} />
 						</div>
 					</button>
 				{:else}
 					<div class="avatar-container static-avatar" aria-hidden="true">
-						<img src={avatar_url || profile.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name)}&size=256&background=1DA1F2&color=fff`} alt="Avatar" class="avatar-image" />
+						{#if avatar_url || profile.avatar}
+							<img src={avatar_url || profile.avatar} alt="Avatar" class="avatar-image" />
+						{:else}
+							<img src="/default-avatar.svg" alt="Default profile avatar" class="avatar-image" />
+						{/if}
 					</div>
 				{/if}
 				<div class="action-buttons">
@@ -259,7 +274,14 @@
 			</div>
 
 			<div class="user-info">
-				<h1 class="user-name">{profile.name}</h1>
+				<div class="name-row">
+					<h1 class="user-name">{profile.name}</h1>
+					{#if profile.verified}
+						<span class="verified-icon" aria-label="Verified account" title="Verified account">
+							<BadgeCheck size={20} aria-hidden="true" fill="#0ea5e9" color="white" />
+						</span>
+					{/if}
+				</div>
 				<p class="user-handle">@{profile.handle}</p>
 
 				<p class="user-bio">{profile.bio}</p>
@@ -564,8 +586,20 @@
 		font-size: 20px;
 		font-weight: 800;
 		color: #14171a;
-		margin: 0;
 		line-height: 1.2;
+	}
+
+	.name-row, .topbar-name-row {
+		display: flex;
+		align-items: center;
+		gap: 4px;
+	}
+
+	.verified-icon {
+		display: inline-flex;
+		align-items: center;
+		color: #ffffff;
+		flex-shrink: 0;
 	}
 
 	.user-handle {

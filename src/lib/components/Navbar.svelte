@@ -1,15 +1,17 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { Bell, Menu, Search } from 'lucide-svelte';
+	import { Bell, Menu, Search, BadgeCheck } from 'lucide-svelte';
 	import { resolve } from '$app/paths';
 	import { auth_client } from '$lib/auth-client';
 	import { normalize_handle } from '$lib';
 	import './styles/navbar.css';
 
+	const { current_user_image = null } = $props<{ current_user_image?: string | null }>();
+
 	const session = auth_client.useSession();
 
 	let search = $state('');
-	let results = $state<{ id: string; name: string; username: string; image: string | null }[]>([]);
+	let results = $state<{ id: string; name: string; username: string; image: string | null; verified?: number | boolean }[]>([]);
 	let is_loading = $state(false);
 	let show_dropdown = $state(false);
 	let timer: ReturnType<typeof setTimeout>;
@@ -178,9 +180,20 @@
 									}
 								}}
 							>
-								<img src={user.image || 'https://i.pravatar.cc/40'} alt={user.name} class="search-avatar" />
+								{#if user.image}
+									<img src={user.image} alt={user.name} class="search-avatar" />
+								{:else}
+									<img src="/default-avatar.svg" alt={`${user.name} default avatar`} class="search-avatar" />
+								{/if}
 								<div class="search-info">
-									<p class="search-name">{user.name}</p>
+									<div class="search-name-row">
+										<p class="search-name">{user.name}</p>
+										{#if user.verified}
+											<span class="verified-icon" aria-label="Verified account" title="Verified account">
+												<BadgeCheck size={14} aria-hidden="true" fill="#0ea5e9" color="white" />
+											</span>
+										{/if}
+									</div>
 									<p class="search-email">@{user.username}</p>
 								</div>
 							</button>
@@ -202,7 +215,11 @@
 		</button>
 
 		<a class="avatar" href={resolve('/profile')} aria-label="View profile">
-			<img src={$session.data?.user?.image || 'https://i.pravatar.cc/40'} alt="user" />
+			{#if current_user_image || $session.data?.user?.image}
+				<img src={current_user_image || $session.data?.user?.image} alt="user" />
+			{:else}
+				<img src="/default-avatar.svg" alt="Default user avatar" class="avatar-fallback" />
+			{/if}
 		</a>
 	</div>
 </header>

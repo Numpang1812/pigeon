@@ -3,12 +3,19 @@
 	import favicon from '$lib/assets/favicon.svg';
 	import Navbar from '$lib/components/Navbar.svelte';
 	import Sidebar from '$lib/components/Sidebar.svelte';
+	import UnauthenticatedPrompt from '$lib/components/UnauthenticatedPrompt.svelte';
 	import ProfileLoadingSkeleton from '$lib/components/profile/ProfileLoadingSkeleton.svelte';
 	import { invalidateAll } from '$app/navigation';
 	import { navigating } from '$app/state';
+	import { auth_client } from '$lib/auth-client';
 	import type { LayoutData } from './$types';
 
 	const { children, data } = $props<{ children: import('svelte').Snippet; data: LayoutData }>();
+
+	const session = auth_client.useSession();
+
+	const is_shell_visible = $derived(data.is_authenticated && ($session.isPending || !!$session.data));
+	const is_session_lost = $derived(data.is_authenticated && !$session.isPending && !$session.data);
 
 	let username = $state('');
 	let username_error = $state<string | null>(null);
@@ -51,8 +58,8 @@
 
 <svelte:head><link rel="icon" href={favicon} /></svelte:head>
 
-{#if data.is_authenticated}
-	<Navbar />
+{#if is_shell_visible}
+	<Navbar current_user_image={data.current_user_image} />
 	<div class="app-shell">
 		<Sidebar />
 		<main class="page-content">
@@ -94,6 +101,8 @@
 			</div>
 		</div>
 	{/if}
+{:else if is_session_lost}
+	<UnauthenticatedPrompt />
 {:else}
 	{@render children()}
 {/if}

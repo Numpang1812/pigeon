@@ -10,8 +10,30 @@
 
 	const current_path = $derived(page.url.pathname);
 
+	function is_main_path(path: string): boolean {
+		return (
+			path === '/home' ||
+			path === '/explore' ||
+			path === '/notifications' ||
+			path === '/profile' ||
+			path === '/profile/edit'
+		);
+	}
+
+	let last_main_path = $state(is_main_path(page.url.pathname) ? page.url.pathname : '/home');
+
+	$effect(() => {
+		if (is_main_path(current_path)) {
+			last_main_path = current_path;
+		}
+	});
+
 	function is_active(href: string): boolean {
-		return current_path === href || current_path.startsWith(href + '/');
+		const effective_path = is_main_path(current_path) ? current_path : last_main_path;
+		if (href === '/profile') {
+			return effective_path === '/profile' || effective_path === '/profile/edit';
+		}
+		return effective_path === href;
 	}
 
 	let is_collapsed = $state(false);

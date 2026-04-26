@@ -112,7 +112,11 @@
 						<!-- svelte-ignore a11y_click_events_have_key_events -->
 						<!-- svelte-ignore a11y_no_static_element_interactions -->
 						<div class="avatar-container" onclick={() => (show_avatar_uploader = true)}>
-							<img src={profile.avatar || 'https://ui-avatars.com/api/?name=' + profile.name} alt="Avatar" class="avatar-image" />
+							{#if profile.avatar}
+								<img src={profile.avatar} alt="Avatar" class="avatar-image" />
+							{:else}
+								<img src="/default-avatar.svg" alt="Default profile avatar" class="avatar-image" />
+							{/if}
 							<div class="avatar-overlay">
 								<Camera size={24} />
 							</div>

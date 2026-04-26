@@ -1,9 +1,9 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import { auth_client } from '$lib/auth-client';
 	import { Flame, Hash, Sparkles, ChevronLeft, ChevronRight } from 'lucide-svelte';
 	import type { Component } from 'svelte';
 	import { Post } from '$lib';
+	import UnauthenticatedPrompt from '$lib/components/UnauthenticatedPrompt.svelte';
 
 	const session = auth_client.useSession();
 
@@ -41,10 +41,10 @@
 		is_edited?: boolean;
 	}
 
-	let dynamic_tags = $state<Tag[]>([]);
+	let dynamic_tags: Tag[] = $state([]);
 	let active_filter = $state<string>('foryou');
 
-	let feed_posts = $state<PostData[]>([]);
+	let feed_posts: PostData[] = $state([]);
 	let loading = $state(true);
 	let tags_loading = $state(true);
 
@@ -130,6 +130,40 @@
 			...feed_posts.slice(post_index + 1)
 		];
 	}
+
+	function handle_metric_change(
+		post_id: string,
+		type: 'like' | 'dislike' | 'repost',
+		new_metrics: {
+			likes: number;
+			dislikes: number;
+			reposts: number;
+			user_liked: boolean;
+			user_disliked: boolean;
+			user_reposted: boolean;
+		}
+	): void {
+		const post_index = feed_posts.findIndex((p) => p.id === post_id);
+		if (post_index === -1) return;
+
+		const updated_post = {
+			...feed_posts[post_index],
+			metrics: {
+				likes: new_metrics.likes,
+				dislikes: new_metrics.dislikes,
+				reposts: new_metrics.reposts
+			},
+			user_liked: new_metrics.user_liked,
+			user_disliked: new_metrics.user_disliked,
+			user_reposted: new_metrics.user_reposted
+		};
+
+		feed_posts = [
+			...feed_posts.slice(0, post_index),
+			updated_post,
+			...feed_posts.slice(post_index + 1)
+		];
+	}
 </script>
 
 {#if $session.data}
@@ -191,6 +225,7 @@
 						user_reposted={post.user_reposted}
 						is_author={post.is_author}
 						is_edited={post.is_edited}
+						on_metric_change={handle_metric_change}
 						on_delete={handle_post_delete}
 						on_edit={handle_post_edit}
 					/>
@@ -203,11 +238,7 @@
 		</section>
 	</div>
 {:else if !$session.isPending}
-	<main class="login-prompt">
-		<h2>Unauthenticated</h2>
-		<p>You need to log in to view this page.</p>
-		<a href={resolve('/')} class="login-link">Go to Login</a>
-	</main>
+	<UnauthenticatedPrompt />
 {:else}
 	<main class="loading">
 		<p>Loading...</p>
@@ -282,6 +313,14 @@
 	.scroll-btn:hover {
 		background: #f1f5f9;
 		border-color: #cbd5f5;
+	}
+
+	.loading {
+		min-height: calc(100vh - var(--navbar-height));
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font-family: 'Inter', system-ui, -apple-system, sans-serif;
 	}
 
 	.pill {

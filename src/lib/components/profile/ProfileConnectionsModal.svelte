@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { X } from 'lucide-svelte';
+	import { X, BadgeCheck } from 'lucide-svelte';
 	import type { ProfileConnection } from './types';
 
 	interface ProfileConnectionsModalProps {
@@ -57,9 +57,20 @@
 								href={resolve(`/profile/${user.handle}`)}
 								onclick={(event) => props.on_item_click?.(event, user.handle)}
 							>
-								<img src={user.avatar || 'https://i.pravatar.cc/40'} alt={user.name} />
+								{#if user.avatar}
+									<img src={user.avatar} alt={user.name} />
+								{:else}
+									<img src="/default-avatar.svg" alt={`${user.name} default avatar`} />
+								{/if}
 								<div>
-									<strong>{user.name}</strong>
+									<div class="name-row">
+										<strong>{user.name}</strong>
+										{#if user.verified}
+											<span class="verified-icon" aria-label="Verified account" title="Verified account">
+												<BadgeCheck size={16} aria-hidden="true" fill="#0ea5e9" color="white" />
+											</span>
+										{/if}
+									</div>
 									<p>@{user.handle}</p>
 								</div>
 							</a>
@@ -209,6 +220,19 @@
 		font-weight: 600;
 		color: #0f1419;
 		line-height: 1.4;
+	}
+
+	.name-row {
+		display: flex;
+		align-items: center;
+		gap: 4px;
+	}
+
+	.verified-icon {
+		display: inline-flex;
+		align-items: center;
+		color: #ffffff;
+		flex-shrink: 0;
 	}
 
 	.connection-item p {

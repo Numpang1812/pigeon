@@ -484,11 +484,15 @@
 						{#each close_friend_candidates as user (user.id)}
 							<label class="close-friends-item">
 								<input type="checkbox" bind:group={selected_close_friend_ids} value={user.id} />
-								<img
-									class="close-friends-avatar"
-									src={user.avatar || 'https://i.pravatar.cc/40'}
-									alt={user.name}
-								/>
+								{#if user.avatar}
+									<img class="close-friends-avatar" src={user.avatar} alt={user.name} />
+								{:else}
+									<img
+										class="close-friends-avatar"
+										src="/default-avatar.svg"
+										alt={`${user.name} default avatar`}
+									/>
+								{/if}
 								<span class="close-friends-meta">
 									<strong>{user.name}</strong>
 									<small>@{user.handle}</small>
@@ -538,11 +542,15 @@
 								void insert_mention(user);
 							}}
 						>
-							<img
-								class="mention-avatar"
-								src={user.image || 'https://i.pravatar.cc/40'}
-								alt={user.name}
-							/>
+							{#if user.image}
+								<img class="mention-avatar" src={user.image} alt={user.name} />
+							{:else}
+								<img
+									class="mention-avatar"
+									src="/default-avatar.svg"
+									alt={`${user.name} default avatar`}
+								/>
+							{/if}
 							<span class="mention-meta">
 								<strong>{user.name}</strong>
 								<small>@{user.username}</small>

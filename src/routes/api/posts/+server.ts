@@ -195,7 +195,7 @@ async function handle_post_visibility(post_id: string, user_ids: string[]) {
 
 async function fetch_created_post(post_id: string) {
 	const result = await db.execute({
-		sql: `SELECT p.*, u.name as author_name, u.username as author_handle, u.image as author_avatar, u.bio as author_bio
+		sql: `SELECT p.*, u.name as author_name, u.username as author_handle, u.image as author_avatar, u.bio as author_bio, u.verified as author_verified
 			  FROM post p JOIN user u ON p.author_id = u.id WHERE p.id = ?`,
 		args: [post_id]
 	});
@@ -219,7 +219,7 @@ function map_post_row(row_raw: unknown, current_user_id: string, tags: string[] 
 		author_handle: (row.author_handle as string) || 'user',
 		author_bio: row.author_bio as string,
 		avatar_url: row.author_avatar as string,
-		verified: false,
+		verified: Boolean(row.author_verified),
 		metrics: {
 			likes: Number(row.like_count || 0),
 			dislikes: Number(row.dislike_count || 0),
@@ -241,7 +241,7 @@ function build_posts_query(url: URL, current_user_id: string) {
 	const visibility_clause = build_post_visibility_clause(current_user_id);
 
 	let query = `
-		SELECT p.*, u.name as author_name, u.username as author_handle, u.image as author_avatar, u.bio as author_bio,
+		SELECT p.*, u.name as author_name, u.username as author_handle, u.image as author_avatar, u.bio as author_bio, u.verified as author_verified,
 			(SELECT GROUP_CONCAT(h.tag_name, ',') FROM post_hashtag ph JOIN hashtag h ON ph.hashtag_id = h.id WHERE ph.post_id = p.id) as hashtag_list,
 			(SELECT COUNT(*) FROM like WHERE post_id = p.id) as like_count,
 			(SELECT COUNT(*) FROM dislike WHERE post_id = p.id) as dislike_count,
@@ -285,7 +285,7 @@ function build_posts_query(url: URL, current_user_id: string) {
 
 async function fetch_specific_post(post_id: string, current_user_id: string) {
 	const result = await db.execute({
-		sql: `SELECT p.*, u.name as author_name, u.username as author_handle, u.image as author_avatar, u.bio as author_bio,
+		sql: `SELECT p.*, u.name as author_name, u.username as author_handle, u.image as author_avatar, u.bio as author_bio, u.verified as author_verified,
 				(SELECT GROUP_CONCAT(h.tag_name, ',') FROM post_hashtag ph JOIN hashtag h ON ph.hashtag_id = h.id WHERE ph.post_id = p.id) as hashtag_list,
 				(SELECT COUNT(*) FROM like WHERE post_id = p.id) as like_count,
 				(SELECT COUNT(*) FROM dislike WHERE post_id = p.id) as dislike_count,

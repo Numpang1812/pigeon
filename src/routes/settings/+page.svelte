@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import { auth_client } from '$lib/auth-client';
 	import {
 		ChevronRight,
@@ -11,6 +10,7 @@
 		Link2,
 		Trash2
 	} from 'lucide-svelte';
+	import UnauthenticatedPrompt from '$lib/components/UnauthenticatedPrompt.svelte';
 
 	const session = auth_client.useSession();
 
@@ -182,11 +182,7 @@
 		</div>
 	</div>
 {:else if !$session.isPending}
-	<main class="login-prompt">
-		<h2>Unauthenticated</h2>
-		<p>You need to log in to view this page.</p>
-		<a href={resolve('/')} class="login-link">Go to Login</a>
-	</main>
+	<UnauthenticatedPrompt />
 {:else}
 	<main class="loading">
 		<p>Loading...</p>
@@ -381,26 +377,6 @@
 	.danger-badge {
 		border-color: rgba(244, 63, 94, 0.25);
 		background: rgba(254, 242, 242, 0.95);
-	}
-
-	.login-prompt {
-		min-height: 100vh;
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		font-family: 'Inter', system-ui, -apple-system, sans-serif;
-		gap: 1rem;
-	}
-
-	.login-link {
-		color: #1da1f2;
-		font-weight: 700;
-		text-decoration: none;
-	}
-
-	.login-link:hover {
-		text-decoration: underline;
 	}
 
 	.loading {
