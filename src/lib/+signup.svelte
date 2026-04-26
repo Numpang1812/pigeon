@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { goto } from '$app/navigation';
+	import { goto, invalidateAll } from '$app/navigation';
 	import SsoButton from '$lib/components/SsoButton.svelte';
 	import { auth_client } from '$lib/auth-client';
 
@@ -53,7 +53,8 @@
 				throw new Error(username_data.error || 'Failed to save username.');
 			}
 
-			goto(resolve('/'));
+			await invalidateAll();
+			goto(resolve('/home'));
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Signup failed. Please try again.';
 		} finally {
