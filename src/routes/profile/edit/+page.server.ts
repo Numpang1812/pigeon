@@ -177,7 +177,9 @@ async function delete_user_media(user_id: string) {
 	const cloudinary_promises: Promise<void>[] = [];
 
 	const avatar_url = user_data.rows[0]?.image as string | null;
-	if (avatar_url && !avatar_url.includes('ui-avatars.com')) {
+	const is_default_avatar =
+		avatar_url?.includes('ui-avatars.com') || avatar_url?.startsWith('/');
+	if (avatar_url && !is_default_avatar) {
 		const avatar_id = extract_public_id(avatar_url);
 		if (avatar_id) cloudinary_promises.push(delete_from_cloudinary(avatar_id));
 	}

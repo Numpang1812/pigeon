@@ -230,14 +230,22 @@
 			<div class="profile-actions-row">
 				{#if is_owner}
 					<button class="avatar-container" onclick={handle_avatar_click} aria-label="Change avatar">
-						<img src={avatar_url || profile.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name)}&size=256&background=1DA1F2&color=fff`} alt="Avatar" class="avatar-image" />
+						{#if avatar_url || profile.avatar}
+							<img src={avatar_url || profile.avatar} alt="Avatar" class="avatar-image" />
+						{:else}
+							<img src="/default-avatar.svg" alt="Default profile avatar" class="avatar-image" />
+						{/if}
 						<div class="avatar-overlay">
 							<Camera size={32} />
 						</div>
 					</button>
 				{:else}
 					<div class="avatar-container static-avatar" aria-hidden="true">
-						<img src={avatar_url || profile.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name)}&size=256&background=1DA1F2&color=fff`} alt="Avatar" class="avatar-image" />
+						{#if avatar_url || profile.avatar}
+							<img src={avatar_url || profile.avatar} alt="Avatar" class="avatar-image" />
+						{:else}
+							<img src="/default-avatar.svg" alt="Default profile avatar" class="avatar-image" />
+						{/if}
 					</div>
 				{/if}
 				<div class="action-buttons">
