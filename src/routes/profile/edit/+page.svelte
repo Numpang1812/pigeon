@@ -58,6 +58,32 @@
 		show_delete_modal = false;
 		delete_confirmation = '';
 	}
+
+	// Handle form submission with toasts
+	const handle_enhance = () => {
+		return async ({ result, update }: { result: any; update: any }) => {
+			if (result.type === 'success') {
+				const message = result.data?.message || 'Profile updated successfully';
+				// Redirect to profile with success toast
+				window.location.href = `${resolve('/profile')}?toast=${encodeURIComponent(message)}&toast_type=success`;
+			} else if (result.type === 'failure') {
+				const message = result.data?.message || 'Update failed';
+				// Show error toast without redirecting
+				const url = new URL(window.location.href);
+				url.searchParams.set('toast', message);
+				url.searchParams.set('toast_type', 'error');
+				window.history.replaceState({}, '', url.toString());
+				// Trigger the layout's effect by re-dispatching a popstate or just manually if I had access,
+				// but since layout is listening to page.url, this should work if I trigger a change.
+				// However, window.location.assign might be better if I want a refresh.
+				// The user said "refresh back to main profile page" for SUCCESS.
+				// For failure, they didn't specify refresh, but "red for edit failed".
+				window.location.href = window.location.pathname + `?toast=${encodeURIComponent(message)}&toast_type=error`;
+			} else {
+				await update();
+			}
+		};
+	};
 </script>
 
 <svelte:head>
@@ -96,15 +122,11 @@
 			</button>
 		</div>
 
-		{#if form?.message}
-			<div class="alert" class:success={form?.success} class:error={!form?.success}>
-				{form.message}
-			</div>
-		{/if}
+		<!-- Old alert removed, now using global Toast system -->
 
 		<div class="form-container">
 			{#if active_tab === 'profile'}
-				<form method="POST" action="?/profile" use:enhance class="edit-form">
+				<form method="POST" action="?/profile" use:enhance={handle_enhance} class="edit-form">
 
 					<!-- Avatar Edit -->
 					<div class="avatar-section">
@@ -177,7 +199,7 @@
 					<form
 						method="POST"
 						action="?/password"
-						use:enhance
+						use:enhance={handle_enhance}
 						onsubmit={handle_password_submit}
 						class="edit-form"
 					>
@@ -186,9 +208,7 @@
 							<p>Update your password to keep your account secure.</p>
 						</div>
 
-						{#if password_error}
-							<div class="alert error">{password_error}</div>
-						{/if}
+						<!-- Old password error removed, now using global Toast system -->
 
 						<div class="form-group">
 							<label for="currentPassword">Current password</label>
@@ -458,24 +478,7 @@
 		background-color: #1DA1F2;
 	}
 
-	.alert {
-		padding: 12px 16px;
-		margin: 16px;
-		border-radius: 8px;
-		font-size: 15px;
-	}
-
-	.success {
-		background-color: #E8F5E9;
-		color: #2E7D32;
-		border: 1px solid #C8E6C9;
-	}
-
-	.error {
-		background-color: #FFEBEE;
-		color: #C62828;
-		border: 1px solid #FFCDD2;
-	}
+	/* Unused alert CSS removed */
 
 	.form-container {
 		padding: 16px;
