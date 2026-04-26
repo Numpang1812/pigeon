@@ -9,9 +9,11 @@
 		Check,
 		Heart,
 		Repeat2,
-		ThumbsDown,
-		UserPlus
+		UserPlus,
+		BadgeCheck,
+		ThumbsDown
 	} from 'lucide-svelte';
+	import UnauthenticatedPrompt from '$lib/components/UnauthenticatedPrompt.svelte';
 
 	const session = auth_client.useSession();
 
@@ -30,6 +32,7 @@
 		day_group: 'Today' | 'Earlier this week' | 'Older';
 		unread: boolean;
 		post_id?: string | null;
+		actor_verified?: boolean;
 	};
 
 	const filters = [
@@ -289,6 +292,11 @@
 												onclick={() => view_profile(item.id, item.actor_handle)}
 											>
 												<strong>{item.actor_name}</strong>
+												{#if item.actor_verified}
+													<span class="verified-icon" aria-label="Verified account" title="Verified account">
+														<BadgeCheck size={14} aria-hidden="true" fill="#0ea5e9" color="white" />
+													</span>
+												{/if}
 											</button>
 											{#if item.actor_handle}
 												<button
@@ -351,11 +359,7 @@
 		</section>
 	</div>
 {:else if !$session.isPending}
-	<main class="login-prompt">
-		<h2>Unauthenticated</h2>
-		<p>You need to log in to view this page.</p>
-		<a href={resolve('/')} class="login-link">Go to Login</a>
-	</main>
+	<UnauthenticatedPrompt />
 {:else}
 	<main class="loading">
 		<p>Loading...</p>
@@ -594,6 +598,16 @@
 
 	.name-link {
 		color: inherit;
+		display: inline-flex;
+		align-items: center;
+		gap: 3px;
+	}
+
+	.verified-icon {
+		display: inline-flex;
+		align-items: center;
+		color: #ffffff;
+		flex-shrink: 0;
 	}
 
 	.name-link:hover strong {
@@ -654,30 +668,6 @@
 	.empty-state p {
 		margin: 0;
 		color: #64748b;
-	}
-
-	.login-prompt {
-		min-height: calc(100vh - var(--navbar-height));
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		font-family:
-			'Inter',
-			system-ui,
-			-apple-system,
-			sans-serif;
-		gap: 1rem;
-	}
-
-	.login-link {
-		color: #1da1f2;
-		font-weight: 700;
-		text-decoration: none;
-	}
-
-	.login-link:hover {
-		text-decoration: underline;
 	}
 
 	.loading {

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { Bell, Menu, Search } from 'lucide-svelte';
+	import { Bell, Menu, Search, BadgeCheck } from 'lucide-svelte';
 	import { resolve } from '$app/paths';
 	import { auth_client } from '$lib/auth-client';
 	import { normalize_handle } from '$lib';
@@ -11,7 +11,7 @@
 	const session = auth_client.useSession();
 
 	let search = $state('');
-	let results = $state<{ id: string; name: string; username: string; image: string | null }[]>([]);
+	let results = $state<{ id: string; name: string; username: string; image: string | null; verified?: number | boolean }[]>([]);
 	let is_loading = $state(false);
 	let show_dropdown = $state(false);
 	let timer: ReturnType<typeof setTimeout>;
@@ -186,7 +186,14 @@
 									<img src="/default-avatar.svg" alt={`${user.name} default avatar`} class="search-avatar" />
 								{/if}
 								<div class="search-info">
-									<p class="search-name">{user.name}</p>
+									<div class="search-name-row">
+										<p class="search-name">{user.name}</p>
+										{#if user.verified}
+											<span class="verified-icon" aria-label="Verified account" title="Verified account">
+												<BadgeCheck size={14} aria-hidden="true" fill="#0ea5e9" color="white" />
+											</span>
+										{/if}
+									</div>
 									<p class="search-email">@{user.username}</p>
 								</div>
 							</button>

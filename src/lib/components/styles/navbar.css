@@ -120,6 +120,19 @@
 	color: #0f1419;
 }
 
+.search-name-row {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+}
+
+.search-name-row .verified-icon {
+	display: inline-flex;
+	align-items: center;
+	color: #ffffff;
+	flex-shrink: 0;
+}
+
 .search-email {
 	font-size: 13px;
 	color: #536471;

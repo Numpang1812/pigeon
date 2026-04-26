@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { goto } from '$app/navigation';
 	import SsoButton from '$lib/components/SsoButton.svelte';
 	import { auth_client } from '$lib/auth-client';
 
@@ -65,7 +64,7 @@
 				}
 				error = `Account locked due to too many failed attempts.`;
 			} else {
-				goto(resolve('/home'));
+				window.location.href = resolve('/home');
 			}
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Login failed. Please try again.';

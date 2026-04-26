@@ -1,9 +1,9 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import { auth_client } from '$lib/auth-client';
 	import { Flame, Hash, Sparkles, ChevronLeft, ChevronRight } from 'lucide-svelte';
 	import type { Component } from 'svelte';
 	import { Post } from '$lib';
+	import UnauthenticatedPrompt from '$lib/components/UnauthenticatedPrompt.svelte';
 
 	const session = auth_client.useSession();
 
@@ -41,16 +41,16 @@
 		is_edited?: boolean;
 	}
 
-	let dynamic_tags = $state<Tag[]>([]);
+	let dynamic_tags: Tag[] = $state([]);
 	let active_filter = $state<string>('foryou');
 
-	let feed_posts = $state<PostData[]>([]);
+	let feed_posts: PostData[] = $state([]);
 	let loading = $state(true);
 	let tags_loading = $state(true);
 
 	const all_filters = $derived([...static_filters, ...dynamic_tags]);
 
-	let pills_container: HTMLDivElement | null = null;
+	let pills_container = $state<HTMLDivElement | null>(null);
 
 	function scroll_filters(direction: 'left' | 'right'): void {
 		if (!pills_container) return;
@@ -233,11 +233,7 @@
 		</section>
 	</div>
 {:else if !$session.isPending}
-	<main class="login-prompt">
-		<h2>Unauthenticated</h2>
-		<p>You need to log in to view this page.</p>
-		<a href={resolve('/')} class="login-link">Go to Login</a>
-	</main>
+	<UnauthenticatedPrompt />
 {:else}
 	<main class="loading">
 		<p>Loading...</p>
@@ -312,6 +308,14 @@
 	.scroll-btn:hover {
 		background: #f1f5f9;
 		border-color: #cbd5f5;
+	}
+
+	.loading {
+		min-height: calc(100vh - var(--navbar-height));
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font-family: 'Inter', system-ui, -apple-system, sans-serif;
 	}
 
 	.pill {
