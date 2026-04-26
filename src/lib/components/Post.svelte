@@ -37,7 +37,10 @@
 			user_reposted: boolean;
 		}) => void;
 		on_delete?: (post_id: string) => void;
-		on_edit?: (post_id: string, new_content: string) => void;
+		on_edit?: (
+			post_id: string,
+			update: { content: string; post_tag: string; post_tags: string[] }
+		) => void;
 	}
 
 	const props: PostProps = $props();
@@ -127,7 +130,11 @@
 		return segments;
 	}
 
-	const content_segments = $derived.by(() => parse_content_segments(props.content));
+	const normalized_content = $derived.by(() =>
+		props.content.replace(/\r\n?/g, '\n').replace(/\n{3,}/g, '\n\n')
+	);
+
+	const content_segments = $derived.by(() => parse_content_segments(normalized_content));
 
 	// Metrics come from the API already accurate, just use them directly
 	const like_count = $derived(props.metrics?.likes ?? 0);
@@ -249,15 +256,60 @@
 
 	let is_editing = $state(false);
 	let edited_content = $state('');
+	let initial_edit_content = $state('');
 	let is_saving = $state(false);
 	let show_delete_confirm = $state(false);
 	let is_deleting = $state(false);
+	let is_content_expanded = $state(false);
 
-	$effect(() => {
-		if (!is_editing) {
-			edited_content = props.content;
-		}
+	const collapsed_content_max_chars = 320;
+	const collapsed_content_max_lines = 6;
+
+	const should_show_content_toggle = $derived.by(() => {
+		const line_count = normalized_content.split('\n').length;
+		return (
+			normalized_content.length > collapsed_content_max_chars ||
+			line_count > collapsed_content_max_lines
+		);
 	});
+
+	const is_content_collapsed = $derived(should_show_content_toggle && !is_content_expanded);
+
+	function normalize_post_content(raw_content: string): string {
+		return raw_content.replace(/\r\n?/g, '\n').replace(/\n{3,}/g, '\n\n');
+	}
+
+	function canonical_edit_content(raw_content: string): string {
+		return normalize_post_content(raw_content).trim();
+	}
+
+	function extract_tags_from_content(content: string): string[] {
+		const hashtag_pattern = /#([\p{L}\p{N}_]+)/gu;
+		const matches = content.matchAll(hashtag_pattern);
+		const tags = Array.from(matches, (match) => match[1].trim().toLowerCase()).filter((tag) => tag.length > 0);
+		return Array.from(new Set(tags));
+	}
+
+	function build_edit_content_with_tags(content: string, tags: string[]): string {
+		const normalized_content = normalize_post_content(content);
+		const existing_content_tags = new Set(extract_tags_from_content(normalized_content));
+		const missing_tags = tags.filter((tag) => !existing_content_tags.has(tag));
+		if (missing_tags.length === 0) {
+			return normalized_content;
+		}
+
+		const hashtag_suffix = missing_tags.map((tag) => `#${tag}`).join(' ');
+		const trimmed_content = normalized_content.trimEnd();
+		return trimmed_content.length > 0 ? `${trimmed_content}\n${hashtag_suffix}` : hashtag_suffix;
+	}
+
+	const has_edit_changes = $derived(
+		canonical_edit_content(edited_content) !== canonical_edit_content(initial_edit_content)
+	);
+
+	const can_save_edit = $derived(
+		!is_saving && has_edit_changes && canonical_edit_content(edited_content).length > 0
+	);
 
 	function request_delete() {
 		show_delete_confirm = true;
@@ -290,21 +342,35 @@
 	}
 
 	function start_edit() {
-		edited_content = props.content;
+		const prefilled_content = build_edit_content_with_tags(normalized_content, normalized_tags);
+		initial_edit_content = prefilled_content;
+		edited_content = prefilled_content;
 		is_editing = true;
+	}
+
+	function toggle_content_expansion(): void {
+		is_content_expanded = !is_content_expanded;
 	}
 
 	function cancel_edit() {
 		is_editing = false;
 	}
 
+	function handle_edit_input(): void {
+		const normalized = normalize_post_content(edited_content);
+		if (normalized !== edited_content) {
+			edited_content = normalized;
+		}
+	}
+
 	async function save_edit() {
-		if (edited_content.trim() === props.content) {
-			is_editing = false;
+		if (!has_edit_changes) {
 			return;
 		}
 
-		if (edited_content.trim().length === 0) {
+		const normalized_edited_content = canonical_edit_content(edited_content);
+
+		if (normalized_edited_content.length === 0) {
 			alert('Content cannot be empty');
 			return;
 		}
@@ -314,12 +380,16 @@
 			const response = await fetch(`/api/posts/${props.post_id}`, {
 				method: 'PATCH',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ content: edited_content })
+				body: JSON.stringify({ content: normalized_edited_content })
 			});
 
 			if (response.ok) {
 				const data = await response.json();
-				props.on_edit?.(props.post_id, data.content);
+				props.on_edit?.(props.post_id, {
+					content: data.content,
+					post_tag: data.post_tag,
+					post_tags: data.post_tags
+				});
 				is_editing = false;
 			} else {
 				const data = await response.json();
@@ -406,6 +476,7 @@
 					<textarea
 						class="edit-textarea"
 						bind:value={edited_content}
+						oninput={handle_edit_input}
 						maxlength="280"
 						disabled={is_saving}
 					></textarea>
@@ -423,7 +494,7 @@
 							type="button"
 							class="edit-action-btn save-btn"
 							onclick={save_edit}
-							disabled={is_saving || edited_content.trim() === ''}
+							disabled={!can_save_edit}
 						>
 							<Check size={16} />
 							<span>{is_saving ? 'Saving...' : 'Save'}</span>
@@ -431,15 +502,17 @@
 					</div>
 				</div>
 			{:else}
-				<p class="body-text">
-					{#each content_segments as segment, index (`${segment.type}-${index}-${segment.value}`)}
-						{#if segment.type === 'mention'}
-							<a class="mention-link" href={resolve(segment.profile_path)}>{segment.value}</a>
-						{:else}
-							{segment.value}
-						{/if}
-					{/each}
-				</p>
+				<div class="body-content-wrap">
+					<p class={`body-text ${is_content_collapsed ? 'collapsed' : ''}`}>
+						{#each content_segments as segment, index (`${segment.type}-${index}-${segment.value}`)}
+							{#if segment.type === 'mention'}
+								<a class="mention-link" href={resolve(segment.profile_path)}>{segment.value}</a>
+							{:else}
+								{segment.value}
+							{/if}
+						{/each}
+					</p>
+				</div>
 			{/if}
 
 			<footer class="metrics">
@@ -481,6 +554,16 @@
 					{/if}
 					<span>{compact_count(repost_count)}</span>
 				</button>
+
+				{#if should_show_content_toggle}
+					<button
+						type="button"
+						class="content-toggle-btn"
+						onclick={toggle_content_expansion}
+					>
+						{is_content_expanded ? 'View less' : 'View more'}
+					</button>
+				{/if}
 			</footer>
 		</section>
 
@@ -639,6 +722,69 @@
 		line-height: 1.55;
 		color: #334155;
 		margin: 0;
+		white-space: pre-wrap;
+		overflow-wrap: anywhere;
+		word-break: break-word;
+		position: relative;
+	}
+
+	.body-content-wrap {
+		display: flex;
+		flex-direction: column;
+		gap: 0.35rem;
+		position: relative;
+	}
+
+	.body-text.collapsed {
+		max-height: calc(1.55em * 6);
+		overflow: hidden;
+	}
+
+	.body-text.collapsed::after {
+		content: '';
+		position: absolute;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		height: 2.4rem;
+		background: linear-gradient(
+			to top,
+			rgba(255, 255, 255, 0.98) 0%,
+			rgba(255, 255, 255, 0.88) 40%,
+			rgba(255, 255, 255, 0) 100%
+		);
+		border-bottom: 1px solid rgba(14, 165, 233, 0.38);
+		box-shadow: 0 -1px 0 rgba(255, 255, 255, 0.92) inset;
+		pointer-events: none;
+	}
+
+	.content-toggle-btn {
+		margin-left: auto;
+		display: inline-flex;
+		align-items: center;
+		padding: 0.05rem 0;
+		border: none;
+		background: transparent;
+		color: #0ea5e9;
+		font-size: 0.8rem;
+		font-weight: 700;
+		letter-spacing: 0.01em;
+		cursor: pointer;
+		text-decoration: underline;
+		text-decoration-color: color-mix(in srgb, #0ea5e9 52%, transparent);
+		text-underline-offset: 0.2em;
+		transition: color 150ms ease, text-decoration-color 150ms ease;
+	}
+
+	.content-toggle-btn:hover {
+		color: #0284c7;
+		text-decoration-color: currentColor;
+	}
+
+	.content-toggle-btn:focus-visible {
+		outline: 2px solid #38bdf8;
+		outline-offset: 2px;
+		border-radius: 4px;
 	}
 
 	.mention-link {

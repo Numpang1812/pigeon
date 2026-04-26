@@ -50,7 +50,7 @@
 
 	const all_filters = $derived([...static_filters, ...dynamic_tags]);
 
-	let pills_container: HTMLDivElement | null = null;
+	let pills_container = $state<HTMLDivElement | null>(null);
 
 	function scroll_filters(direction: 'left' | 'right'): void {
 		if (!pills_container) return;
@@ -109,13 +109,18 @@
 		feed_posts = feed_posts.filter((p) => p.id !== post_id);
 	}
 
-	function handle_post_edit(post_id: string, new_content: string): void {
+	function handle_post_edit(
+		post_id: string,
+		update: { content: string; post_tag: string; post_tags: string[] }
+	): void {
 		const post_index = feed_posts.findIndex((p) => p.id === post_id);
 		if (post_index === -1) return;
 
 		const updated_post = {
 			...feed_posts[post_index],
-			content: new_content,
+			content: update.content,
+			post_tag: update.post_tag,
+			post_tags: update.post_tags,
 			is_edited: true
 		};
 

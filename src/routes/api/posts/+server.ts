@@ -19,7 +19,11 @@ function check_rate_limit(user_id: string) {
 function normalize_tag(raw_tag: unknown): string | null {
 	if (typeof raw_tag !== 'string') return null;
 	const normalized = raw_tag.trim().toLowerCase().replace(/^#+/, '');
-	return /^[a-z0-9_]{2,24}$/.test(normalized) ? normalized : null;
+	return /^[\p{L}\p{N}_]+$/u.test(normalized) ? normalized : null;
+}
+
+function normalize_post_content(raw_content: string): string {
+	return raw_content.replace(/\r\n?/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
 }
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -47,7 +51,8 @@ export const POST: RequestHandler = async ({ request }) => {
 			}
 		}
 
-		const post_id = await create_post_record(session.user.id, content.trim(), audience, validated_post_tag);
+		const normalized_content = normalize_post_content(content);
+		const post_id = await create_post_record(session.user.id, normalized_content, audience, validated_post_tag);
 
 		if (audience === 'close_friends') {
 			await handle_post_visibility(post_id, validated_allowed_user_ids);
@@ -117,7 +122,7 @@ function validate_post_input(body: Record<string, unknown>): PostInput {
 	const validated_audience = typeof audience === 'string' && valid_audiences.includes(audience) ? audience : 'public';
 
 	const normalized_tags = Array.isArray(post_tags)
-		? Array.from(new Set(post_tags.map(normalize_tag).filter((t): t is string => t !== null))).slice(0, 6)
+		? Array.from(new Set(post_tags.map(normalize_tag).filter((t): t is string => t !== null)))
 		: [];
 
 	const normalized_primary = normalize_tag(post_tag);

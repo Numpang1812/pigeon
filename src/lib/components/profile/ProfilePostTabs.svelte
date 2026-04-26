@@ -12,7 +12,10 @@
 			new_metrics: ProfilePostMetricChange
 		) => void;
 		on_delete: (post_id: string) => void;
-		on_edit: (post_id: string, new_content: string) => void;
+		on_edit: (
+			post_id: string,
+			update: { content: string; post_tag: string; post_tags: string[] }
+		) => void;
 	}
 
 	const props: ProfilePostTabsProps = $props();

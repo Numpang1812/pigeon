@@ -182,13 +182,18 @@
 		deleted_post_ids.add(post_id);
 	}
 
-	function handle_post_edit(post_id: string, new_content: string): void {
+	function handle_post_edit(
+		post_id: string,
+		update: { content: string; post_tag: string; post_tags: string[] }
+	): void {
 		const current_post = all_visible_posts.find((p) => p.id === post_id);
 		if (!current_post) return;
 
 		const updated_post = {
 			...current_post,
-			content: new_content,
+			content: update.content,
+			post_tag: update.post_tag,
+			post_tags: update.post_tags,
 			is_edited: true
 		};
 

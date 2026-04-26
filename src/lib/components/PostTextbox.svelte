@@ -76,16 +76,22 @@
 	let close_friend_candidates = $state<{ id: string; name: string; handle: string; avatar: string }[]>([]);
 	let selected_close_friend_ids = $state<string[]>([]);
 	let is_close_friend_list_collapsed = $state(false);
-	const hashtag_pattern = /(^|[^a-z0-9_])#([a-z0-9_]{2,24})\b/gi;
+	const hashtag_pattern = /#([\p{L}\p{N}_]+)/gu;
+	const normalized_text_content = $derived.by(() =>
+		text_content.replace(/\r\n?/g, '\n').replace(/\n{3,}/g, '\n\n')
+	);
+	const text_without_hashtags = $derived.by(() => normalized_text_content.replace(hashtag_pattern, ''));
 	const sanitized_text_content = $derived.by(() =>
-		text_content
-			.replace(hashtag_pattern, '$1')
-			.replace(/\s{2,}/g, ' ')
-			.replace(/\s+([.,!?;:])/g, '$1')
+		text_without_hashtags
+			.replace(/[ \t]{2,}/g, ' ')
+			.replace(/[ \t]+([.,!?;:])/g, '$1')
+			.replace(/[ \t]+\n/g, '\n')
+			.replace(/\n[ \t]+/g, '\n')
 			.trim()
 	);
+	const has_meaningful_text = $derived.by(() => /[\p{L}\p{N}]/u.test(text_without_hashtags));
 	const can_submit = $derived(
-		sanitized_text_content.length > 0 &&
+		has_meaningful_text &&
 		!is_submitting &&
 		(selected_audience !== 'close_friends' || selected_close_friend_ids.length > 0)
 	);
@@ -94,8 +100,8 @@
 	);
 	const detected_hashtags = $derived.by(() => {
 		const matches = text_content.matchAll(hashtag_pattern);
-		const tags = Array.from(matches, (match) => match[2].toLowerCase());
-		return Array.from(new Set(tags)).slice(0, 6);
+		const tags = Array.from(matches, (match) => match[1].toLowerCase());
+		return Array.from(new Set(tags));
 	});
 	const primary_post_tag = $derived(detected_hashtags[0] ?? 'other');
 	const has_detected_hashtags = $derived(detected_hashtags.length > 0);
@@ -217,6 +223,15 @@
 	function handle_textarea_click(): void {
 		if (selected_audience === 'close_friends') {
 			is_close_friend_list_collapsed = true;
+		}
+
+		update_mention_state();
+	}
+
+	function handle_textarea_input(): void {
+		const limited_line_breaks = text_content.replace(/\r\n?/g, '\n').replace(/\n{3,}/g, '\n\n');
+		if (limited_line_breaks !== text_content) {
+			text_content = limited_line_breaks;
 		}
 
 		update_mention_state();
@@ -496,7 +511,7 @@
 		<textarea
 			{@attach register_textarea}
 			bind:value={text_content}
-			oninput={update_mention_state}
+			oninput={handle_textarea_input}
 			onclick={handle_textarea_click}
 			onkeydown={handle_textarea_keydown}
 			placeholder={props.placeholder ?? 'What is floating in your mind?'}
@@ -579,6 +594,10 @@
 		font-size: 0.95rem;
 		line-height: 1.45;
 		color: #0f172a;
+		overflow-x: hidden;
+		overflow-wrap: anywhere;
+		word-break: break-word;
+		white-space: pre-wrap;
 		transition: border-color 150ms ease, box-shadow 150ms ease, background 150ms ease, height 200ms ease;
 	}
 
