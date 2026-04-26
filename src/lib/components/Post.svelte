@@ -182,6 +182,29 @@
 	}
 
 	async function toggle_like(): Promise<void> {
+		if (!props.on_metric_change) return;
+
+		const original_metrics = {
+			likes: like_count,
+			dislikes: dislike_count,
+			reposts: repost_count,
+			user_liked: liked,
+			user_disliked: disliked,
+			user_reposted: reposted
+		};
+
+		const is_liking = !liked;
+
+		// Optimistic update
+		props.on_metric_change(props.post_id, 'like', {
+			likes: is_liking ? like_count + 1 : like_count - 1,
+			dislikes: is_liking && disliked ? dislike_count - 1 : dislike_count,
+			reposts: repost_count,
+			user_liked: is_liking,
+			user_disliked: is_liking ? false : disliked,
+			user_reposted: reposted
+		});
+
 		try {
 			const response = await fetch(`/api/posts/${props.post_id}/like`, {
 				method: 'POST'
@@ -189,7 +212,7 @@
 
 			if (response.ok) {
 				const data = await response.json();
-				props.on_metric_change?.(props.post_id, 'like', {
+				props.on_metric_change(props.post_id, 'like', {
 					likes: data.like_count,
 					dislikes: data.dislike_count,
 					reposts: data.repost_count,
@@ -197,13 +220,39 @@
 					user_disliked: data.user_disliked,
 					user_reposted: data.user_reposted
 				});
+			} else {
+				props.on_metric_change(props.post_id, 'like', original_metrics);
 			}
 		} catch (error) {
 			console.error('Failed to toggle like:', error);
+			props.on_metric_change(props.post_id, 'like', original_metrics);
 		}
 	}
 
 	async function toggle_dislike(): Promise<void> {
+		if (!props.on_metric_change) return;
+
+		const original_metrics = {
+			likes: like_count,
+			dislikes: dislike_count,
+			reposts: repost_count,
+			user_liked: liked,
+			user_disliked: disliked,
+			user_reposted: reposted
+		};
+
+		const is_disliking = !disliked;
+
+		// Optimistic update
+		props.on_metric_change(props.post_id, 'dislike', {
+			likes: is_disliking && liked ? like_count - 1 : like_count,
+			dislikes: is_disliking ? dislike_count + 1 : dislike_count - 1,
+			reposts: repost_count,
+			user_liked: is_disliking ? false : liked,
+			user_disliked: is_disliking,
+			user_reposted: reposted
+		});
+
 		try {
 			const response = await fetch(`/api/posts/${props.post_id}/dislike`, {
 				method: 'POST'
@@ -211,7 +260,7 @@
 
 			if (response.ok) {
 				const data = await response.json();
-				props.on_metric_change?.(props.post_id, 'dislike', {
+				props.on_metric_change(props.post_id, 'dislike', {
 					likes: data.like_count,
 					dislikes: data.dislike_count,
 					reposts: data.repost_count,
@@ -219,13 +268,39 @@
 					user_disliked: data.user_disliked,
 					user_reposted: data.user_reposted
 				});
+			} else {
+				props.on_metric_change(props.post_id, 'dislike', original_metrics);
 			}
 		} catch (error) {
 			console.error('Failed to toggle dislike:', error);
+			props.on_metric_change(props.post_id, 'dislike', original_metrics);
 		}
 	}
 
 	async function toggle_repost(): Promise<void> {
+		if (!props.on_metric_change) return;
+
+		const original_metrics = {
+			likes: like_count,
+			dislikes: dislike_count,
+			reposts: repost_count,
+			user_liked: liked,
+			user_disliked: disliked,
+			user_reposted: reposted
+		};
+
+		const is_reposting = !reposted;
+
+		// Optimistic update
+		props.on_metric_change(props.post_id, 'repost', {
+			likes: like_count,
+			dislikes: dislike_count,
+			reposts: is_reposting ? repost_count + 1 : repost_count - 1,
+			user_liked: liked,
+			user_disliked: disliked,
+			user_reposted: is_reposting
+		});
+
 		try {
 			const response = await fetch(`/api/posts/${props.post_id}/repost`, {
 				method: 'POST'
@@ -233,7 +308,7 @@
 
 			if (response.ok) {
 				const data = await response.json();
-				props.on_metric_change?.(props.post_id, 'repost', {
+				props.on_metric_change(props.post_id, 'repost', {
 					likes: data.like_count,
 					dislikes: data.dislike_count,
 					reposts: data.repost_count,
@@ -241,9 +316,12 @@
 					user_disliked: data.user_disliked,
 					user_reposted: data.user_reposted
 				});
+			} else {
+				props.on_metric_change(props.post_id, 'repost', original_metrics);
 			}
 		} catch (error) {
 			console.error('Failed to toggle repost:', error);
+			props.on_metric_change(props.post_id, 'repost', original_metrics);
 		}
 	}
 
