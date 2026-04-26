@@ -146,7 +146,7 @@ export const actions: Actions = {
 				})
 				.catch(() => {}); // Ignore errors since user is already deleted
 
-			throw redirect(303, '/');
+			return { deleted: true };
 		} catch (e: unknown) {
 			if (
 				e &&
