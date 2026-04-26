@@ -10,7 +10,7 @@
 		onClose: () => void;
 	}
 
-	let { message, type = 'success', duration = 5000, onClose }: Props = $props();
+	const { message, type = 'success', duration = 5000, onClose }: Props = $props();
 
 	onMount(() => {
 		if (duration > 0) {

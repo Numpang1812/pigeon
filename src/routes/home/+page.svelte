@@ -1,7 +1,9 @@
 <script lang="ts">
-	import { Post, PostTextbox } from '$lib';
+	import { PostTextbox } from '$lib';
+	import VirtualizedPost from '$lib/components/VirtualizedPost.svelte';
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
 	import type { PageData } from './$types';
+	import { onMount } from 'svelte';
 
 	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	const { data } = $props<{ data: PageData }>();
@@ -30,21 +32,131 @@
 		is_edited?: boolean;
 	};
 
+	// --- State ---
 	let feed_posts = $state<FeedPost[]>([]);
 	let loading = $state(true);
+	let fetching_more = $state(false);
+	let has_more = $state(true);
+	let offset = $state(0);
+	const page_size = 50;
 
-	function center_post_in_view(post_element: HTMLElement): void {
-		post_element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+	// --- Virtualization State ---
+	const height_cache = $state<Record<string, number>>({});
+	let scroll_top = $state(0);
+	let viewport_height = $state(1000);
+	let sentinel_el = $state<HTMLElement>();
+
+	const buffer_count = 15;
+	const estimated_height = 260;
+
+	// --- Derived Visible Posts ---
+	const virtual_feed = $derived.by(() => {
+		let current_y = 0;
+		let start_index = -1;
+		let end_index = feed_posts.length - 1;
+		
+		// Find start index
+		for (let i = 0; i < feed_posts.length; i++) {
+			const h = height_cache[feed_posts[i].id] ?? estimated_height;
+			if (start_index === -1 && current_y + h > scroll_top) {
+				start_index = Math.max(0, i - buffer_count);
+			}
+			if (start_index !== -1 && current_y > scroll_top + viewport_height) {
+				end_index = Math.min(feed_posts.length - 1, i + buffer_count);
+				break;
+			}
+			current_y += h;
+		}
+
+		if (start_index === -1) start_index = 0;
+
+		// Calculate Spacers
+		let top_spacer = 0;
+		for (let i = 0; i < start_index; i++) {
+			top_spacer += height_cache[feed_posts[i].id] ?? estimated_height;
+		}
+
+		let bottom_spacer = 0;
+		for (let i = end_index + 1; i < feed_posts.length; i++) {
+			bottom_spacer += height_cache[feed_posts[i].id] ?? estimated_height;
+		}
+
+		return {
+			posts: feed_posts.slice(start_index, end_index + 1),
+			top_spacer,
+			bottom_spacer
+		};
+	});
+
+	// --- Actions & Helpers ---
+	function handle_height_change(id: string, height: number) {
+		if (height_cache[id] !== height) {
+			height_cache[id] = height;
+		}
 	}
 
-	function flash_target_post(post_element: HTMLElement): void {
-		post_element.classList.remove('flash-target');
-		requestAnimationFrame(() => {
-			post_element.classList.add('flash-target');
-			setTimeout(() => {
-				post_element.classList.remove('flash-target');
-			}, 2200);
-		});
+	function handle_scroll(e?: Event) {
+		let st = window.scrollY || document.documentElement.scrollTop || document.body.scrollTop || 0;
+		if (e?.target && (e.target as HTMLElement).scrollTop !== undefined) {
+			st = Math.max(st, (e.target as HTMLElement).scrollTop);
+		}
+		scroll_top = st;
+	}
+
+	function handle_resize() {
+		viewport_height = Math.max(window.innerHeight || 0, 1500);
+	}
+
+	async function load_posts(is_initial = false) {
+		if (is_initial) {
+			loading = true;
+			offset = 0;
+			has_more = true;
+		} else {
+			if (!has_more || fetching_more) return;
+			fetching_more = true;
+		}
+
+		try {
+			const params = new SvelteURLSearchParams({ 
+				limit: page_size.toString(),
+				offset: offset.toString()
+			});
+			
+			if (is_initial && typeof window !== 'undefined') {
+				const requested_post_id = new SvelteURLSearchParams(window.location.search).get('post_id');
+				if (requested_post_id) {
+					params.set('post_id', requested_post_id);
+				}
+			}
+
+			const response = await fetch(`/api/posts?${params.toString()}`);
+			if (response.ok) {
+				const data = await response.json();
+				const new_posts = data.posts;
+				
+				if (is_initial) {
+					feed_posts = new_posts;
+				} else {
+					// Deduplicate to prevent Svelte each block crash from shifting DB rows
+					const existing_ids = new Set(feed_posts.map(p => p.id));
+					const unique_new_posts = new_posts.filter((p: FeedPost) => !existing_ids.has(p.id));
+					feed_posts = [...feed_posts, ...unique_new_posts];
+				}
+
+				has_more = new_posts.length === page_size;
+				offset += new_posts.length;
+
+				if (is_initial) {
+					requestAnimationFrame(scroll_to_hash_post);
+				}
+			}
+		} catch (error) {
+			console.error('Failed to load posts:', error);
+		} finally {
+			loading = false;
+			fetching_more = false;
+		}
 	}
 
 	function scroll_to_hash_post(attempt = 0): void {
@@ -62,64 +174,52 @@
 		const post_element = document.getElementById(target_id);
 
 		if (!(post_element instanceof HTMLElement)) {
+			// If not in DOM, we might need to scroll roughly to where it should be
+			// to trigger it entering the viewport and being rendered
+			const post_index = feed_posts.findIndex(p => `post-${p.id}` === target_id);
+			if (post_index !== -1 && attempt === 0) {
+				let y = 0;
+				for (let i = 0; i < post_index; i++) {
+					y += height_cache[feed_posts[i].id] ?? estimated_height;
+				}
+				window.scrollTo({ top: y, behavior: 'smooth' });
+				setTimeout(() => scroll_to_hash_post(attempt + 1), 100);
+				return;
+			}
+
 			if (attempt < 8) {
 				setTimeout(() => scroll_to_hash_post(attempt + 1), 120);
 			}
 			return;
 		}
 
-		center_post_in_view(post_element);
-		flash_target_post(post_element);
+		post_element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+		
+		// Flash effect
+		post_element.classList.remove('flash-target');
+		requestAnimationFrame(() => {
+			post_element.classList.add('flash-target');
+			setTimeout(() => post_element.classList.remove('flash-target'), 2200);
+		});
 
 		if (attempt < 2) {
 			setTimeout(() => scroll_to_hash_post(attempt + 1), 180);
 		}
 	}
 
-	async function load_posts() {
-		try {
-			const params = new SvelteURLSearchParams({ limit: '50' });
-			if (typeof window !== 'undefined') {
-				const requested_post_id = new SvelteURLSearchParams(window.location.search).get('post_id');
-				if (requested_post_id) {
-					params.set('post_id', requested_post_id);
-				}
-			}
-
-			const response = await fetch(`/api/posts?${params.toString()}`);
-			if (response.ok) {
-				const data = await response.json();
-				feed_posts = data.posts;
-				requestAnimationFrame(scroll_to_hash_post);
-			}
-		} catch (error) {
-			console.error('Failed to load posts:', error);
-		} finally {
-			loading = false;
-		}
-	}
 	async function handle_post_submit(): Promise<void> {
-		// The PostTextbox component now handles the API call
-		// Just reload the feed
-		await load_posts();
+		await load_posts(true);
 	}
 
 	function handle_metric_change(
 		post_id: string,
 		type: 'like' | 'dislike' | 'repost',
-		new_metrics: {
-			likes: number;
-			dislikes: number;
-			reposts: number;
-			user_liked: boolean;
-			user_disliked: boolean;
-			user_reposted: boolean;
-		}
+		new_metrics: { likes: number; dislikes: number; reposts: number; user_liked: boolean; user_disliked: boolean; user_reposted: boolean }
 	): void {
 		const post_index = feed_posts.findIndex((p) => p.id === post_id);
 		if (post_index === -1) return;
 
-		const updated_post = {
+		feed_posts[post_index] = {
 			...feed_posts[post_index],
 			metrics: {
 				likes: new_metrics.likes,
@@ -130,44 +230,56 @@
 			user_disliked: new_metrics.user_disliked,
 			user_reposted: new_metrics.user_reposted
 		};
-
-		feed_posts = [
-			...feed_posts.slice(0, post_index),
-			updated_post,
-			...feed_posts.slice(post_index + 1)
-		];
 	}
 
 	function handle_post_delete(post_id: string): void {
 		feed_posts = feed_posts.filter((p) => p.id !== post_id);
+		delete height_cache[post_id];
 	}
 
 	function handle_post_edit(post_id: string, new_content: string): void {
 		const post_index = feed_posts.findIndex((p) => p.id === post_id);
 		if (post_index === -1) return;
 
-		const updated_post = {
+		feed_posts[post_index] = {
 			...feed_posts[post_index],
 			content: new_content,
 			is_edited: true
 		};
-
-		feed_posts = [
-			...feed_posts.slice(0, post_index),
-			updated_post,
-			...feed_posts.slice(post_index + 1)
-		];
 	}
 
-	// Load posts on mount
-	$effect(() => {
-		load_posts();
+	// --- Lifecycle & Effects ---
+	onMount(() => {
+		handle_resize();
+		// Use capture: true to catch scroll events from any internal scrollable container
+		window.addEventListener('scroll', handle_scroll, { passive: true, capture: true });
+		window.addEventListener('resize', handle_resize, { passive: true });
+		
+		// Initial load
+		load_posts(true);
+
+		return () => {
+			window.removeEventListener('scroll', handle_scroll, { capture: true });
+			window.removeEventListener('resize', handle_resize);
+		};
 	});
 
+	// Infinite Scroll Observer
 	$effect(() => {
-		if (feed_posts.length > 0) {
-			scroll_to_hash_post();
-		}
+		if (!sentinel_el) return;
+
+		// We use a local reference to avoid re-running when fetching_more changes
+		const observer = new IntersectionObserver((entries) => {
+			if (entries[0].isIntersecting) {
+				// Use untrack to avoid the effect depending on has_more/fetching_more
+				if (has_more && !fetching_more) {
+					load_posts();
+				}
+			}
+		}, { rootMargin: '800px' });
+
+		observer.observe(sentinel_el);
+		return () => observer.disconnect();
 	});
 </script>
 
@@ -188,30 +300,32 @@
 				<p>Be the first to post something!</p>
 			</div>
 		{:else}
-			{#each feed_posts as post (post.id)}
-				<Post
-					post_id={post.id}
-					post_tag={post.post_tag}
-					post_tags={post.post_tags}
-					posted_at={post.posted_at}
-					content={post.content}
-					audience={post.audience}
-					author_name={post.author_name}
-					author_handle={post.author_handle}
-					author_bio={post.author_bio}
-					avatar_url={post.avatar_url}
-					verified={post.verified}
-					metrics={post.metrics}
-					user_liked={post.user_liked}
-					user_disliked={post.user_disliked}
-					user_reposted={post.user_reposted}
-					is_author={post.is_author}
-					is_edited={post.is_edited}
-					on_metric_change={handle_metric_change}
-					on_delete={handle_post_delete}
-					on_edit={handle_post_edit}
-				/>
-			{/each}
+			<div class="virtual-list-container">
+				<!-- Top Spacer -->
+				<div class="spacer top-spacer" style="height: {virtual_feed.top_spacer}px;"></div>
+
+				{#each virtual_feed.posts as post (post.id)}
+					<VirtualizedPost
+						{post}
+						on_metric_change={handle_metric_change}
+						on_delete={handle_post_delete}
+						on_edit={handle_post_edit}
+						on_height_change={handle_height_change}
+					/>
+				{/each}
+
+				<!-- Bottom Spacer -->
+				<div class="spacer bottom-spacer" style="height: {virtual_feed.bottom_spacer}px;"></div>
+				
+				<!-- Sentinel for Infinite Scroll -->
+				<div bind:this={sentinel_el} class="sentinel">
+					{#if fetching_more}
+						<div class="fetching-more-spinner">
+							<p>Loading more posts...</p>
+						</div>
+					{/if}
+				</div>
+			</div>
 		{/if}
 	</section>
 </main>
@@ -238,6 +352,28 @@
 		padding: 1rem 1.25rem;
 		box-sizing: border-box;
 		border-bottom: 1px solid #e2e8f0;
+	}
+
+	.virtual-list-container {
+		position: relative;
+		width: 100%;
+	}
+
+	.spacer {
+		width: 100%;
+		pointer-events: none;
+	}
+
+	.sentinel {
+		height: 20px;
+		margin-top: 2rem;
+		padding-bottom: 4rem;
+	}
+
+	.fetching-more-spinner {
+		text-align: center;
+		color: #64748b;
+		padding: 2rem;
 	}
 
 	.loading-state,
