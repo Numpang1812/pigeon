@@ -4,6 +4,7 @@ import { auth } from '$lib/auth';
 import { nanoid } from 'nanoid';
 import { build_post_visibility_clause, normalize_user_id_list } from '$lib/server/post-visibility';
 import { post_create_limiter } from '$lib/server/rate-limiter';
+import { limit_post_tags, normalize_post_tag } from '$lib/post-tags';
 	
 function check_rate_limit(user_id: string) {
 	const rate_limit = post_create_limiter.check(user_id, 1, 5_000);
@@ -16,10 +17,8 @@ function check_rate_limit(user_id: string) {
 	return null;
 }
 
-function normalize_tag(raw_tag: unknown): string | null {
-	if (typeof raw_tag !== 'string') return null;
-	const normalized = raw_tag.trim().toLowerCase().replace(/^#+/, '');
-	return /^[a-z0-9_]{2,24}$/.test(normalized) ? normalized : null;
+function normalize_post_content(raw_content: string): string {
+	return raw_content.replace(/\r\n?/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
 }
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -47,7 +46,8 @@ export const POST: RequestHandler = async ({ request }) => {
 			}
 		}
 
-		const post_id = await create_post_record(session.user.id, content.trim(), audience, validated_post_tag);
+		const normalized_content = normalize_post_content(content);
+		const post_id = await create_post_record(session.user.id, normalized_content, audience, validated_post_tag);
 
 		if (audience === 'close_friends') {
 			await handle_post_visibility(post_id, validated_allowed_user_ids);
@@ -116,11 +116,8 @@ function validate_post_input(body: Record<string, unknown>): PostInput {
 	const valid_audiences = ['public', 'followers_friends', 'close_friends', 'private'];
 	const validated_audience = typeof audience === 'string' && valid_audiences.includes(audience) ? audience : 'public';
 
-	const normalized_tags = Array.isArray(post_tags)
-		? Array.from(new Set(post_tags.map(normalize_tag).filter((t): t is string => t !== null))).slice(0, 6)
-		: [];
-
-	const normalized_primary = normalize_tag(post_tag);
+	const normalized_tags = Array.isArray(post_tags) ? limit_post_tags(post_tags) : [];
+	const normalized_primary = normalize_post_tag(post_tag);
 	const validated_post_tag = normalized_tags[0] ?? normalized_primary ?? 'other';
 	const requested_allowed_user_ids = normalize_user_id_list(allowed_user_ids);
 
@@ -200,8 +197,7 @@ async function fetch_created_post(post_id: string) {
 function map_post_row(row_raw: unknown, current_user_id: string, tags: string[] = []) {
 	const row = row_raw as Record<string, unknown>;
 	const hashtag_list = (row.hashtag_list as string | null) ?? '';
-	const parsed_tags = tags.length > 0 ? tags : 
-		hashtag_list.split(',').map(tag => tag.trim().toLowerCase()).filter(tag => tag.length > 0);
+	const parsed_tags = tags.length > 0 ? limit_post_tags(tags) : limit_post_tags(hashtag_list.split(','));
 
 	return {
 		id: row.id as string,
@@ -236,8 +232,8 @@ function build_posts_query(url: URL, current_user_id: string) {
 	const visibility_clause = build_post_visibility_clause(current_user_id);
 
 	let query = `
-		SELECT p.*, u.name as author_name, u.username as author_handle, u.image as author_avatar, u.bio as author_bio, u.verified as author_verified,
-			(SELECT GROUP_CONCAT(h.tag_name, ',') FROM post_hashtag ph JOIN hashtag h ON ph.hashtag_id = h.id WHERE ph.post_id = p.id) as hashtag_list,
+		SELECT p.*, u.name as author_name, u.username as author_handle, u.image as author_avatar, u.bio as author_bio,
+			(SELECT GROUP_CONCAT(h.tag_name, ',') FROM post_hashtag ph JOIN hashtag h ON ph.hashtag_id = h.id WHERE ph.post_id = p.id ORDER BY ph.rowid) as hashtag_list,
 			(SELECT COUNT(*) FROM like WHERE post_id = p.id) as like_count,
 			(SELECT COUNT(*) FROM dislike WHERE post_id = p.id) as dislike_count,
 			(SELECT COUNT(*) FROM repost WHERE post_id = p.id) as repost_count,
@@ -280,8 +276,8 @@ function build_posts_query(url: URL, current_user_id: string) {
 
 async function fetch_specific_post(post_id: string, current_user_id: string) {
 	const result = await db.execute({
-		sql: `SELECT p.*, u.name as author_name, u.username as author_handle, u.image as author_avatar, u.bio as author_bio, u.verified as author_verified,
-				(SELECT GROUP_CONCAT(h.tag_name, ',') FROM post_hashtag ph JOIN hashtag h ON ph.hashtag_id = h.id WHERE ph.post_id = p.id) as hashtag_list,
+		sql: `SELECT p.*, u.name as author_name, u.username as author_handle, u.image as author_avatar, u.bio as author_bio,
+				(SELECT GROUP_CONCAT(h.tag_name, ',') FROM post_hashtag ph JOIN hashtag h ON ph.hashtag_id = h.id WHERE ph.post_id = p.id ORDER BY ph.rowid) as hashtag_list,
 				(SELECT COUNT(*) FROM like WHERE post_id = p.id) as like_count,
 				(SELECT COUNT(*) FROM dislike WHERE post_id = p.id) as dislike_count,
 				(SELECT COUNT(*) FROM repost WHERE post_id = p.id) as repost_count,

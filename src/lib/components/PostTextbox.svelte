@@ -9,6 +9,7 @@
 		Users
 	} from 'lucide-svelte';
 	import { tick } from 'svelte';
+	import { extract_post_tags, max_post_tags, strip_detected_tags_from_content } from '$lib/post-tags';
 
 	interface PostTextboxProps {
 		placeholder?: string;
@@ -76,33 +77,60 @@
 	let close_friend_candidates = $state<{ id: string; name: string; handle: string; avatar: string }[]>([]);
 	let selected_close_friend_ids = $state<string[]>([]);
 	let is_close_friend_list_collapsed = $state(false);
-	const hashtag_pattern = /(^|[^a-z0-9_])#([a-z0-9_]{2,24})\b/gi;
-	const sanitized_text_content = $derived.by(() =>
-		text_content
-			.replace(hashtag_pattern, '$1')
-			.replace(/\s{2,}/g, ' ')
-			.replace(/\s+([.,!?;:])/g, '$1')
-			.trim()
+	const normalized_text_content = $derived.by(() =>
+		text_content.replace(/\r\n?/g, '\n').replace(/\n{3,}/g, '\n\n')
 	);
+	const text_without_hashtags = $derived.by(() => strip_detected_tags_from_content(normalized_text_content));
+	const sanitized_text_content = $derived(text_without_hashtags);
+	const has_meaningful_text = $derived.by(() => /[\p{L}\p{N}]/u.test(text_without_hashtags));
 	const can_submit = $derived(
-		sanitized_text_content.length > 0 &&
+		has_meaningful_text &&
 		!is_submitting &&
 		(selected_audience !== 'close_friends' || selected_close_friend_ids.length > 0)
 	);
 	const selected_audience_option = $derived(
 		audience_options.find((option) => option.value === selected_audience) ?? audience_options[0]
 	);
-	const detected_hashtags = $derived.by(() => {
-		const matches = text_content.matchAll(hashtag_pattern);
-		const tags = Array.from(matches, (match) => match[2].toLowerCase());
-		return Array.from(new Set(tags)).slice(0, 6);
-	});
+	const detected_hashtags = $derived.by(() => extract_post_tags(normalized_text_content));
 	const primary_post_tag = $derived(detected_hashtags[0] ?? 'other');
 	const has_detected_hashtags = $derived(detected_hashtags.length > 0);
 	const selected_close_friend_count = $derived(selected_close_friend_ids.length);
 	const selected_close_friend_roster = $derived.by(() =>
 		close_friend_candidates.filter((user) => selected_close_friend_ids.includes(user.id))
 	);
+
+	const tag_themes: Record<string, { bg: string; fg: string; border: string }> = {
+		sport: { bg: '#dcfce7', fg: '#166534', border: '#86efac' },
+		movie: { bg: '#dbeafe', fg: '#1e40af', border: '#93c5fd' },
+		music: { bg: '#fee2e2', fg: '#9f1239', border: '#fda4af' },
+		tech: { bg: '#ede9fe', fg: '#5b21b6', border: '#c4b5fd' },
+		news: { bg: '#fef3c7', fg: '#92400e', border: '#fcd34d' },
+		question: { bg: '#e0f2fe', fg: '#0c4a6e', border: '#7dd3fc' },
+		update: { bg: '#ecfccb', fg: '#3f6212', border: '#bef264' }
+	};
+
+	function hash_string(value: string): number {
+		let hash = 0;
+		for (let i = 0; i < value.length; i += 1) {
+			hash = (hash << 5) - hash + value.charCodeAt(i);
+			hash |= 0;
+		}
+		return Math.abs(hash);
+	}
+
+	function fallback_tag_theme(tag: string): { bg: string; fg: string; border: string } {
+		const hash = hash_string(tag);
+		const hue = hash % 360;
+		return {
+			bg: `hsl(${hue}, 78%, 94%)`,
+			fg: `hsl(${hue}, 62%, 28%)`,
+			border: `hsl(${hue}, 68%, 78%)`
+		};
+	}
+
+	function get_tag_theme(tag: string): { bg: string; fg: string; border: string } {
+		return tag_themes[tag] ?? fallback_tag_theme(tag);
+	}
 
 	async function submit_post(event: SubmitEvent): Promise<void> {
 		event.preventDefault();
@@ -217,6 +245,15 @@
 	function handle_textarea_click(): void {
 		if (selected_audience === 'close_friends') {
 			is_close_friend_list_collapsed = true;
+		}
+
+		update_mention_state();
+	}
+
+	function handle_textarea_input(): void {
+		const limited_line_breaks = text_content.replace(/\r\n?/g, '\n');
+		if (limited_line_breaks !== text_content) {
+			text_content = limited_line_breaks;
 		}
 
 		update_mention_state();
@@ -497,10 +534,27 @@
 	{/if}
 
 	<div class="mention-autocomplete">
+		{#if detected_hashtags.length > 0}
+			<div class="tag-preview" aria-label="Detected hashtags preview">
+				<p class="tag-label">Tags Preview: </p>
+				{#each detected_hashtags.slice(0, max_post_tags) as tag (tag)}
+					<span
+						class="tag-pill"
+						style={`--tag-bg:${get_tag_theme(tag).bg}; --tag-fg:${get_tag_theme(tag).fg}; --tag-border:${get_tag_theme(tag).border};`}
+					>#{tag}</span>
+				{/each}
+
+				{#if detected_hashtags.length > max_post_tags}
+					<span class="tag-overflow">
+						+{detected_hashtags.length - max_post_tags}
+					</span>
+				{/if}
+			</div>
+		{/if}
 		<textarea
 			{@attach register_textarea}
 			bind:value={text_content}
-			oninput={update_mention_state}
+			oninput={handle_textarea_input}
 			onclick={handle_textarea_click}
 			onkeydown={handle_textarea_keydown}
 			placeholder={props.placeholder ?? 'What is floating in your mind?'}
@@ -527,15 +581,11 @@
 								void insert_mention(user);
 							}}
 						>
-							{#if user.image}
-								<img class="mention-avatar" src={user.image} alt={user.name} />
-							{:else}
-								<img
-									class="mention-avatar"
-									src="/default-avatar.svg"
-									alt={`${user.name} default avatar`}
-								/>
-							{/if}
+							<img
+								class="mention-avatar"
+								src={user.image || 'https://i.pravatar.cc/40'}
+								alt={user.name}
+							/>
 							<span class="mention-meta">
 								<strong>{user.name}</strong>
 								<small>@{user.username}</small>
@@ -548,7 +598,9 @@
 	</div>
 
 	<footer class="composer-footer">
-		<span class="counter" aria-live="polite">{text_content.length}/280</span>
+		<div class="composer-meta">
+			<span class="counter" aria-live="polite">{text_content.length}/280</span>
+		</div>
 		<button type="submit" disabled={!can_submit}>
 			{#if is_submitting}
 				<svg class="spinner" viewBox="0 0 24 24" fill="none">
@@ -565,6 +617,42 @@
 </form>
 
 <style>
+	.tag-preview {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 6px;
+		margin-bottom: 8px;
+	}
+
+	.tag-label {
+		display: flex;
+		align-items: center;
+		gap: 0.4rem;
+		font-size: 0.7rem;
+		color: #64748b;
+		margin-left: 1rem;
+	}
+
+	.tag-pill {
+		display: inline-flex;
+		align-items: center;
+		background: var(--tag-bg);
+		color: var(--tag-fg);
+		padding: 0.16rem 0.5rem;
+		border-radius: 999px;
+		font-size: 0.76rem;
+		font-weight: 700;
+		border: 1px solid var(--tag-border);
+		overflow-wrap: anywhere;
+		word-break: break-word;
+		white-space: normal;
+	}
+
+	.tag-overflow {
+		font-size: 12px;
+		color: #6b7280;
+		padding: 4px 6px;
+	}
 	.composer {
 		background: #ffffff;
 		border: 1px solid #e2e8f0;
@@ -587,6 +675,10 @@
 		font-size: 0.95rem;
 		line-height: 1.45;
 		color: #0f172a;
+		overflow-x: hidden;
+		overflow-wrap: anywhere;
+		word-break: break-word;
+		white-space: pre-wrap;
 		transition: border-color 150ms ease, box-shadow 150ms ease, background 150ms ease, height 200ms ease;
 	}
 
@@ -941,9 +1033,20 @@
 		justify-content: space-between;
 	}
 
+	.composer-meta {
+		display: grid;
+		gap: 0.15rem;
+	}
+
+
 	@media (max-width: 720px) {
 		.composer-controls {
 			grid-template-columns: 1fr;
+		}
+
+		.composer-footer {
+			align-items: flex-start;
+			gap: 0.75rem;
 		}
 	}
 

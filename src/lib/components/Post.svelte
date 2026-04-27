@@ -2,6 +2,7 @@
 	import { BadgeCheck, Check, Repeat2, Heart, ThumbsDown, Trash2, Pencil, X, AlertTriangle } from 'lucide-svelte';
 	import { resolve } from '$app/paths';
 	import { normalize_handle } from '$lib';
+	import { limit_post_tags } from '$lib/post-tags';
 	import { fly } from 'svelte/transition';
 
 	type PostMetrics = {
@@ -37,7 +38,10 @@
 			user_reposted: boolean;
 		}) => void;
 		on_delete?: (post_id: string) => void;
-		on_edit?: (post_id: string, new_content: string) => void;
+		on_edit?: (
+			post_id: string,
+			update: { content: string; post_tag: string; post_tags: string[] }
+		) => void;
 	}
 
 	const props: PostProps = $props();
@@ -64,19 +68,99 @@
 
 	type ContentSegment =
 		| { type: 'text'; value: string }
-		| { type: 'mention'; value: string; profile_path: `/profile/${string}` };
+		| { type: 'mention'; value: string; profile_path: `/profile/${string}` }
+		| { type: 'url'; value: string; href: string };
+
+	function normalize_external_url(url: string): string {
+		if (/^https?:\/\//i.test(url)) {
+			return url;
+		}
+
+		return `https://${url}`;
+	}
+
+	function split_trailing_url_punctuation(raw_url: string): { url: string; trailing: string } {
+		let end_index = raw_url.length;
+
+		while (end_index > 0 && /[.,!?;:)\]]/.test(raw_url[end_index - 1])) {
+			end_index -= 1;
+		}
+
+		return {
+			url: raw_url.slice(0, end_index),
+			trailing: raw_url.slice(end_index)
+		};
+	}
+
+	let pending_external_href = $state('');
+	let show_external_link_confirm = $state(false);
+
+	function request_external_link_open(href: string): void {
+		pending_external_href = href;
+		show_external_link_confirm = true;
+	}
+
+	function cancel_external_link_open(): void {
+		show_external_link_confirm = false;
+		pending_external_href = '';
+	}
+
+	function confirm_external_link_open(): void {
+		if (!pending_external_href) {
+			show_external_link_confirm = false;
+			return;
+		}
+
+		window.open(pending_external_href, '_blank', 'noopener,noreferrer');
+		show_external_link_confirm = false;
+		pending_external_href = '';
+	}
 
 	function parse_content_segments(content: string): ContentSegment[] {
 		const segments: ContentSegment[] = [];
-		const mention_pattern = /@([a-zA-Z0-9_]{2,24})/g;
+		const token_pattern = /(https?:\/\/[^\s<]+|www\.[^\s<]+)|@([a-zA-Z0-9_]{2,24})/g;
 		let cursor = 0;
 
-		for (const match of content.matchAll(mention_pattern)) {
+		for (const match of content.matchAll(token_pattern)) {
 			const full_match = match[0];
-			const mention_handle = match[1];
+			const matched_url = match[1];
+			const mention_handle = match[2];
 			const match_index = match.index ?? -1;
 
 			if (match_index < 0) {
+				continue;
+			}
+
+			if (matched_url) {
+				if (match_index > cursor) {
+					segments.push({
+						type: 'text',
+						value: content.slice(cursor, match_index)
+					});
+				}
+
+				const { url: clean_url, trailing } = split_trailing_url_punctuation(matched_url);
+
+				if (clean_url) {
+					segments.push({
+						type: 'url',
+						value: clean_url,
+						href: normalize_external_url(clean_url)
+					});
+				}
+
+				if (trailing) {
+					segments.push({
+						type: 'text',
+						value: trailing
+					});
+				}
+
+				cursor = match_index + full_match.length;
+				continue;
+			}
+
+			if (!mention_handle) {
 				continue;
 			}
 
@@ -127,20 +211,21 @@
 		return segments;
 	}
 
-	const content_segments = $derived.by(() => parse_content_segments(props.content));
+	const normalized_content = $derived.by(() =>
+		props.content.replace(/\r\n?/g, '\n').replace(/\n{3,}/g, '\n\n')
+	);
+
+	const content_segments = $derived.by(() => parse_content_segments(normalized_content));
 
 	// Metrics come from the API already accurate, just use them directly
 	const like_count = $derived(props.metrics?.likes ?? 0);
 	const dislike_count = $derived(props.metrics?.dislikes ?? 0);
 	const repost_count = $derived(props.metrics?.reposts ?? 0);
 	
-	const normalized_tags = $derived.by(() => {
-		const source_tags = props.post_tags?.length ? props.post_tags : [props.post_tag];
-		const normalized = source_tags
-			.map((tag) => tag.trim().toLowerCase())
-			.filter((tag) => tag.length > 0);
-		const unique_tags = Array.from(new Set(normalized));
-		return unique_tags.length ? unique_tags : ['general'];
+	const display_tags = $derived.by(() => {
+		const source = props.post_tags?.length ? props.post_tags : [props.post_tag];
+		const limited = limit_post_tags(source);
+		return limited.length ? limited : ['general'];
 	});
 
 	const tag_themes: Record<string, { bg: string; fg: string; border: string }> = {
@@ -166,9 +251,9 @@
 		const hash = hash_string(tag);
 		const hue = hash % 360;
 		return {
-			bg: `hsl(${hue} 78% 94%)`,
-			fg: `hsl(${hue} 62% 28%)`,
-			border: `hsl(${hue} 68% 78%)`
+			bg: `hsl(${hue}, 78%, 94%)`,
+			fg: `hsl(${hue}, 62%, 28%)`,
+			border: `hsl(${hue}, 68%, 78%)`
 		};
 	}
 
@@ -182,29 +267,6 @@
 	}
 
 	async function toggle_like(): Promise<void> {
-		if (!props.on_metric_change) return;
-
-		const original_metrics = {
-			likes: like_count,
-			dislikes: dislike_count,
-			reposts: repost_count,
-			user_liked: liked,
-			user_disliked: disliked,
-			user_reposted: reposted
-		};
-
-		const is_liking = !liked;
-
-		// Optimistic update
-		props.on_metric_change(props.post_id, 'like', {
-			likes: is_liking ? like_count + 1 : like_count - 1,
-			dislikes: is_liking && disliked ? dislike_count - 1 : dislike_count,
-			reposts: repost_count,
-			user_liked: is_liking,
-			user_disliked: is_liking ? false : disliked,
-			user_reposted: reposted
-		});
-
 		try {
 			const response = await fetch(`/api/posts/${props.post_id}/like`, {
 				method: 'POST'
@@ -212,7 +274,7 @@
 
 			if (response.ok) {
 				const data = await response.json();
-				props.on_metric_change(props.post_id, 'like', {
+				props.on_metric_change?.(props.post_id, 'like', {
 					likes: data.like_count,
 					dislikes: data.dislike_count,
 					reposts: data.repost_count,
@@ -220,39 +282,13 @@
 					user_disliked: data.user_disliked,
 					user_reposted: data.user_reposted
 				});
-			} else {
-				props.on_metric_change(props.post_id, 'like', original_metrics);
 			}
 		} catch (error) {
 			console.error('Failed to toggle like:', error);
-			props.on_metric_change(props.post_id, 'like', original_metrics);
 		}
 	}
 
 	async function toggle_dislike(): Promise<void> {
-		if (!props.on_metric_change) return;
-
-		const original_metrics = {
-			likes: like_count,
-			dislikes: dislike_count,
-			reposts: repost_count,
-			user_liked: liked,
-			user_disliked: disliked,
-			user_reposted: reposted
-		};
-
-		const is_disliking = !disliked;
-
-		// Optimistic update
-		props.on_metric_change(props.post_id, 'dislike', {
-			likes: is_disliking && liked ? like_count - 1 : like_count,
-			dislikes: is_disliking ? dislike_count + 1 : dislike_count - 1,
-			reposts: repost_count,
-			user_liked: is_disliking ? false : liked,
-			user_disliked: is_disliking,
-			user_reposted: reposted
-		});
-
 		try {
 			const response = await fetch(`/api/posts/${props.post_id}/dislike`, {
 				method: 'POST'
@@ -260,7 +296,7 @@
 
 			if (response.ok) {
 				const data = await response.json();
-				props.on_metric_change(props.post_id, 'dislike', {
+				props.on_metric_change?.(props.post_id, 'dislike', {
 					likes: data.like_count,
 					dislikes: data.dislike_count,
 					reposts: data.repost_count,
@@ -268,39 +304,13 @@
 					user_disliked: data.user_disliked,
 					user_reposted: data.user_reposted
 				});
-			} else {
-				props.on_metric_change(props.post_id, 'dislike', original_metrics);
 			}
 		} catch (error) {
 			console.error('Failed to toggle dislike:', error);
-			props.on_metric_change(props.post_id, 'dislike', original_metrics);
 		}
 	}
 
 	async function toggle_repost(): Promise<void> {
-		if (!props.on_metric_change) return;
-
-		const original_metrics = {
-			likes: like_count,
-			dislikes: dislike_count,
-			reposts: repost_count,
-			user_liked: liked,
-			user_disliked: disliked,
-			user_reposted: reposted
-		};
-
-		const is_reposting = !reposted;
-
-		// Optimistic update
-		props.on_metric_change(props.post_id, 'repost', {
-			likes: like_count,
-			dislikes: dislike_count,
-			reposts: is_reposting ? repost_count + 1 : repost_count - 1,
-			user_liked: liked,
-			user_disliked: disliked,
-			user_reposted: is_reposting
-		});
-
 		try {
 			const response = await fetch(`/api/posts/${props.post_id}/repost`, {
 				method: 'POST'
@@ -308,7 +318,7 @@
 
 			if (response.ok) {
 				const data = await response.json();
-				props.on_metric_change(props.post_id, 'repost', {
+				props.on_metric_change?.(props.post_id, 'repost', {
 					likes: data.like_count,
 					dislikes: data.dislike_count,
 					reposts: data.repost_count,
@@ -316,26 +326,61 @@
 					user_disliked: data.user_disliked,
 					user_reposted: data.user_reposted
 				});
-			} else {
-				props.on_metric_change(props.post_id, 'repost', original_metrics);
 			}
 		} catch (error) {
 			console.error('Failed to toggle repost:', error);
-			props.on_metric_change(props.post_id, 'repost', original_metrics);
 		}
 	}
 
 	let is_editing = $state(false);
 	let edited_content = $state('');
+	let initial_edit_content = $state('');
 	let is_saving = $state(false);
 	let show_delete_confirm = $state(false);
 	let is_deleting = $state(false);
+	let is_content_expanded = $state(false);
 
-	$effect(() => {
-		if (!is_editing) {
-			edited_content = props.content;
-		}
+	const collapsed_content_max_chars = 320;
+	const collapsed_content_max_lines = 6;
+
+	const should_show_content_toggle = $derived.by(() => {
+		const line_count = normalized_content.split('\n').length;
+		return (
+			normalized_content.length > collapsed_content_max_chars ||
+			line_count > collapsed_content_max_lines
+		);
 	});
+
+	const is_content_collapsed = $derived(should_show_content_toggle && !is_content_expanded);
+
+	function normalize_post_content(raw_content: string): string {
+		return raw_content.replace(/\r\n?/g, '\n').replace(/\n{3,}/g, '\n\n');
+	}
+
+	function canonical_edit_content(raw_content: string): string {
+		return normalize_post_content(raw_content).trim();
+	}
+
+
+	let original_tags: string[] = [];
+	let editable_tags = $state<string[]>([]);
+
+	function tags_equal(a: string[], b: string[]): boolean {
+		if (a.length !== b.length) return false;
+		for (let i = 0; i < a.length; i++) {
+			if (a[i] !== b[i]) return false;
+		}
+		return true;
+	}
+
+	const has_edit_changes = $derived(
+		canonical_edit_content(edited_content) !== canonical_edit_content(initial_edit_content)
+		|| !tags_equal(editable_tags, original_tags)
+	);
+
+	const can_save_edit = $derived(
+		!is_saving && has_edit_changes && canonical_edit_content(edited_content).length > 0
+	);
 
 	function request_delete() {
 		show_delete_confirm = true;
@@ -368,48 +413,103 @@
 	}
 
 	function start_edit() {
-		edited_content = props.content;
-		is_editing = true;
+	edited_content = canonical_edit_content(props.content);
+
+	original_tags = props.post_tags?.length
+		? [...props.post_tags]
+		: [props.post_tag];
+
+	editable_tags = [...original_tags];
+
+	initial_edit_content = edited_content;
+	is_editing = true;
+}
+
+	function remove_tag(tag: string) {
+		editable_tags = editable_tags.filter((t) => t !== tag);
+	}
+
+	function toggle_content_expansion(): void {
+		is_content_expanded = !is_content_expanded;
 	}
 
 	function cancel_edit() {
 		is_editing = false;
 	}
 
-	async function save_edit() {
-		if (edited_content.trim() === props.content) {
-			is_editing = false;
-			return;
-		}
+	import { extract_post_tags, max_post_tags } from '$lib/post-tags';
 
-		if (edited_content.trim().length === 0) {
-			alert('Content cannot be empty');
-			return;
-		}
-
-		is_saving = true;
-		try {
-			const response = await fetch(`/api/posts/${props.post_id}`, {
-				method: 'PATCH',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ content: edited_content })
+	function handle_edit_input(event: Event): void {
+		const textarea = event.target as HTMLTextAreaElement;
+		const cursor_pos = textarea.selectionStart;
+		const normalized = normalize_post_content(edited_content);
+		if (normalized !== edited_content) {
+			const length_diff = edited_content.length - normalized.length;
+			edited_content = normalized;
+			requestAnimationFrame(() => {
+				textarea.selectionStart = textarea.selectionEnd = Math.max(0, cursor_pos - length_diff);
 			});
-
-			if (response.ok) {
-				const data = await response.json();
-				props.on_edit?.(props.post_id, data.content);
-				is_editing = false;
-			} else {
-				const data = await response.json();
-				alert(data.error || 'Failed to update post');
-			}
-		} catch (error) {
-			console.error('Failed to update post:', error);
-			alert('Failed to update post');
-		} finally {
-			is_saving = false;
 		}
+		// Always derive tags from content, like PostTextbox
+		const detected = extract_post_tags(normalized);
+
+		const merged = Array.from(new Set([
+			...original_tags,
+			...detected
+		])).slice(0, max_post_tags);
+
+		editable_tags = merged;
 	}
+	async function save_edit() {
+        if (!has_edit_changes) {
+            is_editing = false;
+            return;
+        }
+
+        const final_content = canonical_edit_content(edited_content);
+
+        if (final_content.length === 0) {
+            alert('Content cannot be empty');
+            return;
+        }
+
+        is_saving = true;
+
+        try {
+            const final_tags = editable_tags.length > 0 ? editable_tags : ['general'];
+
+            const response = await fetch(`/api/posts/${props.post_id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    content: final_content,
+                    post_tags: final_tags,
+                    post_tag: final_tags[0] // Set the primary tag as the first in the list
+                })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+
+                // Update the parent component state
+                props.on_edit?.(props.post_id, {
+                    content: data.content,
+                    post_tag: data.post_tag,
+                    post_tags: data.post_tags
+                });
+
+                is_editing = false;
+            } else {
+                const data = await response.json();
+                alert(data.error || 'Failed to update post');
+            }
+        } catch (error) {
+            console.error('Failed to update post:', error);
+            alert('Failed to update post');
+        } finally {
+            is_saving = false;
+        }
+    }
 </script>
 
 <article
@@ -421,12 +521,22 @@
 		<section class="content-section">
 			<header class="content-header">
 				<p class="tag-inline">
-					{#each normalized_tags as tag (tag)}
+					{#each (is_editing ? editable_tags : display_tags) as tag (tag)}
 						<span
 							class="topic-tag"
 							style={`--tag-bg:${get_tag_theme(tag).bg}; --tag-fg:${get_tag_theme(tag).fg}; --tag-border:${get_tag_theme(tag).border};`}
 						>
 							#{tag}
+
+							{#if is_editing}
+								<button
+									type="button"
+									class="tag-remove"
+									onclick={() => remove_tag(tag)}
+								>
+									×
+								</button>
+							{/if}
 						</span>
 					{/each}
 					{#if audience_label}
@@ -484,6 +594,7 @@
 					<textarea
 						class="edit-textarea"
 						bind:value={edited_content}
+						oninput={handle_edit_input}
 						maxlength="280"
 						disabled={is_saving}
 					></textarea>
@@ -501,7 +612,7 @@
 							type="button"
 							class="edit-action-btn save-btn"
 							onclick={save_edit}
-							disabled={is_saving || edited_content.trim() === ''}
+							disabled={!can_save_edit}
 						>
 							<Check size={16} />
 							<span>{is_saving ? 'Saving...' : 'Save'}</span>
@@ -509,15 +620,39 @@
 					</div>
 				</div>
 			{:else}
-				<p class="body-text">
-					{#each content_segments as segment, index (`${segment.type}-${index}-${segment.value}`)}
-						{#if segment.type === 'mention'}
-							<a class="mention-link" href={resolve(segment.profile_path)}>{segment.value}</a>
-						{:else}
-							{segment.value}
-						{/if}
-					{/each}
-				</p>
+				<div class="body-content-wrap">
+					<p class={`body-text ${is_content_collapsed ? 'collapsed' : ''}`}>
+						{#each content_segments as segment, index (`${segment.type}-${index}-${segment.value}`)}
+							{#if segment.type === 'mention'}
+								<a class="mention-link" href={resolve(segment.profile_path)}>{segment.value}</a>
+							{:else if segment.type === 'url'}
+								<button
+									type="button"
+									class="external-link"
+									title={`Open ${segment.href}`}
+									onclick={() => request_external_link_open(segment.href)}
+								>{segment.value}</button>
+							{:else}
+								{segment.value}
+							{/if}
+						{/each}
+					</p>
+					{#if show_external_link_confirm}
+						<div class="external-link-confirm" transition:fly={{ y: 10, duration: 180 }}>
+							<div class="external-link-confirm-message">
+								<AlertTriangle size={18} class="warn-icon" />
+								<div>
+									<p>Open this external link?</p>
+									<small>{pending_external_href}</small>
+								</div>
+							</div>
+							<div class="external-link-confirm-actions">
+								<button class="confirm-cancel" type="button" onclick={cancel_external_link_open}>Cancel</button>
+								<button class="open-link-btn" type="button" onclick={confirm_external_link_open}>Open link</button>
+							</div>
+						</div>
+					{/if}
+				</div>
 			{/if}
 
 			<footer class="metrics">
@@ -559,6 +694,16 @@
 					{/if}
 					<span>{compact_count(repost_count)}</span>
 				</button>
+
+				{#if should_show_content_toggle}
+					<button
+						type="button"
+						class="content-toggle-btn"
+						onclick={toggle_content_expansion}
+					>
+						{is_content_expanded ? 'View less' : 'View more'}
+					</button>
+				{/if}
 			</footer>
 		</section>
 
@@ -572,7 +717,11 @@
 					{#if props.avatar_url}
 						<img class="avatar-image" src={props.avatar_url} alt={`${props.post_tag} tag icon`} />
 					{:else}
-						<img class="avatar-image" src="/default-avatar.svg" alt={`${props.author_name} default avatar`} />
+						<div class="avatar-placeholder" aria-hidden="true">
+							<svg viewBox="0 0 24 24" fill="currentColor">
+								<path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+							</svg>
+						</div>
 					{/if}
 				</a>
 			{:else}
@@ -580,7 +729,11 @@
 					{#if props.avatar_url}
 						<img class="avatar-image" src={props.avatar_url} alt={`${props.post_tag} tag icon`} />
 					{:else}
-						<img class="avatar-image" src="/default-avatar.svg" alt={`${props.author_name} default avatar`} />
+						<div class="avatar-placeholder" aria-hidden="true">
+							<svg viewBox="0 0 24 24" fill="currentColor">
+								<path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+							</svg>
+						</div>
 					{/if}
 				</div>
 			{/if}
@@ -596,7 +749,7 @@
 					</h2>
 					{#if props.verified}
 						<span class="verified-icon" aria-label="Verified account" title="Verified account">
-							<BadgeCheck size={18} aria-hidden="true" fill="#0ea5e9" color="white" />
+							<BadgeCheck size={18} aria-hidden="true" fill="#0ea5e9"/>
 						</span>
 					{/if}
 				</div>
@@ -664,22 +817,49 @@
 
 	.content-header {
 		display: flex;
-		align-items: center;
+		align-items: flex-start;
 		justify-content: space-between;
 		gap: 0.75rem;
+		min-width: 0;
 	}
 
 	.tag-inline {
 		margin: 0;
-		display: inline-flex;
+		display: flex;
+		flex: 1 1 auto;
+		min-width: 0;
 		align-items: center;
 		gap: 0.5rem;
+		flex-wrap: wrap;
 		font-size: 0.9rem;
 		color: #64748b;
 	}
 
+	.edit-tags {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 6px;
+		margin-bottom: 8px;
+	}
+
+	.tag-remove {
+		margin-left: 6px;
+		border: none;
+		background: transparent;
+		cursor: pointer;
+		font-weight: 700;
+		color: inherit;
+		opacity: 0.7;
+	}
+
+	.tag-remove:hover {
+		opacity: 1;
+	}
+
 	.topic-tag {
 		display: inline-flex;
+		max-width: 100%;
+		min-width: 0;
 		align-items: center;
 		padding: 0.16rem 0.5rem;
 		border-radius: 999px;
@@ -688,6 +868,9 @@
 		background: var(--tag-bg);
 		color: var(--tag-fg);
 		border: 1px solid var(--tag-border);
+		overflow-wrap: anywhere;
+		word-break: break-word;
+		white-space: normal;
 	}
 
 	.timestamp {
@@ -696,6 +879,8 @@
 		display: flex;
 		align-items: center;
 		gap: 0.25rem;
+		flex-shrink: 0;
+		padding-top: 0.1rem;
 	}
 
 	.edited-label {
@@ -709,6 +894,69 @@
 		line-height: 1.55;
 		color: #334155;
 		margin: 0;
+		white-space: pre-wrap;
+		overflow-wrap: anywhere;
+		word-break: break-word;
+		position: relative;
+	}
+
+	.body-content-wrap {
+		display: flex;
+		flex-direction: column;
+		gap: 0.35rem;
+		position: relative;
+	}
+
+	.body-text.collapsed {
+		max-height: calc(1.55em * 6);
+		overflow: hidden;
+	}
+
+	.body-text.collapsed::after {
+		content: '';
+		position: absolute;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		height: 2.4rem;
+		background: linear-gradient(
+			to top,
+			rgba(255, 255, 255, 0.98) 0%,
+			rgba(255, 255, 255, 0.88) 40%,
+			rgba(255, 255, 255, 0) 100%
+		);
+		border-bottom: 1px solid rgba(14, 165, 233, 0.38);
+		box-shadow: 0 -1px 0 rgba(255, 255, 255, 0.92) inset;
+		pointer-events: none;
+	}
+
+	.content-toggle-btn {
+		margin-left: auto;
+		display: inline-flex;
+		align-items: center;
+		padding: 0.05rem 0;
+		border: none;
+		background: transparent;
+		color: #0ea5e9;
+		font-size: 0.8rem;
+		font-weight: 700;
+		letter-spacing: 0.01em;
+		cursor: pointer;
+		text-decoration: underline;
+		text-decoration-color: color-mix(in srgb, #0ea5e9 52%, transparent);
+		text-underline-offset: 0.2em;
+		transition: color 150ms ease, text-decoration-color 150ms ease;
+	}
+
+	.content-toggle-btn:hover {
+		color: #0284c7;
+		text-decoration-color: currentColor;
+	}
+
+	.content-toggle-btn:focus-visible {
+		outline: 2px solid #38bdf8;
+		outline-offset: 2px;
+		border-radius: 4px;
 	}
 
 	.mention-link {
@@ -719,6 +967,84 @@
 
 	.mention-link:hover {
 		text-decoration: underline;
+	}
+
+	.external-link {
+		display: inline;
+		padding: 0;
+		border: none;
+		background: transparent;
+		color: #0284c7;
+		font-weight: 500;
+		font-size: inherit;
+		font-family: inherit;
+		text-decoration: underline;
+		text-decoration-color: color-mix(in srgb, #0369a1 45%, transparent);
+		text-underline-offset: 0.14em;
+		cursor: pointer;
+	}
+
+	.external-link:hover {
+		color: #0c4a6e;
+		text-decoration-color: currentColor;
+	}
+
+	.external-link-confirm {
+		display: grid;
+		gap: 0.85rem;
+		padding: 1rem;
+		margin-top: 0.5rem;
+		border-radius: 10px;
+		border: 1px solid #cbd5e1;
+		background: linear-gradient(135deg, #f8fbff 0%, #eef6ff 100%);
+		box-shadow: 0 10px 24px rgba(14, 116, 144, 0.08);
+	}
+
+	.external-link-confirm-message {
+		display: flex;
+		align-items: flex-start;
+		gap: 0.6rem;
+	}
+
+	.external-link-confirm-message p {
+		margin: 0;
+		font-size: 0.92rem;
+		font-weight: 600;
+		color: #0f172a;
+	}
+
+	.external-link-confirm-message small {
+		display: block;
+		margin-top: 0.2rem;
+		font-size: 0.78rem;
+		line-height: 1.35;
+		color: #475569;
+		overflow-wrap: anywhere;
+		word-break: break-word;
+	}
+
+	.external-link-confirm-actions {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 0.75rem;
+	}
+
+	.open-link-btn {
+		border-radius: 8px;
+		padding: 0.55rem 0.75rem;
+		font-size: 0.85rem;
+		font-weight: 700;
+		cursor: pointer;
+		color: #ffffff;
+		background: #0284c7;
+		border: 1px solid #0369a1;
+		transition: all 180ms ease;
+	}
+
+	.open-link-btn:hover {
+		background: #0369a1;
+		transform: translateY(-1px);
+		box-shadow: 0 4px 12px rgba(3, 105, 161, 0.2);
 	}
 
 	.metrics {
@@ -797,7 +1123,8 @@
 		border-radius: 8px;
 	}
 
-	.avatar-image {
+	.avatar-image,
+	.avatar-placeholder {
 		width: 56px;
 		height: 56px;
 		border-radius: 50%;
@@ -806,6 +1133,19 @@
 	.avatar-image {
 		display: block;
 		object-fit: cover;
+	}
+
+	.avatar-placeholder {
+		background: #1e293b;
+		color: #e2e8f0;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.avatar-placeholder svg {
+		width: 26px;
+		height: 26px;
 	}
 
 	.author-info {
