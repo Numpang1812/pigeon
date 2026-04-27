@@ -4,6 +4,7 @@
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
 	import type { PageData } from './$types';
 	import { onMount } from 'svelte';
+	import {Sparkles} from 'lucide-svelte';
 
 	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	const { data } = $props<{ data: PageData }>();
@@ -239,10 +240,19 @@
 
 	function handle_post_edit(
 		post_id: string,
-		update: { content: string; post_tag: string; post_tags: string[] }
+		update: string | { content: string; post_tag: string; post_tags: string[] }
 	): void {
 		const post_index = feed_posts.findIndex((p) => p.id === post_id);
 		if (post_index === -1) return;
+
+		if (typeof update === 'string') {
+			feed_posts[post_index] = {
+				...feed_posts[post_index],
+				content: update,
+				is_edited: true
+			};
+			return;
+		}
 
 		feed_posts[post_index] = {
 			...feed_posts[post_index],
@@ -292,6 +302,10 @@
 
 	<div class="composer-wrap">
 		<PostTextbox on_submit={handle_post_submit} isExpanded={false} />
+		<p class="tip">
+			<Sparkles size={14} />
+			<span>Tip: Use #hashtags to reach more people (Up to 5 hashtags)</span>
+		</p>
 	</div>
 
 	<section class="feed-column" aria-label="Posts">
@@ -336,6 +350,16 @@
 </main>
 
 <style>
+	.tip {
+		display: flex;
+		align-items: center;
+		gap: 0.4rem;
+		margin: 0.8rem auto -0.4rem;
+		font-size: 0.75rem;
+		color: #8094af;
+		
+	}
+
 	.home-feed-page {
 		min-height: 100vh;
 		width: calc(100% + 3rem);

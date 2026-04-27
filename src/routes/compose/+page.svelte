@@ -23,7 +23,7 @@
 			<!-- Inline tip -->
 			<p class="compose-tip">
 				<Sparkles size={14} />
-				<span>Tip: Use #hashtags to reach more people</span>
+				<span>Tip: Use #hashtags to reach more people (Up to 5 hashtags)</span>
 			</p>
 
 		</div>
@@ -79,7 +79,7 @@
 		align-items: center;
 		gap: 0.4rem;
 		font-size: 0.8rem;
-		color: #64748b;
+		color: #788aa4;
 		margin-top: 0.6rem;
 	}
 

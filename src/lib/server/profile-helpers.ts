@@ -1,6 +1,7 @@
 import { db } from './db';
 import { normalize_handle } from '$lib';
 import { build_post_visibility_clause } from './post-visibility';
+import { limit_post_tags } from '$lib/post-tags';
 
 export type ProfileConnection = {
 	id: string;
@@ -235,8 +236,8 @@ export async function get_profile_posts(
 
 	return db.execute({
 		sql: `SELECT p.id, p.content, p.post_tag, p.audience, p.created_at, p.author_id, p.updated_at,
-			u.name as author_name, u.username as author_handle, u.bio as author_bio, u.image as author_avatar, u.verified as author_verified,
-			(SELECT GROUP_CONCAT(h.tag_name, ',') FROM post_hashtag ph JOIN hashtag h ON ph.hashtag_id = h.id WHERE ph.post_id = p.id) as hashtag_list,
+			u.name as author_name, u.username as author_handle, u.bio as author_bio, u.image as author_avatar,
+			(SELECT GROUP_CONCAT(h.tag_name, ',') FROM post_hashtag ph JOIN hashtag h ON ph.hashtag_id = h.id WHERE ph.post_id = p.id ORDER BY ph.rowid) as hashtag_list,
 			(SELECT COUNT(*) FROM like WHERE post_id = p.id) as like_count,
 			(SELECT COUNT(*) FROM dislike WHERE post_id = p.id) as dislike_count,
 			(SELECT COUNT(*) FROM repost WHERE post_id = p.id) as repost_count,
@@ -315,10 +316,7 @@ export function map_profile_posts(
 		post_tag: row.post_tag as string,
 		post_tags:
 			typeof row.hashtag_list === 'string' && row.hashtag_list.length > 0
-				? row.hashtag_list
-						.split(',')
-						.map((tag) => tag.trim().toLowerCase())
-						.filter((tag) => tag.length > 0)
+				? limit_post_tags(row.hashtag_list.split(','))
 				: [row.post_tag as string],
 		posted_at: format_time_ago(row.created_at as string),
 		author_name: (row.author_name as string) || (user.name as string) || 'Unknown',

@@ -2,6 +2,7 @@ import { json, type RequestHandler } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
 import { auth } from '$lib/auth';
 import { post_edit_limiter } from '$lib/server/rate-limiter';
+import { extract_post_tags, limit_post_tags, strip_detected_tags_from_content } from '$lib/post-tags';
 
 function normalize_tag(raw_tag: unknown): string | null {
 	if (typeof raw_tag !== 'string') return null;
@@ -9,29 +10,33 @@ function normalize_tag(raw_tag: unknown): string | null {
 	return /^[\p{L}\p{N}_]+$/u.test(normalized) ? normalized : null;
 }
 
-function extract_tags_from_content(content: string): string[] {
-	const hashtag_pattern = /#([\p{L}\p{N}_]+)/gu;
-	const matches = content.matchAll(hashtag_pattern);
-	const tags = Array.from(matches, (match) => normalize_tag(match[1])).filter(
-		(tag): tag is string => tag !== null
-	);
-	return Array.from(new Set(tags));
-}
-
 function normalize_post_content(raw_content: string): string {
 	return raw_content.replace(/\r\n?/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
 }
 
-function sanitize_post_content(raw_content: string): string {
-	const hashtag_pattern = /#([\p{L}\p{N}_]+)/gu;
-	const text_without_hashtags = raw_content.replace(hashtag_pattern, '');
+function validate_edit_content(raw_content: unknown): string | null {
+	if (typeof raw_content !== 'string') return null;
+	const trimmed = raw_content.trim();
+	if (trimmed.length === 0 || trimmed.length > 280) return null;
+	return normalize_post_content(raw_content);
+}
 
-	return text_without_hashtags
-		.replace(/[ \t]{2,}/g, ' ')
-		.replace(/[ \t]+([.,!?;:])/g, '$1')
-		.replace(/[ \t]+\n/g, '\n')
-		.replace(/\n[ \t]+/g, '\n')
-		.trim();
+async function get_authorized_post(post_id: string, user_id: string) {
+	const post_result = await db.execute({
+		sql: `SELECT author_id FROM post WHERE id = ?`,
+		args: [post_id]
+	});
+
+	if (post_result.rows.length === 0) {
+		return { error: 'not_found' as const };
+	}
+
+	const post = post_result.rows[0];
+	if (post.author_id !== user_id) {
+		return { error: 'forbidden' as const };
+	}
+
+	return { post };
 }
 
 async function get_post_tags(post_id: string): Promise<string[]> {
@@ -164,35 +169,25 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
 		}
 
 		const body = await request.json();
-		const { content } = body;
-
-		if (!content || typeof content !== 'string' || content.trim().length === 0) {
+		const content = validate_edit_content(body.content);
+		if (!content) {
 			return json({ error: 'Content is required' }, { status: 400 });
 		}
 
-		if (content.length > 280) {
-			return json({ error: 'Content must be 280 characters or less' }, { status: 400 });
-		}
-
-		// Check if post exists and user is author
-		const post_result = await db.execute({
-			sql: `SELECT author_id FROM post WHERE id = ?`,
-			args: [post_id]
-		});
-
-		if (post_result.rows.length === 0) {
+		const authorization = await get_authorized_post(post_id, session.user.id);
+		if (authorization.error === 'not_found') {
 			return json({ error: 'Post not found' }, { status: 404 });
 		}
-
-		const post = post_result.rows[0];
-		if (post.author_id !== session.user.id) {
+		if (authorization.error === 'forbidden') {
 			return json({ error: 'Forbidden: You are not the author of this post' }, { status: 403 });
 		}
 
 		// Update the post
-		const normalized_content = normalize_post_content(content);
-		const normalized_tags = extract_tags_from_content(normalized_content);
-		const sanitized_content = sanitize_post_content(normalized_content);
+		const normalized_content = content;
+		const extracted_tags = extract_post_tags(normalized_content);
+		const payload_tags = Array.isArray(body.post_tags) ? limit_post_tags(body.post_tags) : [];
+		const normalized_tags = payload_tags.length > 0 ? payload_tags : extracted_tags;
+		const sanitized_content = strip_detected_tags_from_content(normalized_content);
 
 		if (sanitized_content.length === 0) {
 			return json({ error: 'Content is required' }, { status: 400 });
