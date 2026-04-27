@@ -971,6 +971,9 @@
 
 	.external-link {
 		display: inline;
+		text-align: left;
+		white-space: normal;
+		appearance: none;
 		padding: 0;
 		border: none;
 		background: transparent;
