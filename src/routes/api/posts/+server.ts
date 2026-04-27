@@ -75,18 +75,10 @@ export const GET: RequestHandler = async ({ url, request }) => {
 		const session = await auth.api.getSession({ headers: request.headers });
 		if (!session) return json({ error: 'Unauthorized' }, { status: 401 });
 
-		const { query, args } = build_posts_query(url, session.user.id);
+		const cursor = url.searchParams.get('cursor');
+		const { query, args } = build_posts_query(url, session.user.id, cursor);
 		const posts_result = await db.execute({ sql: query, args });
 		const rows = [...posts_result.rows];
-
-		const post_id = url.searchParams.get('post_id');
-		if (post_id && !url.searchParams.get('user_id') && !rows.some((r) => r.id === post_id)) {
-			const target = await fetch_specific_post(post_id, session.user.id);
-			if (target) {
-				rows.push(target);
-				rows.sort((a, b) => new Date(String(b.created_at) + 'Z').getTime() - new Date(String(a.created_at) + 'Z').getTime());
-			}
-		}
 
 		return json({ success: true, posts: rows.map(r => map_post_row(r, session.user.id)) }, { status: 200 });
 	} catch (error) {
@@ -220,11 +212,12 @@ function map_post_row(row_raw: unknown, current_user_id: string, tags: string[] 
 		is_edited: row.updated_at && row.updated_at !== row.created_at,
 		user_liked: Boolean(row.user_liked),
 		user_disliked: Boolean(row.user_disliked),
-		user_reposted: Boolean(row.user_reposted)
+		user_reposted: Boolean(row.user_reposted),
+		created_at: row.created_at as string // Return raw created_at for cursor
 	};
 }
 
-function build_posts_query(url: URL, current_user_id: string) {
+function build_posts_query(url: URL, current_user_id: string, cursor: string | null = null) {
 	const user_id = url.searchParams.get('user_id');
 	const tag = url.searchParams.get('tag');
 	const limit = parseInt(url.searchParams.get('limit') || '50');
@@ -267,10 +260,21 @@ function build_posts_query(url: URL, current_user_id: string) {
 		}
 	}
 
+	if (cursor) {
+		where.push('p.created_at < ?');
+		args.push(cursor);
+	}
+
 	if (where.length > 0) query += ' WHERE ' + where.join(' AND ');
 	query += tag === 'trending' ? ' ORDER BY like_count DESC, p.created_at DESC' : ' ORDER BY p.created_at DESC';
-	query += ' LIMIT ? OFFSET ?';
-	args.push(limit, offset);
+	query += ' LIMIT ?';
+	args.push(limit);
+	
+	// Keep offset for fallback or specific uses, but cursor is preferred
+	if (offset > 0) {
+		query += ' OFFSET ?';
+		args.push(offset);
+	}
 
 	return { query, args };
 }

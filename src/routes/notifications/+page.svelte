@@ -11,6 +11,7 @@
 	} from 'lucide-svelte';
 	import UnauthenticatedPrompt from '$lib/components/UnauthenticatedPrompt.svelte';
 	import NotificationCard from '$lib/components/NotificationCard.svelte';
+	import PostModal from '$lib/components/PostModal.svelte';
 
 	const session = auth_client.useSession();
 
@@ -63,6 +64,9 @@
 	const height_cache = $state<Record<string, number>>({});
 	let sentinel_el = $state<HTMLElement>();
 	let feed_container = $state<HTMLElement>();
+
+	// --- Modal State ---
+	let active_modal_post_id = $state<string | null>(null);
 
 	// --- Derived State ---
 	const unread_count = $derived(notifications.filter((n) => n.unread).length);
@@ -314,14 +318,7 @@
 	async function view_post(notification_id: string, post_id?: string | null): Promise<void> {
 		if (!post_id) return;
 		mark_as_read(notification_id);
-		if (typeof window !== 'undefined') {
-			window.location.assign(
-				resolve('/home') + `?post_id=${encodeURIComponent(post_id)}#post-${post_id}`
-			);
-			return;
-		}
-
-		await goto(resolve('/home'));
+		active_modal_post_id = post_id;
 	}
 
 	async function view_profile(notification_id: string, actor_handle?: string): Promise<void> {
@@ -450,6 +447,13 @@
 				</div>
 			{/if}
 		</section>
+
+		{#if active_modal_post_id}
+			<PostModal
+				post_id={active_modal_post_id}
+				on_close={() => (active_modal_post_id = null)}
+			/>
+		{/if}
 	</div>
 {:else if !$session.isPending}
 	<UnauthenticatedPrompt />
