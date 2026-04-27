@@ -3,6 +3,7 @@
 	import { resolve } from '$app/paths';
 	import { normalize_handle } from '$lib';
 	import { limit_post_tags } from '$lib/post-tags';
+	import { onDestroy } from 'svelte';
 	import { fly } from 'svelte/transition';
 
 	type PostMetrics = {
@@ -395,9 +396,43 @@
 		return normalize_post_content(raw_content).trim();
 	}
 
+	function has_non_hashtag_content(raw_content: string): boolean {
+		const normalized = canonical_edit_content(raw_content);
+		if (normalized.length === 0) {
+			return false;
+		}
+
+		const content_without_hashtags = normalized.replace(/#[a-zA-Z0-9_]{1,24}\b/g, '').trim();
+		return content_without_hashtags.length > 0;
+	}
+
 
 	let original_tags: string[] = [];
 	let editable_tags = $state<string[]>([]);
+	let removed_original_tags = $state<string[]>([]);
+	let show_last_tag_warning = $state(false);
+	let last_tag_warning_timeout: ReturnType<typeof setTimeout> | undefined;
+
+	function clear_last_tag_warning_timeout(): void {
+		if (last_tag_warning_timeout !== undefined) {
+			clearTimeout(last_tag_warning_timeout);
+			last_tag_warning_timeout = undefined;
+		}
+	}
+
+	function hide_last_tag_warning(): void {
+		clear_last_tag_warning_timeout();
+		show_last_tag_warning = false;
+	}
+
+	function show_last_tag_warning_message(): void {
+		clear_last_tag_warning_timeout();
+		show_last_tag_warning = true;
+		last_tag_warning_timeout = setTimeout(() => {
+			show_last_tag_warning = false;
+			last_tag_warning_timeout = undefined;
+		}, 4000);
+	}
 
 	function tags_equal(a: string[], b: string[]): boolean {
 		if (a.length !== b.length) return false;
@@ -412,8 +447,10 @@
 		|| !tags_equal(editable_tags, original_tags)
 	);
 
+	const has_non_empty_edit_content = $derived(has_non_hashtag_content(edited_content));
+
 	const can_save_edit = $derived(
-		!is_saving && has_edit_changes && canonical_edit_content(edited_content).length > 0
+		!is_saving && has_edit_changes && has_non_empty_edit_content && editable_tags.length > 0
 	);
 
 	function request_delete() {
@@ -448,18 +485,29 @@
 
 	function start_edit() {
 	edited_content = canonical_edit_content(props.content);
+	hide_last_tag_warning();
 
 	original_tags = props.post_tags?.length
 		? [...props.post_tags]
 		: [props.post_tag];
 
 	editable_tags = [...original_tags];
+	removed_original_tags = [];
 
 	initial_edit_content = edited_content;
 	is_editing = true;
 }
 
 	function remove_tag(tag: string) {
+		if (editable_tags.length <= 1) {
+			show_last_tag_warning_message();
+			return;
+		}
+
+		hide_last_tag_warning();
+		if (original_tags.includes(tag) && !removed_original_tags.includes(tag)) {
+			removed_original_tags = [...removed_original_tags, tag];
+		}
 		editable_tags = editable_tags.filter((t) => t !== tag);
 	}
 
@@ -468,6 +516,7 @@
 	}
 
 	function cancel_edit() {
+		hide_last_tag_warning();
 		is_editing = false;
 	}
 
@@ -486,13 +535,25 @@
 		}
 		// Always derive tags from content, like PostTextbox
 		const detected = extract_post_tags(normalized);
+		const preserved_original_tags = original_tags.filter(
+			(tag) => !removed_original_tags.includes(tag)
+		);
 
 		const merged = Array.from(new Set([
-			...original_tags,
+			...preserved_original_tags,
 			...detected
 		])).slice(0, max_post_tags);
 
+		const had_tags_before = editable_tags.length > 0;
 		editable_tags = merged;
+		if (merged.length === 0 && had_tags_before) {
+			show_last_tag_warning_message();
+			return;
+		}
+
+		if (merged.length > 0) {
+			hide_last_tag_warning();
+		}
 	}
 	async function save_edit() {
         if (!has_edit_changes) {
@@ -502,15 +563,15 @@
 
         const final_content = canonical_edit_content(edited_content);
 
-        if (final_content.length === 0) {
-            alert('Content cannot be empty');
+		if (!has_non_hashtag_content(final_content)) {
+			alert('Content must include text beyond hashtags');
             return;
         }
 
         is_saving = true;
 
         try {
-            const final_tags = editable_tags.length > 0 ? editable_tags : ['general'];
+			const final_tags = [...editable_tags];
 
             const response = await fetch(`/api/posts/${props.post_id}`, {
                 method: 'PATCH',
@@ -533,6 +594,7 @@
                 });
 
                 is_editing = false;
+				hide_last_tag_warning();
             } else {
                 const data = await response.json();
                 alert(data.error || 'Failed to update post');
@@ -544,6 +606,10 @@
             is_saving = false;
         }
     }
+
+	onDestroy(() => {
+		clear_last_tag_warning_timeout();
+	});
 </script>
 
 <article
@@ -554,7 +620,7 @@
 	<div class="card">
 		<section class="content-section">
 			<header class="content-header">
-				<p class="tag-inline">
+				<p class={`tag-inline ${is_editing ? 'editing' : ''}`}>
 					{#each (is_editing ? editable_tags : display_tags) as tag (tag)}
 						<span
 							class="topic-tag"
@@ -625,6 +691,12 @@
 				</div>
 			{:else if is_editing}
 				<div class="edit-mode">
+					{#if show_last_tag_warning}
+						<div class="edit-hint-banner" aria-live="polite" transition:fly={{ y: 6, duration: 180 }}>
+							<AlertTriangle size={16} class="edit-hint-icon" aria-hidden="true" />
+							<p class="edit-hint">At least one tag is required.</p>
+						</div>
+					{/if}
 					<textarea
 						class="edit-textarea"
 						bind:value={edited_content}
@@ -861,6 +933,11 @@
 		color: #64748b;
 	}
 
+	.tag-inline.editing {
+		min-height: 2rem;
+		align-content: flex-start;
+	}
+
 	.edit-tags {
 		display: flex;
 		flex-wrap: wrap;
@@ -997,6 +1074,9 @@
 
 	.external-link {
 		display: inline;
+		text-align: left;
+		white-space: normal;
+		appearance: none;
 		padding: 0;
 		border: none;
 		background: transparent;
@@ -1315,6 +1395,7 @@
 	}
 
 	.edit-mode {
+		position: relative;
 		display: flex;
 		flex-direction: column;
 		gap: 0.75rem;
@@ -1338,6 +1419,36 @@
 	.edit-textarea:focus {
 		border-color: #38bdf8;
 		box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.1);
+	}
+
+	.edit-hint-banner {
+		position: absolute;
+		top: -0.45rem;
+		right: 0.2rem;
+		z-index: 1;
+		display: flex;
+		align-items: flex-start;
+		gap: 0.45rem;
+		padding: 0.42rem 0.6rem;
+		max-width: calc(100% - 0.5rem);
+		border-radius: 999px;
+		border: 1px solid #fed7aa;
+		background: linear-gradient(135deg, #fffaf2 0%, #fff7ed 100%);
+		box-shadow: 0 8px 16px rgba(234, 88, 12, 0.08);
+	}
+
+	.edit-hint-icon {
+		flex-shrink: 0;
+		margin-top: 0.02rem;
+		color: #f97316;
+	}
+
+	.edit-hint {
+		margin: 0;
+		font-size: 0.77rem;
+		line-height: 1.25;
+		font-weight: 600;
+		color: #9a3412;
 	}
 
 	.edit-actions {

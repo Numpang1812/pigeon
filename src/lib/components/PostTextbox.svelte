@@ -82,7 +82,7 @@
 	);
 	const text_without_hashtags = $derived.by(() => strip_detected_tags_from_content(normalized_text_content));
 	const sanitized_text_content = $derived(text_without_hashtags);
-	const has_meaningful_text = $derived.by(() => /[\p{L}\p{N}]/u.test(text_without_hashtags));
+	const has_meaningful_text = $derived.by(() => text_without_hashtags.trim().length > 0);
 	const can_submit = $derived(
 		has_meaningful_text &&
 		!is_submitting &&
