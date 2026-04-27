@@ -263,8 +263,9 @@
 		const post_index = feed_posts.findIndex((p) => p.id === post_id);
 		if (post_index === -1) return;
 
-		feed_posts[post_index] = {
-			...feed_posts[post_index],
+		const updated = [...feed_posts];
+		updated[post_index] = {
+			...updated[post_index],
 			metrics: {
 				likes: new_metrics.likes,
 				dislikes: new_metrics.dislikes,
@@ -274,6 +275,7 @@
 			user_disliked: new_metrics.user_disliked,
 			user_reposted: new_metrics.user_reposted
 		};
+		feed_posts = updated;
 	}
 </script>
 

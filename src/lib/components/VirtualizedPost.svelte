@@ -29,7 +29,7 @@
 		post: PostData;
 		on_metric_change: (post_id: string, type: 'like' | 'dislike' | 'repost', new_metrics: { likes: number; dislikes: number; reposts: number; user_liked: boolean; user_disliked: boolean; user_reposted: boolean }) => void;
 		on_delete: (post_id: string) => void;
-		on_edit: (post_id: string, new_content: string) => void;
+		on_edit: (post_id: string, update: { content: string; post_tag: string; post_tags: string[] }) => void;
 		on_height_change: (id: string, height: number) => void;
 	}
 

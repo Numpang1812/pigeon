@@ -55,9 +55,18 @@
 
 	const audience_label = $derived(props.audience ? audience_labels[props.audience] ?? props.audience : '');
 
-	const liked = $derived(props.user_liked ?? false);
-	const disliked = $derived(props.user_disliked ?? false);
-	const reposted = $derived(props.user_reposted ?? false);
+	// Local state for optimistic UI updates - initialize from props
+	let local_liked = $state(props.user_liked ?? false);
+	let local_disliked = $state(props.user_disliked ?? false);
+	let local_reposted = $state(props.user_reposted ?? false);
+	let local_like_count = $state(props.metrics?.likes ?? 0);
+	let local_dislike_count = $state(props.metrics?.dislikes ?? 0);
+	let local_repost_count = $state(props.metrics?.reposts ?? 0);
+
+	const liked = $derived(local_liked);
+	const disliked = $derived(local_disliked);
+	const reposted = $derived(local_reposted);
+
 	const author_handle_safe = $derived.by(() => {
 		return normalize_handle(props.author_handle);
 	});
@@ -218,9 +227,9 @@
 	const content_segments = $derived.by(() => parse_content_segments(normalized_content));
 
 	// Metrics come from the API already accurate, just use them directly
-	const like_count = $derived(props.metrics?.likes ?? 0);
-	const dislike_count = $derived(props.metrics?.dislikes ?? 0);
-	const repost_count = $derived(props.metrics?.reposts ?? 0);
+	const like_count = $derived(local_like_count);
+	const dislike_count = $derived(local_dislike_count);
+	const repost_count = $derived(local_repost_count);
 	
 	const display_tags = $derived.by(() => {
 		const source = props.post_tags?.length ? props.post_tags : [props.post_tag];
@@ -266,70 +275,95 @@
 		return `${value}`;
 	}
 
-	async function toggle_like(): Promise<void> {
-		try {
-			const response = await fetch(`/api/posts/${props.post_id}/like`, {
-				method: 'POST'
-			});
+	function toggle_like(): void {
+		// Optimistic update - modify local state immediately
+		const prev_liked = local_liked;
+		const prev_disliked = local_disliked;
+		const prev_like_count = local_like_count;
+		const prev_dislike_count = local_dislike_count;
+		const prev_repost_count = local_repost_count;
+		const prev_reposted = local_reposted;
 
-			if (response.ok) {
-				const data = await response.json();
-				props.on_metric_change?.(props.post_id, 'like', {
-					likes: data.like_count,
-					dislikes: data.dislike_count,
-					reposts: data.repost_count,
-					user_liked: data.user_liked,
-					user_disliked: data.user_disliked,
-					user_reposted: data.user_reposted
-				});
-			}
-		} catch (error) {
+		// Update local state immediately
+		local_liked = !prev_liked;
+		local_disliked = false;
+		local_like_count = prev_liked ? prev_like_count - 1 : prev_like_count + 1;
+		local_dislike_count = prev_disliked ? prev_dislike_count - 1 : prev_dislike_count;
+
+		// Notify parent to update its state
+		props.on_metric_change?.(props.post_id, 'like', {
+			likes: local_like_count,
+			dislikes: local_dislike_count,
+			reposts: prev_repost_count,
+			user_liked: local_liked,
+			user_disliked: local_disliked,
+			user_reposted: prev_reposted
+		});
+
+		// Fire-and-forget API request
+		fetch(`/api/posts/${props.post_id}/like`, { method: 'POST' }).catch((error) => {
 			console.error('Failed to toggle like:', error);
-		}
+		});
 	}
 
-	async function toggle_dislike(): Promise<void> {
-		try {
-			const response = await fetch(`/api/posts/${props.post_id}/dislike`, {
-				method: 'POST'
-			});
+	function toggle_dislike(): void {
+		// Optimistic update - modify local state immediately
+		const prev_liked = local_liked;
+		const prev_disliked = local_disliked;
+		const prev_like_count = local_like_count;
+		const prev_dislike_count = local_dislike_count;
+		const prev_repost_count = local_repost_count;
+		const prev_reposted = local_reposted;
 
-			if (response.ok) {
-				const data = await response.json();
-				props.on_metric_change?.(props.post_id, 'dislike', {
-					likes: data.like_count,
-					dislikes: data.dislike_count,
-					reposts: data.repost_count,
-					user_liked: data.user_liked,
-					user_disliked: data.user_disliked,
-					user_reposted: data.user_reposted
-				});
-			}
-		} catch (error) {
+		// Update local state immediately
+		local_liked = false;
+		local_disliked = !prev_disliked;
+		local_like_count = prev_liked ? prev_like_count - 1 : prev_like_count;
+		local_dislike_count = prev_disliked ? prev_dislike_count - 1 : prev_dislike_count + 1;
+
+		// Notify parent to update its state
+		props.on_metric_change?.(props.post_id, 'dislike', {
+			likes: local_like_count,
+			dislikes: local_dislike_count,
+			reposts: prev_repost_count,
+			user_liked: local_liked,
+			user_disliked: local_disliked,
+			user_reposted: prev_reposted
+		});
+
+		// Fire-and-forget API request
+		fetch(`/api/posts/${props.post_id}/dislike`, { method: 'POST' }).catch((error) => {
 			console.error('Failed to toggle dislike:', error);
-		}
+		});
 	}
 
-	async function toggle_repost(): Promise<void> {
-		try {
-			const response = await fetch(`/api/posts/${props.post_id}/repost`, {
-				method: 'POST'
-			});
+	function toggle_repost(): void {
+		// Optimistic update - modify local state immediately
+		const prev_liked = local_liked;
+		const prev_disliked = local_disliked;
+		const prev_like_count = local_like_count;
+		const prev_dislike_count = local_dislike_count;
+		const prev_repost_count = local_repost_count;
+		const prev_reposted = local_reposted;
 
-			if (response.ok) {
-				const data = await response.json();
-				props.on_metric_change?.(props.post_id, 'repost', {
-					likes: data.like_count,
-					dislikes: data.dislike_count,
-					reposts: data.repost_count,
-					user_liked: data.user_liked,
-					user_disliked: data.user_disliked,
-					user_reposted: data.user_reposted
-				});
-			}
-		} catch (error) {
+		// Update local state immediately
+		local_reposted = !prev_reposted;
+		local_repost_count = prev_reposted ? prev_repost_count - 1 : prev_repost_count + 1;
+
+		// Notify parent to update its state
+		props.on_metric_change?.(props.post_id, 'repost', {
+			likes: prev_like_count,
+			dislikes: prev_dislike_count,
+			reposts: local_repost_count,
+			user_liked: prev_liked,
+			user_disliked: prev_disliked,
+			user_reposted: local_reposted
+		});
+
+		// Fire-and-forget API request
+		fetch(`/api/posts/${props.post_id}/repost`, { method: 'POST' }).catch((error) => {
 			console.error('Failed to toggle repost:', error);
-		}
+		});
 	}
 
 	let is_editing = $state(false);
