@@ -292,9 +292,6 @@
 						bind:value={password}
 					/>
 				</div>
-
-				<a href={resolve('/')} class="forgot-link">Forgot password?</a>
-
 				<button
 					id="login-submit"
 					type="submit"
