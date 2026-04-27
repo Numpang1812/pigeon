@@ -52,7 +52,7 @@ export async function get_follow_counts(profile_user_id: string) {
 	};
 }
 
-export async function get_profile_followers(profile_user_id: string, limit = 12): Promise<ProfileConnection[]> {
+export async function get_profile_followers(profile_user_id: string, limit = 100): Promise<ProfileConnection[]> {
 	const result = await db.execute({
 		sql: `
 			SELECT
@@ -81,7 +81,7 @@ export async function get_profile_followers(profile_user_id: string, limit = 12)
 	}));
 }
 
-export async function get_profile_following(profile_user_id: string, limit = 12): Promise<ProfileConnection[]> {
+export async function get_profile_following(profile_user_id: string, limit = 100): Promise<ProfileConnection[]> {
 	const result = await db.execute({
 		sql: `
 			SELECT

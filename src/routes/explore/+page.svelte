@@ -2,8 +2,10 @@
 	import { auth_client } from '$lib/auth-client';
 	import { Flame, Hash, Sparkles, ChevronLeft, ChevronRight } from 'lucide-svelte';
 	import type { Component } from 'svelte';
-	import { Post } from '$lib';
+	import VirtualizedPost from '$lib/components/VirtualizedPost.svelte';
 	import UnauthenticatedPrompt from '$lib/components/UnauthenticatedPrompt.svelte';
+	import { SvelteURLSearchParams } from 'svelte/reactivity';
+	import { untrack, onMount } from 'svelte';
 
 	const session = auth_client.useSession();
 
@@ -21,18 +23,19 @@
 	interface PostData {
 		id: string;
 		post_tag: string;
-		post_tags: string[];
+		post_tags?: string[];
 		posted_at: string;
 		content: string;
+		audience?: string;
 		author_name: string;
 		author_handle: string;
 		author_bio?: string;
 		avatar_url?: string;
 		verified?: boolean;
-		metrics: {
-			likes: number;
-			dislikes: number;
-			reposts: number;
+		metrics?: {
+			likes?: number;
+			dislikes?: number;
+			reposts?: number;
 		};
 		user_liked?: boolean;
 		user_disliked?: boolean;
@@ -44,19 +47,67 @@
 	let dynamic_tags: Tag[] = $state([]);
 	let active_filter = $state<string>('foryou');
 
+	// --- State ---
 	let feed_posts: PostData[] = $state([]);
 	let loading = $state(true);
 	let tags_loading = $state(true);
+	let fetching_more = $state(false);
+	let has_more = $state(true);
+	let offset = $state(0);
+	const page_size = 50;
+
+	// --- Virtualization State ---
+	const height_cache = $state<Record<string, number>>({});
+	let scroll_top = $state(0);
+	let viewport_height = $state(1500);
+	let sentinel_el = $state<HTMLElement>();
+
+	const buffer_count = 15;
+	const estimated_height = 260;
 
 	const all_filters = $derived([...static_filters, ...dynamic_tags]);
-
 	let pills_container = $state<HTMLDivElement | null>(null);
+
+	// --- Derived Visible Posts ---
+	const virtual_feed = $derived.by(() => {
+		let current_y = 0;
+		let start_index = -1;
+		let end_index = feed_posts.length - 1;
+		
+		for (let i = 0; i < feed_posts.length; i++) {
+			const h = height_cache[feed_posts[i].id] ?? estimated_height;
+			if (start_index === -1 && current_y + h > scroll_top) {
+				start_index = Math.max(0, i - buffer_count);
+			}
+			if (start_index !== -1 && current_y > scroll_top + viewport_height) {
+				end_index = Math.min(feed_posts.length - 1, i + buffer_count);
+				break;
+			}
+			current_y += h;
+		}
+
+		if (start_index === -1) start_index = 0;
+
+		let top_spacer = 0;
+		for (let i = 0; i < start_index; i++) {
+			top_spacer += height_cache[feed_posts[i].id] ?? estimated_height;
+		}
+
+		let bottom_spacer = 0;
+		for (let i = end_index + 1; i < feed_posts.length; i++) {
+			bottom_spacer += height_cache[feed_posts[i].id] ?? estimated_height;
+		}
+
+		return {
+			posts: feed_posts.slice(start_index, end_index + 1),
+			top_spacer,
+			bottom_spacer
+		};
+	});
 
 	function scroll_filters(direction: 'left' | 'right'): void {
 		if (!pills_container) return;
-
 		const scroll_amount = 220;
-
 		pills_container.scrollBy({
 			left: direction === 'left' ? -scroll_amount : scroll_amount,
 			behavior: 'smooth'
@@ -82,31 +133,110 @@
 		}
 	}
 
-	async function load_posts(tag: string): Promise<void> {
-		loading = true;
+	async function load_posts(tag: string, is_initial = false): Promise<void> {
+		if (is_initial) {
+			loading = true;
+			offset = 0;
+			has_more = true;
+			feed_posts = [];
+		} else {
+			if (!has_more || fetching_more) return;
+			fetching_more = true;
+		}
+
 		try {
-			const res = await fetch(`/api/posts?tag=${encodeURIComponent(tag)}&limit=50`);
+			const params = new SvelteURLSearchParams({
+				tag: tag,
+				limit: page_size.toString(),
+				offset: offset.toString()
+			});
+
+			const res = await fetch(`/api/posts?${params.toString()}`);
 			if (res.ok) {
 				const data = await res.json();
-				feed_posts = data.posts || [];
+				const new_posts = data.posts || [];
+				
+				if (is_initial) {
+					feed_posts = new_posts;
+				} else {
+					const existing_ids = new Set(feed_posts.map(p => p.id));
+					const unique_new_posts = new_posts.filter((p: PostData) => !existing_ids.has(p.id));
+					feed_posts = [...feed_posts, ...unique_new_posts];
+				}
+
+				has_more = new_posts.length === page_size;
+				offset += new_posts.length;
 			}
 		} catch (error) {
 			console.error('Failed to load explore feed:', error);
 		} finally {
 			loading = false;
+			fetching_more = false;
 		}
 	}
 
+	// --- Actions & Helpers ---
+	function handle_height_change(id: string, height: number) {
+		if (height_cache[id] !== height) {
+			height_cache[id] = height;
+		}
+	}
+
+	function handle_scroll(e?: Event) {
+		let st = window.scrollY || document.documentElement.scrollTop || document.body.scrollTop || 0;
+		if (e?.target && (e.target as HTMLElement).scrollTop !== undefined) {
+			st = Math.max(st, (e.target as HTMLElement).scrollTop);
+		}
+		scroll_top = st;
+	}
+
+	function handle_resize() {
+		viewport_height = Math.max(window.innerHeight || 0, 1500);
+	}
+
+	// --- Lifecycle & Effects ---
 	$effect(() => {
 		load_popular_tags();
 	});
 
 	$effect(() => {
-		load_posts(active_filter);
+		const tag = active_filter;
+		untrack(() => {
+			load_posts(tag, true);
+		});
+	});
+
+	onMount(() => {
+		handle_resize();
+		window.addEventListener('scroll', handle_scroll, { passive: true, capture: true });
+		window.addEventListener('resize', handle_resize, { passive: true });
+		
+		return () => {
+			window.removeEventListener('scroll', handle_scroll, { capture: true });
+			window.removeEventListener('resize', handle_resize);
+		};
+	});
+
+	// Infinite Scroll Observer
+	$effect(() => {
+		if (!sentinel_el) return;
+
+		const observer = new IntersectionObserver((entries) => {
+			if (entries[0].isIntersecting) {
+				if (has_more && !fetching_more) {
+					const tag = active_filter;
+					untrack(() => load_posts(tag, false));
+				}
+			}
+		}, { rootMargin: '800px' });
+
+		observer.observe(sentinel_el);
+		return () => observer.disconnect();
 	});
 
 	function handle_post_delete(post_id: string): void {
 		feed_posts = feed_posts.filter((p) => p.id !== post_id);
+		delete height_cache[post_id];
 	}
 
 	function handle_post_edit(
@@ -116,37 +246,24 @@
 		const post_index = feed_posts.findIndex((p) => p.id === post_id);
 		if (post_index === -1) return;
 
-		const updated_post = {
+		feed_posts[post_index] = {
 			...feed_posts[post_index],
 			content: update.content,
 			post_tag: update.post_tag,
 			post_tags: update.post_tags,
 			is_edited: true
 		};
-
-		feed_posts = [
-			...feed_posts.slice(0, post_index),
-			updated_post,
-			...feed_posts.slice(post_index + 1)
-		];
 	}
 
 	function handle_metric_change(
 		post_id: string,
 		type: 'like' | 'dislike' | 'repost',
-		new_metrics: {
-			likes: number;
-			dislikes: number;
-			reposts: number;
-			user_liked: boolean;
-			user_disliked: boolean;
-			user_reposted: boolean;
-		}
+		new_metrics: { likes: number; dislikes: number; reposts: number; user_liked: boolean; user_disliked: boolean; user_reposted: boolean }
 	): void {
 		const post_index = feed_posts.findIndex((p) => p.id === post_id);
 		if (post_index === -1) return;
 
-		const updated_post = {
+		feed_posts[post_index] = {
 			...feed_posts[post_index],
 			metrics: {
 				likes: new_metrics.likes,
@@ -157,12 +274,6 @@
 			user_disliked: new_metrics.user_disliked,
 			user_reposted: new_metrics.user_reposted
 		};
-
-		feed_posts = [
-			...feed_posts.slice(0, post_index),
-			updated_post,
-			...feed_posts.slice(post_index + 1)
-		];
 	}
 </script>
 
@@ -207,29 +318,30 @@
 					<p>Loading explore feed...</p>
 				</div>
 			{:else if feed_posts.length > 0}
-				{#each feed_posts as post (post.id)}
-					<Post
-						post_id={post.id}
-						post_tag={post.post_tag}
-						post_tags={post.post_tags}
-						posted_at={post.posted_at}
-						content={post.content}
-						author_name={post.author_name}
-						author_handle={post.author_handle}
-						author_bio={post.author_bio}
-						avatar_url={post.avatar_url}
-						verified={post.verified}
-						metrics={post.metrics}
-						user_liked={post.user_liked}
-						user_disliked={post.user_disliked}
-						user_reposted={post.user_reposted}
-						is_author={post.is_author}
-						is_edited={post.is_edited}
-						on_metric_change={handle_metric_change}
-						on_delete={handle_post_delete}
-						on_edit={handle_post_edit}
-					/>
-				{/each}
+				<div class="virtual-list-container">
+					<div class="spacer top-spacer" style="height: {virtual_feed.top_spacer}px;"></div>
+
+					{#each virtual_feed.posts as post (post.id)}
+						<VirtualizedPost
+							{post}
+							on_metric_change={handle_metric_change}
+							on_delete={handle_post_delete}
+							on_edit={handle_post_edit}
+							on_height_change={handle_height_change}
+						/>
+					{/each}
+
+					<div class="spacer bottom-spacer" style="height: {virtual_feed.bottom_spacer}px;"></div>
+				</div>
+
+				<!-- Sentinel for Infinite Scroll -->
+				<div bind:this={sentinel_el} class="sentinel">
+					{#if fetching_more}
+						<div class="fetching-more-spinner">
+							<p>Loading more posts...</p>
+						</div>
+					{/if}
+				</div>
 			{:else}
 				<div class="empty-state">
 					<p>No posts found for this category at the moment.</p>
@@ -356,5 +468,32 @@
 		padding: 60px 20px;
 		text-align: center;
 		color: #64748b;
+	}
+
+	.virtual-list-container {
+		position: relative;
+		width: 100%;
+	}
+
+	.spacer {
+		width: 100%;
+		pointer-events: none;
+	}
+
+	.sentinel {
+		height: 20px;
+		margin-top: 2rem;
+		padding-bottom: 4rem;
+	}
+
+	.fetching-more-spinner {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0.5rem;
+		color: #64748b;
+		font-size: 0.9rem;
+		font-weight: 500;
+		padding: 1rem 0;
 	}
 </style>

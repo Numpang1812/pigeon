@@ -5,10 +5,12 @@
 	import Sidebar from '$lib/components/Sidebar.svelte';
 	import UnauthenticatedPrompt from '$lib/components/UnauthenticatedPrompt.svelte';
 	import ProfileLoadingSkeleton from '$lib/components/profile/ProfileLoadingSkeleton.svelte';
+	import Toast from '$lib/components/Toast.svelte';
 	import { invalidateAll } from '$app/navigation';
-	import { navigating } from '$app/state';
+	import { navigating, page } from '$app/state';
 	import { auth_client } from '$lib/auth-client';
 	import type { LayoutData } from './$types';
+	import { onMount } from 'svelte';
 
 	const { children, data } = $props<{ children: import('svelte').Snippet; data: LayoutData }>();
 
@@ -54,6 +56,35 @@
 			submitting_username = false;
 		}
 	}
+
+	// Toast state
+	let toast_message = $state<string | null>(null);
+	let toast_type = $state<'success' | 'error'>('success');
+
+	function show_toast(msg: string, type: 'success' | 'error' = 'success') {
+		toast_message = msg;
+		toast_type = type;
+	}
+
+	function close_toast() {
+		toast_message = null;
+	}
+
+	$effect(() => {
+		// Check for toast in URL parameters
+		const msg = page.url.searchParams.get('toast');
+		const type = page.url.searchParams.get('toast_type') as 'success' | 'error' | null;
+
+		if (msg) {
+			show_toast(msg, type || 'success');
+			
+			// Remove toast from URL without reloading
+			const new_url = new URL(window.location.href);
+			new_url.searchParams.delete('toast');
+			new_url.searchParams.delete('toast_type');
+			window.history.replaceState({}, '', new_url.toString());
+		}
+	});
 </script>
 
 <svelte:head><link rel="icon" href={favicon} /></svelte:head>
@@ -105,6 +136,10 @@
 	<UnauthenticatedPrompt />
 {:else}
 	{@render children()}
+{/if}
+
+{#if toast_message}
+	<Toast message={toast_message} type={toast_type} onClose={close_toast} />
 {/if}
 
 <style>
