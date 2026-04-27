@@ -236,7 +236,7 @@ export async function get_profile_posts(
 
 	return db.execute({
 		sql: `SELECT p.id, p.content, p.post_tag, p.audience, p.created_at, p.author_id, p.updated_at,
-			u.name as author_name, u.username as author_handle, u.bio as author_bio, u.image as author_avatar,
+			u.name as author_name, u.username as author_handle, u.bio as author_bio, u.image as author_avatar, u.verified as author_verified,
 			(SELECT GROUP_CONCAT(h.tag_name, ',') FROM post_hashtag ph JOIN hashtag h ON ph.hashtag_id = h.id WHERE ph.post_id = p.id ORDER BY ph.rowid) as hashtag_list,
 			(SELECT COUNT(*) FROM like WHERE post_id = p.id) as like_count,
 			(SELECT COUNT(*) FROM dislike WHERE post_id = p.id) as dislike_count,
@@ -324,7 +324,7 @@ export function map_profile_posts(
 		content: row.content as string,
 		audience: row.audience as string,
 		author_bio: (row.author_bio as string) || '',
-		verified: Boolean(row.author_verified ?? user.verified),
+		verified: Boolean(row.author_verified ?? false),
 		metrics: {
 			likes: Number(row.like_count ?? 0),
 			dislikes: Number(row.dislike_count ?? 0),
