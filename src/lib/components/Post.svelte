@@ -68,19 +68,99 @@
 
 	type ContentSegment =
 		| { type: 'text'; value: string }
-		| { type: 'mention'; value: string; profile_path: `/profile/${string}` };
+		| { type: 'mention'; value: string; profile_path: `/profile/${string}` }
+		| { type: 'url'; value: string; href: string };
+
+	function normalize_external_url(url: string): string {
+		if (/^https?:\/\//i.test(url)) {
+			return url;
+		}
+
+		return `https://${url}`;
+	}
+
+	function split_trailing_url_punctuation(raw_url: string): { url: string; trailing: string } {
+		let end_index = raw_url.length;
+
+		while (end_index > 0 && /[.,!?;:)\]]/.test(raw_url[end_index - 1])) {
+			end_index -= 1;
+		}
+
+		return {
+			url: raw_url.slice(0, end_index),
+			trailing: raw_url.slice(end_index)
+		};
+	}
+
+	let pending_external_href = $state('');
+	let show_external_link_confirm = $state(false);
+
+	function request_external_link_open(href: string): void {
+		pending_external_href = href;
+		show_external_link_confirm = true;
+	}
+
+	function cancel_external_link_open(): void {
+		show_external_link_confirm = false;
+		pending_external_href = '';
+	}
+
+	function confirm_external_link_open(): void {
+		if (!pending_external_href) {
+			show_external_link_confirm = false;
+			return;
+		}
+
+		window.open(pending_external_href, '_blank', 'noopener,noreferrer');
+		show_external_link_confirm = false;
+		pending_external_href = '';
+	}
 
 	function parse_content_segments(content: string): ContentSegment[] {
 		const segments: ContentSegment[] = [];
-		const mention_pattern = /@([a-zA-Z0-9_]{2,24})/g;
+		const token_pattern = /(https?:\/\/[^\s<]+|www\.[^\s<]+)|@([a-zA-Z0-9_]{2,24})/g;
 		let cursor = 0;
 
-		for (const match of content.matchAll(mention_pattern)) {
+		for (const match of content.matchAll(token_pattern)) {
 			const full_match = match[0];
-			const mention_handle = match[1];
+			const matched_url = match[1];
+			const mention_handle = match[2];
 			const match_index = match.index ?? -1;
 
 			if (match_index < 0) {
+				continue;
+			}
+
+			if (matched_url) {
+				if (match_index > cursor) {
+					segments.push({
+						type: 'text',
+						value: content.slice(cursor, match_index)
+					});
+				}
+
+				const { url: clean_url, trailing } = split_trailing_url_punctuation(matched_url);
+
+				if (clean_url) {
+					segments.push({
+						type: 'url',
+						value: clean_url,
+						href: normalize_external_url(clean_url)
+					});
+				}
+
+				if (trailing) {
+					segments.push({
+						type: 'text',
+						value: trailing
+					});
+				}
+
+				cursor = match_index + full_match.length;
+				continue;
+			}
+
+			if (!mention_handle) {
 				continue;
 			}
 
@@ -545,11 +625,33 @@
 						{#each content_segments as segment, index (`${segment.type}-${index}-${segment.value}`)}
 							{#if segment.type === 'mention'}
 								<a class="mention-link" href={resolve(segment.profile_path)}>{segment.value}</a>
+							{:else if segment.type === 'url'}
+								<button
+									type="button"
+									class="external-link"
+									title={`Open ${segment.href}`}
+									onclick={() => request_external_link_open(segment.href)}
+								>{segment.value}</button>
 							{:else}
 								{segment.value}
 							{/if}
 						{/each}
 					</p>
+					{#if show_external_link_confirm}
+						<div class="external-link-confirm" transition:fly={{ y: 10, duration: 180 }}>
+							<div class="external-link-confirm-message">
+								<AlertTriangle size={18} class="warn-icon" />
+								<div>
+									<p>Open this external link?</p>
+									<small>{pending_external_href}</small>
+								</div>
+							</div>
+							<div class="external-link-confirm-actions">
+								<button class="confirm-cancel" type="button" onclick={cancel_external_link_open}>Cancel</button>
+								<button class="open-link-btn" type="button" onclick={confirm_external_link_open}>Open link</button>
+							</div>
+						</div>
+					{/if}
 				</div>
 			{/if}
 
@@ -865,6 +967,84 @@
 
 	.mention-link:hover {
 		text-decoration: underline;
+	}
+
+	.external-link {
+		display: inline;
+		padding: 0;
+		border: none;
+		background: transparent;
+		color: #0284c7;
+		font-weight: 500;
+		font-size: inherit;
+		font-family: inherit;
+		text-decoration: underline;
+		text-decoration-color: color-mix(in srgb, #0369a1 45%, transparent);
+		text-underline-offset: 0.14em;
+		cursor: pointer;
+	}
+
+	.external-link:hover {
+		color: #0c4a6e;
+		text-decoration-color: currentColor;
+	}
+
+	.external-link-confirm {
+		display: grid;
+		gap: 0.85rem;
+		padding: 1rem;
+		margin-top: 0.5rem;
+		border-radius: 10px;
+		border: 1px solid #cbd5e1;
+		background: linear-gradient(135deg, #f8fbff 0%, #eef6ff 100%);
+		box-shadow: 0 10px 24px rgba(14, 116, 144, 0.08);
+	}
+
+	.external-link-confirm-message {
+		display: flex;
+		align-items: flex-start;
+		gap: 0.6rem;
+	}
+
+	.external-link-confirm-message p {
+		margin: 0;
+		font-size: 0.92rem;
+		font-weight: 600;
+		color: #0f172a;
+	}
+
+	.external-link-confirm-message small {
+		display: block;
+		margin-top: 0.2rem;
+		font-size: 0.78rem;
+		line-height: 1.35;
+		color: #475569;
+		overflow-wrap: anywhere;
+		word-break: break-word;
+	}
+
+	.external-link-confirm-actions {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 0.75rem;
+	}
+
+	.open-link-btn {
+		border-radius: 8px;
+		padding: 0.55rem 0.75rem;
+		font-size: 0.85rem;
+		font-weight: 700;
+		cursor: pointer;
+		color: #ffffff;
+		background: #0284c7;
+		border: 1px solid #0369a1;
+		transition: all 180ms ease;
+	}
+
+	.open-link-btn:hover {
+		background: #0369a1;
+		transform: translateY(-1px);
+		box-shadow: 0 4px 12px rgba(3, 105, 161, 0.2);
 	}
 
 	.metrics {
