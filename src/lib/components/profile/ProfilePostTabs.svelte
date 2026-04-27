@@ -20,7 +20,7 @@
 
 	const props: ProfilePostTabsProps = $props();
 
-	const tabs = ['Posts', 'Repost', 'Media', 'Like'] as const;
+	const tabs = ['Posts', 'Repost','Like'] as const;
 	let active_tab = $state<(typeof tabs)[number]>('Posts');
 
 	const active_posts = $derived.by(() => {
