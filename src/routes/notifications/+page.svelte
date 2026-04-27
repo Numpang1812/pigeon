@@ -4,16 +4,13 @@
 	import { auth_client } from '$lib/auth-client';
 	import { normalize_handle } from '$lib';
 	import { SvelteSet } from 'svelte/reactivity';
+	import { onMount } from 'svelte';
 	import {
-		Bell,
 		Check,
-		Heart,
-		Repeat2,
-		UserPlus,
-		BadgeCheck,
-		ThumbsDown
+		Loader
 	} from 'lucide-svelte';
 	import UnauthenticatedPrompt from '$lib/components/UnauthenticatedPrompt.svelte';
+	import NotificationCard from '$lib/components/NotificationCard.svelte';
 
 	const session = auth_client.useSession();
 
@@ -35,18 +32,39 @@
 		actor_verified?: boolean;
 	};
 
+	type GroupedNotification = {
+		group: 'Today' | 'Earlier this week' | 'Older';
+		items: NotificationItem[];
+	};
+
 	const filters = [
 		{ id: 'all', label: 'All' },
 		{ id: 'unread', label: 'Unread' }
 	] as const;
 
 	const read_notifications_key = 'pigeon_notifications_read_ids';
+	const page_size = 15;
+	const estimated_height = 140;
+	const buffer_count = 8;
 
+	// --- Main State ---
+	let initial_load_triggered = false;
 	let active_filter = $state<NotificationFilter>('all');
 	let notifications = $state<NotificationItem[]>([]);
-	let loading_notifications = $state(true);
+	let loading_initial = $state(true);
+	let fetching_more = $state(false);
+	let has_more = $state(true);
+	let offset = $state(0);
 	const following_back = new SvelteSet<string>();
 
+	// --- Virtualization State ---
+	let scroll_top = $state(0);
+	let viewport_height = $state(1000);
+	const height_cache = $state<Record<string, number>>({});
+	let sentinel_el = $state<HTMLElement>();
+	let feed_container = $state<HTMLElement>();
+
+	// --- Derived State ---
 	const unread_count = $derived(notifications.filter((n) => n.unread).length);
 
 	const filtered_notifications = $derived(
@@ -56,7 +74,7 @@
 		})
 	);
 
-	function grouped_notifications(items: NotificationItem[]) {
+	function grouped_notifications_array(items: NotificationItem[]): GroupedNotification[] {
 		const order = ['Today', 'Earlier this week', 'Older'] as const;
 		return order
 			.map((group) => ({
@@ -66,6 +84,84 @@
 			.filter((section) => section.items.length > 0);
 	}
 
+	const virtual_grouped_notifications = $derived.by(() => {
+		const grouped = grouped_notifications_array(filtered_notifications);
+		let current_y = 0;
+		let start_index = -1;
+		let end_index = -1;
+		const flat_items: Array<{ item: NotificationItem; group: GroupedNotification }> = [];
+
+		// Flatten with group references
+		for (const group of grouped) {
+			for (const item of group.items) {
+				flat_items.push({ item, group });
+			}
+		}
+
+		// Find visible range
+		for (let i = 0; i < flat_items.length; i++) {
+			const h = height_cache[flat_items[i].item.id] ?? estimated_height;
+			if (start_index === -1 && current_y + h > scroll_top) {
+				start_index = Math.max(0, i - buffer_count);
+			}
+			if (start_index !== -1 && current_y > scroll_top + viewport_height) {
+				end_index = Math.min(flat_items.length - 1, i + buffer_count);
+				break;
+			}
+			current_y += h;
+		}
+
+		if (start_index === -1) start_index = 0;
+		if (end_index === -1) end_index = flat_items.length - 1;
+
+		// Calculate spacers
+		let top_spacer = 0;
+		for (let i = 0; i < start_index; i++) {
+			top_spacer += height_cache[flat_items[i].item.id] ?? estimated_height;
+		}
+
+		let bottom_spacer = 0;
+		for (let i = end_index + 1; i < flat_items.length; i++) {
+			bottom_spacer += height_cache[flat_items[i].item.id] ?? estimated_height;
+		}
+
+		// Rebuild grouped structure for visible items
+		const visible_flat = flat_items.slice(start_index, end_index + 1);
+		const result_groups: GroupedNotification[] = [];
+		let current_group: GroupedNotification | null = null;
+
+		for (const { item, group } of visible_flat) {
+			if (!current_group || current_group.group !== group.group) {
+				current_group = { group: group.group, items: [] };
+				result_groups.push(current_group);
+			}
+			current_group.items.push(item);
+		}
+
+		return { groups: result_groups, top_spacer, bottom_spacer };
+	});
+
+	// --- Height Tracking ---
+	function handle_height_change(id: string, height: number) {
+		if (height_cache[id] !== height) {
+			height_cache[id] = height;
+		}
+	}
+
+	// --- Scroll & Resize Handlers ---
+	function handle_scroll(e?: Event) {
+		let st = window.scrollY || document.documentElement.scrollTop || document.body.scrollTop || 0;
+		if (e?.target && (e.target as HTMLElement).scrollTop !== undefined) {
+			st = Math.max(st, (e.target as HTMLElement).scrollTop);
+		}
+		scroll_top = st;
+	}
+
+	function handle_resize() {
+		viewport_height = Math.max(window.innerHeight || 0, 0);
+	}
+
+	// --- Read Status Management ---
 	function mark_all_as_read(): void {
 		persist_read_notification_ids(notifications.map((n) => n.id));
 		notifications = notifications.map((n) => ({ ...n, unread: false }));
@@ -102,12 +198,19 @@
 		localStorage.setItem(read_notifications_key, JSON.stringify(Array.from(current)));
 	}
 
-	async function load_notifications(): Promise<void> {
-		loading_notifications = true;
+	// --- Data Loading ---
+	async function load_initial_notifications(): Promise<void> {
+		if (typeof window === 'undefined') return;
+		loading_initial = true;
+		offset = 0;
+		has_more = true;
+		notifications = [];
+
 		try {
-			const response = await fetch('/api/notifications?limit=50');
+			const response = await fetch(resolve(`/api/notifications?limit=${page_size}&offset=0`));
 			if (!response.ok) {
 				notifications = [];
+				loading_initial = false;
 				return;
 			}
 
@@ -120,45 +223,94 @@
 				...item,
 				unread: !read_ids.has(item.id)
 			}));
+
+			has_more = incoming.length === page_size;
+			offset = incoming.length;
 		} catch (error) {
 			console.error('Failed to load notifications:', error);
 			notifications = [];
 		} finally {
-			loading_notifications = false;
+			loading_initial = false;
 		}
 	}
 
+	async function load_more_notifications(): Promise<void> {
+		if (!has_more || fetching_more) return;
+		if (typeof window === 'undefined') return;
+		fetching_more = true;
+
+		try {
+			const response = await fetch(resolve(`/api/notifications?limit=${page_size}&offset=${offset}`));
+			if (!response.ok) {
+				fetching_more = false;
+				return;
+			}
+
+			const result = await response.json();
+			const incoming: NotificationItem[] = Array.isArray(result.notifications)
+				? (result.notifications as NotificationItem[])
+				: [];
+			const read_ids = get_read_notification_ids();
+			const new_notifications = incoming.map((item) => ({
+				...item,
+				unread: !read_ids.has(item.id)
+			}));
+
+			// Deduplicate
+			const existing_ids = new Set(notifications.map((n) => n.id));
+			const unique_new_notifications = new_notifications.filter((n) => !existing_ids.has(n.id));
+			notifications = [...notifications, ...unique_new_notifications];
+
+			has_more = incoming.length === page_size;
+			offset += incoming.length;
+		} catch (error) {
+			console.error('Failed to load more notifications:', error);
+		} finally {
+			fetching_more = false;
+		}
+	}
+
+	// --- Intersection Observer for Infinite Scroll ---
 	$effect(() => {
-		if ($session.data) {
-			load_notifications();
+		if (!sentinel_el || typeof window === 'undefined') return;
+
+		const observer = new IntersectionObserver(
+			(entries) => {
+				if (entries[0]?.isIntersecting && has_more && !loading_initial && !fetching_more) {
+					load_more_notifications();
+				}
+			},
+			{ rootMargin: '800px' }
+		);
+
+		observer.observe(sentinel_el);
+		return () => observer.disconnect();
+	});
+
+	// --- Scroll & Resize Listeners ---
+	onMount(() => {
+		handle_resize();
+		handle_scroll();
+		// Use capture: true to catch scroll events from any internal scrollable container
+		window.addEventListener('scroll', handle_scroll, { passive: true, capture: true });
+		window.addEventListener('resize', handle_resize, { passive: true });
+
+		return () => {
+			window.removeEventListener('scroll', handle_scroll, { capture: true });
+			window.removeEventListener('resize', handle_resize);
+		};
+	});
+
+	// --- Initial Load ---
+	$effect(() => {
+		if (typeof window === 'undefined') return;
+		if ($session.data && !initial_load_triggered) {
+			initial_load_triggered = true;
+			load_initial_notifications();
 		}
 	});
 
-	function should_show_view_post_action(item: NotificationItem): boolean {
-		return (item.type === 'like' || item.type === 'dislike' || item.type === 'repost') && !!item.post_id;
-	}
-
-	function should_show_follow_actions(item: NotificationItem): boolean {
-		return item.type === 'follow';
-	}
-
-	function should_show_follow_back(item: NotificationItem): boolean {
-		return item.type === 'follow' && !item.is_following_actor;
-	}
-
-	function action_label(type: NotificationType): string {
-		switch (type) {
-			case 'like':
-			case 'dislike':
-			case 'repost':
-				return 'View post';
-			case 'follow':
-				return 'Follow back';
-			default:
-				return 'View';
-		}
-	}
-
+	// --- User Interactions ---
 	async function view_post(notification_id: string, post_id?: string | null): Promise<void> {
 		if (!post_id) return;
 		mark_as_read(notification_id);
@@ -182,15 +334,15 @@
 
 	async function follow_back(notification_id: string, actor_handle?: string): Promise<void> {
 		if (!actor_handle) return;
-		
+
 		following_back.add(notification_id);
-		
+
 		try {
 			const follow_res = await fetch(`/api/users/follow/${encodeURIComponent(actor_handle)}`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' }
 			});
-			
+
 			if (follow_res.ok) {
 				const notification_index = notifications.findIndex((n) => n.id === notification_id);
 				if (notification_index !== -1) {
@@ -249,108 +401,49 @@
 			{/each}
 		</div>
 
-		<section class="feed-column" aria-label="Notification timeline">
-			{#if loading_notifications}
+		<section class="feed-column" aria-label="Notification timeline" bind:this={feed_container}>
+			{#if loading_initial}
 				<div class="empty-state" aria-label="Loading notifications">
 					<p>Loading notifications...</p>
 				</div>
 			{:else if filtered_notifications.length > 0}
-				{#each grouped_notifications(filtered_notifications) as section (section.group)}
+				<div style="height: {virtual_grouped_notifications.top_spacer}px; pointer-events: none;"></div>
+				{#each virtual_grouped_notifications.groups as section (section.group)}
 					<div class="group-block">
 						<h2 class="group-title">{section.group}</h2>
 						<div class="notification-list">
 							{#each section.items as item (item.id)}
-								<article class="notification-card" class:unread={item.unread}>
-									<div class="icon-spot" aria-hidden="true">
-										{#if item.type === 'like'}
-											<Heart size={14} />
-										{:else if item.type === 'dislike'}
-											<ThumbsDown size={14} />
-										{:else if item.type === 'repost'}
-											<Repeat2 size={14} />
-										{:else if item.type === 'follow'}
-											<UserPlus size={14} />
-										{:else}
-											<Bell size={14} />
-										{/if}
-									</div>
-
-									<button
-							type="button"
-							class="avatar-btn"
-							onclick={() => view_profile(item.id, item.actor_handle)}
-							aria-label={`View ${item.actor_name} profile`}
-						>
-							<img class="avatar" src={item.avatar_url} alt={item.actor_name} loading="lazy" />
-						</button>
-
-									<div class="content-block">
-										<p class="message-line">
-											<button
-												type="button"
-												class="name-link"
-												onclick={() => view_profile(item.id, item.actor_handle)}
-											>
-												<strong>{item.actor_name}</strong>
-												{#if item.actor_verified}
-													<span class="verified-icon" aria-label="Verified account" title="Verified account">
-														<BadgeCheck size={14} aria-hidden="true" fill="#0ea5e9" color="white" />
-													</span>
-												{/if}
-											</button>
-											{#if item.actor_handle}
-												<button
-													type="button"
-													class="handle-link"
-													onclick={() => view_profile(item.id, item.actor_handle)}
-												>
-													<span class="handle">@{item.actor_handle}</span>
-												</button>
-											{/if}
-											<span>{item.message}</span>
-										</p>
-										<div class="meta-row">
-											<span class="time">{item.time_ago}</span>
-											{#if item.unread}
-												<button
-													type="button"
-													class="inline-action"
-													onclick={() => mark_as_read(item.id)}
-												>
-													Mark as read
-												</button>
-											{/if}
-											{#if should_show_view_post_action(item)}
-												<button type="button" class="inline-action" onclick={() => view_post(item.id, item.post_id)}>
-													{action_label(item.type)}
-												</button>
-											{/if}
-											{#if should_show_follow_actions(item)}
-												<button
-													type="button"
-													class="inline-action"
-													onclick={() => view_profile(item.id, item.actor_handle)}
-												>
-													View profile
-												</button>
-												{#if should_show_follow_back(item)}
-												<button 
-													type="button" 
-													class="inline-action"
-													disabled={following_back.has(item.id)}
-													onclick={() => follow_back(item.id, item.actor_handle)}
-												>
-													{following_back.has(item.id) ? 'Following...' : 'Follow back'}
-												</button>
-											{/if}
-											{/if}
-										</div>
-									</div>
-								</article>
+								<NotificationCard
+									id={item.id}
+									type={item.type}
+									actor_name={item.actor_name}
+									actor_handle={item.actor_handle}
+									avatar_url={item.avatar_url}
+									actor_verified={item.actor_verified}
+									is_following_actor={item.is_following_actor}
+									message={item.message}
+									time_ago={item.time_ago}
+									unread={item.unread}
+									post_id={item.post_id}
+									on_height_change={handle_height_change}
+									on_view_profile={view_profile}
+									on_view_post={view_post}
+									on_mark_as_read={mark_as_read}
+									on_follow_back={follow_back}
+									following_back={following_back.has(item.id)}
+								/>
 							{/each}
 						</div>
 					</div>
 				{/each}
+				<div style="height: {virtual_grouped_notifications.bottom_spacer}px; pointer-events: none;"></div>
+				<div bind:this={sentinel_el} style="height: 1px; pointer-events: none;"></div>
+				{#if fetching_more}
+					<div class="loading-indicator" aria-label="Loading more notifications">
+						<Loader size={16} class="spinner" />
+						<span>Loading more...</span>
+					</div>
+				{/if}
 			{:else}
 				<div class="empty-state" aria-label="No notifications">
 					<p>No notifications in this view right now.</p>
@@ -507,155 +600,28 @@
 		gap: 0.5rem;
 	}
 
-	.notification-card {
-		display: grid;
-		grid-template-columns: auto auto 1fr;
-		gap: 0.8rem;
-		align-items: start;
-		padding: 0.85rem 0.9rem;
-		background: #fff;
-		border: 1px solid #e2e8f0;
-		border-radius: 0.9rem;
-		box-shadow: 0 2px 10px rgba(15, 23, 42, 0.035);
-	}
-
-	.notification-card.unread {
-		background: #eff6ff;
-		border-color: #bfdbfe;
-	}
-
-	.icon-spot {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		width: 1.65rem;
-		height: 1.65rem;
-		border-radius: 999px;
-		background: #e0f2fe;
-		color: #0369a1;
-		margin-top: 0.2rem;
-	}
-
-	.avatar {
-		width: 2.6rem;
-		height: 2.6rem;
-		border-radius: 999px;
-		object-fit: cover;
-		border: 1px solid #dbe7f5;
-	}
-
-	.avatar-btn {
+	.loading-indicator {
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		padding: 0;
-		border: none;
-		background: none;
-		cursor: pointer;
-		border-radius: 999px;
-		transition: opacity 0.15s ease;
-	}
-
-	.avatar-btn:hover {
-		opacity: 0.8;
-	}
-
-	.avatar-btn img {
-		width: 2.6rem;
-		height: 2.6rem;
-		border-radius: 999px;
-		object-fit: cover;
-		border: 1px solid #dbe7f5;
-	}
-
-	.content-block {
-		min-width: 0;
-	}
-
-	.message-line {
-		margin: 0;
-		font-size: 0.93rem;
-		line-height: 1.48;
-		color: #334155;
-	}
-
-	.message-line strong {
-		font-weight: 800;
-		color: #0f172a;
-	}
-
-	.name-link,
-	.handle-link {
-		padding: 0;
-		border: none;
-		background: none;
-		font-size: inherit;
-		font-weight: inherit;
-		font-family: inherit;
-		cursor: pointer;
-		transition: color 0.15s ease;
-	}
-
-	.name-link {
-		color: inherit;
-		display: inline-flex;
-		align-items: center;
-		gap: 3px;
-	}
-
-	.verified-icon {
-		display: inline-flex;
-		align-items: center;
-		color: #ffffff;
-		flex-shrink: 0;
-	}
-
-	.name-link:hover strong {
-		color: #0284c7;
-	}
-
-	.handle-link {
-		color: inherit;
-	}
-
-	.handle-link:hover .handle {
-		color: #0284c7;
-	}
-
-	.handle {
-		margin-left: 0.35rem;
-		margin-right: 0.35rem;
-		font-size: 0.82rem;
-		font-weight: 700;
-		color: #64748b;
-	}
-
-	.meta-row {
-		display: flex;
-		align-items: center;
 		gap: 0.6rem;
-		flex-wrap: wrap;
-		margin-top: 0.45rem;
-	}
-
-	.time {
-		font-size: 0.77rem;
-		font-weight: 700;
+		padding: 1rem 1.1rem;
 		color: #64748b;
+		font-size: 0.87rem;
+		font-weight: 600;
 	}
 
-	.inline-action {
-		padding: 0;
-		border: none;
-		background: none;
-		font-size: 0.78rem;
-		font-weight: 700;
-		color: #0284c7;
-		cursor: pointer;
+	.loading-indicator .spinner {
+		animation: spin 1s linear infinite;
 	}
 
-	.inline-action:hover {
-		text-decoration: underline;
+	@keyframes spin {
+		from {
+			transform: rotate(0deg);
+		}
+		to {
+			transform: rotate(360deg);
+		}
 	}
 
 	.empty-state {
@@ -686,19 +652,6 @@
 		.notifications {
 			padding-bottom: 2rem;
 		}
-
-		.notification-card {
-			grid-template-columns: auto 1fr;
-		}
-
-		.icon-spot {
-			order: 2;
-			justify-self: end;
-		}
-
-		.avatar {
-			grid-row: 1 / 3;
-		}
 	}
 
 	@media (max-width: 640px) {
@@ -717,10 +670,6 @@
 
 		.filter-row {
 			margin-bottom: 0.8rem;
-		}
-
-		.message-line {
-			font-size: 0.9rem;
 		}
 	}
 </style>

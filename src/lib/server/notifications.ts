@@ -49,7 +49,7 @@ export async function fetch_activity_notifications_for_user(
 			SELECT *
 			FROM (
 				SELECT
-					l.id AS event_id,
+					COALESCE(l.id, l.user_id || '-' || l.post_id || '-' || l.created_at) AS event_id,
 					'like' AS type,
 					l.created_at,
 					u.id AS actor_id,
@@ -72,7 +72,7 @@ export async function fetch_activity_notifications_for_user(
 				UNION ALL
 
 				SELECT
-					d.id AS event_id,
+					COALESCE(d.id, d.user_id || '-' || d.post_id || '-' || d.created_at) AS event_id,
 					'dislike' AS type,
 					d.created_at,
 					u.id AS actor_id,
@@ -95,7 +95,7 @@ export async function fetch_activity_notifications_for_user(
 				UNION ALL
 
 				SELECT
-					r.id AS event_id,
+					COALESCE(r.id, r.user_id || '-' || r.post_id || '-' || r.created_at) AS event_id,
 					'repost' AS type,
 					r.created_at,
 					u.id AS actor_id,
@@ -118,7 +118,7 @@ export async function fetch_activity_notifications_for_user(
 				UNION ALL
 
 				SELECT
-					f.id AS event_id,
+					COALESCE(f.id, f.follower_id || '-' || f.following_id || '-' || f.created_at) AS event_id,
 					'follow' AS type,
 					f.created_at,
 					u.id AS actor_id,
