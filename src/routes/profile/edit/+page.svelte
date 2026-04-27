@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-
+	import { goto } from '$app/navigation';
 	import type { ActionData, PageData } from './$types';
 	import { resolve } from '$app/paths';
 	import { auth_client } from '$lib/auth-client';
@@ -126,7 +126,20 @@
 
 		<div class="form-container">
 			{#if active_tab === 'profile'}
-				<form method="POST" action="?/profile" use:enhance={handle_enhance} class="edit-form">
+				<form
+					method="POST"
+					action="?/profile"
+					use:enhance={() => {
+						return async ({ result, update }) => {
+							if (result.type === 'success') {
+								await goto(resolve(`/profile/${profile.username}`));
+								return;
+							}
+							await update();
+						};
+					}}
+					class="edit-form"
+				>
 
 					<!-- Avatar Edit -->
 					<div class="avatar-section">
