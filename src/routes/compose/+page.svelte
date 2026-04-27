@@ -1,6 +1,15 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import { PostTextbox } from '$lib';
 	import { PenTool, Sparkles } from 'lucide-svelte';
+
+	async function handle_submit(_payload: any, post?: any) {
+		if (post?.id) {
+			await goto(`/home#post-${post.id}`);
+		} else {
+			await goto('/home');
+		}
+	}
 </script>
 
 <main class="compose-page" aria-label="Compose page">
@@ -18,7 +27,7 @@
 			</div>
 
 			<!-- Textbox -->
-			<PostTextbox button_label="Post" isExpanded={true} />
+			<PostTextbox button_label="Post" isExpanded={true} on_submit={handle_submit} />
 
 			<!-- Inline tip -->
 			<p class="compose-tip">

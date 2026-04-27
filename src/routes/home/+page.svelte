@@ -205,8 +205,13 @@
 		}
 	}
 
-	async function handle_post_submit(): Promise<void> {
+	async function handle_post_submit(_payload: any, post?: any): Promise<void> {
 		await load_posts(true);
+		if (post?.id) {
+			window.location.hash = `post-${post.id}`;
+			// load_posts(true) already triggers scroll_to_hash_post, but we ensure it here
+			setTimeout(() => scroll_to_hash_post(0), 100);
+		}
 	}
 
 	function handle_metric_change(

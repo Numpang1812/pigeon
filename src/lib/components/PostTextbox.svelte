@@ -15,13 +15,16 @@
 		placeholder?: string;
 		button_label?: string;
 		isExpanded?: boolean;
-		on_submit?: (payload: {
-			content: string;
-			audience: string;
-			post_tag: string;
-			post_tags: string[];
-			allowed_user_ids: string[];
-		}) => void;
+		on_submit?: (
+			payload: {
+				content: string;
+				audience: string;
+				post_tag: string;
+				post_tags: string[];
+				allowed_user_ids: string[];
+			},
+			post?: any
+		) => void;
 	}
 
 	const props: PostTextboxProps = $props();
@@ -154,16 +157,19 @@
 			});
 
 			if (response.ok) {
-				await response.json();
+				const result = await response.json();
 				
 				// Call the callback if provided
-				props.on_submit?.({
-					content: sanitized_text_content,
-					audience: selected_audience_option.label,
-					post_tag: primary_post_tag,
-					post_tags: has_detected_hashtags ? [...detected_hashtags] : ['other'],
-					allowed_user_ids: selected_audience === 'close_friends' ? [...selected_close_friend_ids] : []
-				});
+				await props.on_submit?.(
+					{
+						content: sanitized_text_content,
+						audience: selected_audience_option.label,
+						post_tag: primary_post_tag,
+						post_tags: has_detected_hashtags ? [...detected_hashtags] : ['other'],
+						allowed_user_ids: selected_audience === 'close_friends' ? [...selected_close_friend_ids] : []
+					},
+					result.post
+				);
 				
 				text_content = '';
 				is_audience_menu_open = false;
