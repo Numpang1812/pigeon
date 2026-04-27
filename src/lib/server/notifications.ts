@@ -178,7 +178,7 @@ export async function fetch_activity_notifications_for_user(
 			type: item.type,
 			actor_name,
 			actor_handle,
-			avatar_url: item.avatar_url ?? '',
+			avatar_url: item.avatar_url || '/default-avatar.svg',
 			actor_verified: Boolean(item.actor_verified),
 			is_following_actor: Boolean(item.is_following_actor),
 			message,
