@@ -132,7 +132,8 @@
 					use:enhance={() => {
 						return async ({ result, update }) => {
 							if (result.type === 'success') {
-								await goto(resolve(`/profile/${profile.username}`));
+								const message = result.data?.message || 'Profile updated successfully';
+								await goto(resolve(`/profile/${profile.username}?toast=${encodeURIComponent(message)}&toast_type=success`));
 								return;
 							}
 							await update();
