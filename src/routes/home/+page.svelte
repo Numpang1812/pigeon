@@ -31,6 +31,7 @@
 		user_reposted?: boolean;
 		is_author?: boolean;
 		is_edited?: boolean;
+		created_at?: string;
 	};
 
 	// --- State ---
@@ -38,7 +39,7 @@
 	let loading = $state(true);
 	let fetching_more = $state(false);
 	let has_more = $state(true);
-	let offset = $state(0);
+	let cursor = $state<string | null>(null);
 	const page_size = 50;
 
 	// --- Virtualization State ---
@@ -111,7 +112,7 @@
 	async function load_posts(is_initial = false) {
 		if (is_initial) {
 			loading = true;
-			offset = 0;
+			cursor = null;
 			has_more = true;
 		} else {
 			if (!has_more || fetching_more) return;
@@ -120,15 +121,10 @@
 
 		try {
 			const params = new SvelteURLSearchParams({ 
-				limit: page_size.toString(),
-				offset: offset.toString()
+				limit: page_size.toString()
 			});
-			
-			if (is_initial && typeof window !== 'undefined') {
-				const requested_post_id = new SvelteURLSearchParams(window.location.search).get('post_id');
-				if (requested_post_id) {
-					params.set('post_id', requested_post_id);
-				}
+			if (cursor) {
+				params.set('cursor', cursor);
 			}
 
 			const response = await fetch(`/api/posts?${params.toString()}`);
@@ -146,10 +142,12 @@
 				}
 
 				has_more = new_posts.length === page_size;
-				offset += new_posts.length;
+				if (feed_posts.length > 0) {
+					cursor = feed_posts[feed_posts.length - 1].created_at ?? null;
+				}
 
 				if (is_initial) {
-					requestAnimationFrame(scroll_to_hash_post);
+					requestAnimationFrame(() => scroll_to_hash_post(0));
 				}
 			}
 		} catch (error) {
@@ -168,28 +166,27 @@
 				? window.location.hash.slice(1)
 				: window.location.hash
 			: '';
-		const requested_post_id = new URLSearchParams(window.location.search).get('post_id');
-		const target_id = hash_id || (requested_post_id ? `post-${requested_post_id}` : '');
-		if (!target_id) return;
+		if (!hash_id) return;
 
-		const post_element = document.getElementById(target_id);
+		const post_element = document.getElementById(hash_id);
 
 		if (!(post_element instanceof HTMLElement)) {
 			// If not in DOM, we might need to scroll roughly to where it should be
 			// to trigger it entering the viewport and being rendered
-			const post_index = feed_posts.findIndex(p => `post-${p.id}` === target_id);
+			const post_index = feed_posts.findIndex(p => `post-${p.id}` === hash_id);
 			if (post_index !== -1 && attempt === 0) {
 				let y = 0;
 				for (let i = 0; i < post_index; i++) {
 					y += height_cache[feed_posts[i].id] ?? estimated_height;
 				}
+				scroll_top = y;
 				window.scrollTo({ top: y, behavior: 'smooth' });
-				setTimeout(() => scroll_to_hash_post(attempt + 1), 100);
+				setTimeout(() => scroll_to_hash_post(attempt + 1), 150);
 				return;
 			}
 
-			if (attempt < 8) {
-				setTimeout(() => scroll_to_hash_post(attempt + 1), 120);
+			if (attempt < 12) {
+				setTimeout(() => scroll_to_hash_post(attempt + 1), 150);
 			}
 			return;
 		}

@@ -3,6 +3,50 @@ import { db } from '$lib/server/db';
 import { auth } from '$lib/auth';
 import { post_edit_limiter } from '$lib/server/rate-limiter';
 import { extract_post_tags, limit_post_tags, strip_detected_tags_from_content } from '$lib/post-tags';
+import { build_post_visibility_clause } from '$lib/server/post-visibility';
+
+function format_time_ago(date_string: string): string {
+	const date = new Date(date_string + 'Z');
+	const now = new Date();
+	const diff_seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+
+	if (diff_seconds < 60) return `${diff_seconds}s`;
+	if (diff_seconds < 3600) return `${Math.floor(diff_seconds / 60)}m`;
+	if (diff_seconds < 86400) return `${Math.floor(diff_seconds / 3600)}h`;
+	if (diff_seconds < 604800) return `${Math.floor(diff_seconds / 86400)}d`;
+	return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function map_post_row(row_raw: unknown, current_user_id: string, tags: string[] = []) {
+	const row = row_raw as Record<string, unknown>;
+	const hashtag_list = (row.hashtag_list as string | null) ?? '';
+	const parsed_tags = tags.length > 0 ? limit_post_tags(tags) : limit_post_tags(hashtag_list.split(','));
+
+	return {
+		id: row.id as string,
+		content: row.content as string,
+		audience: row.audience as string,
+		post_tag: row.post_tag as string,
+		post_tags: parsed_tags.length > 0 ? parsed_tags : [row.post_tag as string],
+		posted_at: format_time_ago(row.created_at as string),
+		author_name: row.author_name as string,
+		author_handle: (row.author_handle as string) || 'user',
+		author_bio: row.author_bio as string,
+		avatar_url: row.author_avatar as string,
+		verified: Boolean(row.author_verified),
+		metrics: {
+			likes: Number(row.like_count || 0),
+			dislikes: Number(row.dislike_count || 0),
+			reposts: Number(row.repost_count || 0)
+		},
+		is_author: row.author_id === current_user_id,
+		is_edited: row.updated_at && row.updated_at !== row.created_at,
+		user_liked: Boolean(row.user_liked),
+		user_disliked: Boolean(row.user_disliked),
+		user_reposted: Boolean(row.user_reposted),
+		created_at: row.created_at as string
+	};
+}
 
 function normalize_tag(raw_tag: unknown): string | null {
 	if (typeof raw_tag !== 'string') return null;
@@ -98,6 +142,50 @@ async function remove_post_hashtag(post_id: string, tag: string): Promise<void> 
 		args: [hashtag_id]
 	});
 }
+
+// eslint-disable-next-line @typescript-eslint/naming-convention
+export const GET: RequestHandler = async ({ params, request }) => {
+	try {
+		const session = await auth.api.getSession({
+			headers: request.headers
+		});
+
+		if (!session) {
+			return json({ error: 'Unauthorized' }, { status: 401 });
+		}
+
+		const post_id = params.id;
+		if (!post_id) {
+			return json({ error: 'Post ID is required' }, { status: 400 });
+		}
+
+		const visibility = build_post_visibility_clause(session.user.id);
+		
+		const post_result = await db.execute({
+			sql: `SELECT p.*, u.name as author_name, u.username as author_handle, u.image as author_avatar, u.bio as author_bio,
+					u.verified as author_verified,
+					(SELECT GROUP_CONCAT(h.tag_name, ',') FROM post_hashtag ph JOIN hashtag h ON ph.hashtag_id = h.id WHERE ph.post_id = p.id ORDER BY ph.rowid) as hashtag_list,
+					(SELECT COUNT(*) FROM like WHERE post_id = p.id) as like_count,
+					(SELECT COUNT(*) FROM dislike WHERE post_id = p.id) as dislike_count,
+					(SELECT COUNT(*) FROM repost WHERE post_id = p.id) as repost_count,
+					EXISTS(SELECT 1 FROM like WHERE post_id = p.id AND user_id = ?) as user_liked,
+					EXISTS(SELECT 1 FROM dislike WHERE post_id = p.id AND user_id = ?) as user_disliked,
+					EXISTS(SELECT 1 FROM repost WHERE post_id = p.id AND user_id = ?) as user_reposted
+				  FROM post p JOIN user u ON p.author_id = u.id
+				  WHERE p.id = ? AND ${visibility.clause}`,
+			args: [session.user.id, session.user.id, session.user.id, post_id, ...visibility.args]
+		});
+
+		if (post_result.rows.length === 0) {
+			return json({ error: 'Post not found' }, { status: 404 });
+		}
+
+		return json({ success: true, post: map_post_row(post_result.rows[0], session.user.id) });
+	} catch (error) {
+		console.error('[GET POST API] Error:', error);
+		return json({ error: 'Internal server error' }, { status: 500 });
+	}
+};
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
 export const DELETE: RequestHandler = async ({ params, request }) => {
