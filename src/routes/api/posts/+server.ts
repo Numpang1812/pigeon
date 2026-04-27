@@ -233,6 +233,7 @@ function build_posts_query(url: URL, current_user_id: string) {
 
 	let query = `
 		SELECT p.*, u.name as author_name, u.username as author_handle, u.image as author_avatar, u.bio as author_bio,
+			u.verified as author_verified,
 			(SELECT GROUP_CONCAT(h.tag_name, ',') FROM post_hashtag ph JOIN hashtag h ON ph.hashtag_id = h.id WHERE ph.post_id = p.id ORDER BY ph.rowid) as hashtag_list,
 			(SELECT COUNT(*) FROM like WHERE post_id = p.id) as like_count,
 			(SELECT COUNT(*) FROM dislike WHERE post_id = p.id) as dislike_count,
@@ -277,6 +278,7 @@ function build_posts_query(url: URL, current_user_id: string) {
 async function fetch_specific_post(post_id: string, current_user_id: string) {
 	const result = await db.execute({
 		sql: `SELECT p.*, u.name as author_name, u.username as author_handle, u.image as author_avatar, u.bio as author_bio,
+				u.verified as author_verified,
 				(SELECT GROUP_CONCAT(h.tag_name, ',') FROM post_hashtag ph JOIN hashtag h ON ph.hashtag_id = h.id WHERE ph.post_id = p.id ORDER BY ph.rowid) as hashtag_list,
 				(SELECT COUNT(*) FROM like WHERE post_id = p.id) as like_count,
 				(SELECT COUNT(*) FROM dislike WHERE post_id = p.id) as dislike_count,
