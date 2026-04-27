@@ -319,11 +319,11 @@ export function map_profile_posts(
 				? limit_post_tags(row.hashtag_list.split(','))
 				: [row.post_tag as string],
 		posted_at: format_time_ago(row.created_at as string),
-		author_name: (row.author_name as string) || (user.name as string) || 'Unknown',
-		author_handle: normalize_handle(row.author_handle) || normalize_handle(user.username) || 'user',
+		author_name: (row.author_name as string) || 'Unknown',
+		author_handle: normalize_handle(row.author_handle) || 'user',
 		content: row.content as string,
 		audience: row.audience as string,
-		author_bio: (row.author_bio as string) || (user.bio as string) || '',
+		author_bio: (row.author_bio as string) || '',
 		verified: Boolean(row.author_verified ?? user.verified),
 		metrics: {
 			likes: Number(row.like_count ?? 0),
@@ -333,7 +333,7 @@ export function map_profile_posts(
 		user_liked: Boolean(row.user_liked),
 		user_disliked: Boolean(row.user_disliked),
 		user_reposted: Boolean(row.user_reposted),
-		avatar_url: (row.author_avatar as string) || (user.image as string) || '',
+		avatar_url: (row.author_avatar as string) || '',
 		is_author: row.author_id === viewer_user_id,
 		is_edited: row.updated_at !== row.created_at
 	}));
