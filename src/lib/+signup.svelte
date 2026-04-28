@@ -11,6 +11,7 @@
 	let confirm_password = $state('');
 	let error = $state<string | null>(null);
 	let loading = $state(false);
+	let verification_sent = $state(false);
 
 	async function handle_submit(e: SubmitEvent) {
 		e.preventDefault();
@@ -33,28 +34,18 @@
 				email: email,
 				password: password,
 				name: name,
+				data: {
+					username: username.trim()
+				},
 				callbackURL: resolve('/')
 			});
 
 			if (auth_error) {
-				throw new Error(auth_error.message);
+				console.error('Signup Auth Error:', auth_error);
+				throw new Error(auth_error.message || 'Signup failed');
 			}
 
-			const username_response = await fetch('/api/users/username', {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json'
-				},
-				body: JSON.stringify({ username: username.trim() })
-			});
-
-			if (!username_response.ok) {
-				const username_data = await username_response.json();
-				throw new Error(username_data.error || 'Failed to save username.');
-			}
-
-			await invalidateAll();
-			window.location.href = resolve('/home');
+			verification_sent = true;
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Signup failed. Please try again.';
 		} finally {
@@ -239,95 +230,113 @@
 				</div>
 			{/if}
 
-			<form id="signup-form" onsubmit={handle_submit}>
-				<div class="field">
-					<label for="name" class="field-label">Full Name</label>
-					<input
-						id="name"
-						type="text"
-						class="field-input"
-						placeholder="Full name"
-						autocomplete="name"
-						required
-						disabled={loading}
-						bind:value={name}
-					/>
+			{#if verification_sent}
+				<div class="success-card">
+					<div class="success-icon">
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+							<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+							<polyline points="22 4 12 14.01 9 11.01" />
+						</svg>
+					</div>
+					<h3 class="success-title">Verify your email</h3>
+					<p class="success-text">
+						We've sent a verification link to <strong>{email}</strong>. Please check your inbox and click the link to activate your account.
+					</p>
+					<button class="btn-outline" onclick={() => (verification_sent = false)}>
+						Back to signup
+					</button>
 				</div>
+			{:else}
+				<form id="signup-form" onsubmit={handle_submit}>
+					<div class="field">
+						<label for="name" class="field-label">Full Name</label>
+						<input
+							id="name"
+							type="text"
+							class="field-input"
+							placeholder="Full name"
+							autocomplete="name"
+							required
+							disabled={loading}
+							bind:value={name}
+						/>
+					</div>
 
-				<div class="field">
-					<label for="username" class="field-label">Username</label>
-					<input
-						id="username"
-						type="text"
-						class="field-input"
-						placeholder="your_username"
-						autocomplete="username"
-						pattern="[A-Za-z0-9_]+"
-						title="Username must be 2-15 characters using only letters, numbers, or underscores."
-						maxlength="15"
-						minlength="2"
-						required
+					<div class="field">
+						<label for="username" class="field-label">Username</label>
+						<input
+							id="username"
+							type="text"
+							class="field-input"
+							placeholder="your_username"
+							autocomplete="username"
+							pattern="[A-Za-z0-9_]+"
+							title="Username must be 2-15 characters using only letters, numbers, or underscores."
+							maxlength="15"
+							minlength="2"
+							required
+							disabled={loading}
+							bind:value={username}
+						/>
+					</div>
+
+					<div class="field">
+						<label for="email" class="field-label">Email</label>
+						<input
+							id="email"
+							type="email"
+							class="field-input"
+							placeholder="example@mail.com"
+							autocomplete="email"
+							required
+							disabled={loading}
+							bind:value={email}
+						/>
+					</div>
+
+					<div class="field">
+						<label for="password" class="field-label">Password</label>
+						<input
+							id="password"
+							type="password"
+							class="field-input"
+							placeholder="••••••••"
+							autocomplete="new-password"
+							required
+							disabled={loading}
+							bind:value={password}
+						/>
+					</div>
+
+					<div class="field">
+						<label for="confirmPassword" class="field-label">Confirm Password</label>
+						<input
+							id="confirmPassword"
+							type="password"
+							class="field-input"
+							placeholder="••••••••"
+							autocomplete="new-password"
+							required
+							disabled={loading}
+							bind:value={confirm_password}
+						/>
+					</div>
+
+					<button
+						id="signup-submit"
+						type="submit"
+						class="btn-primary"
 						disabled={loading}
-						bind:value={username}
-					/>
-				</div>
-
-				<div class="field">
-					<label for="email" class="field-label">Email</label>
-					<input
-						id="email"
-						type="email"
-						class="field-input"
-						placeholder="example@mail.com"
-						autocomplete="email"
-						required
-						disabled={loading}
-						bind:value={email}
-					/>
-				</div>
-
-				<div class="field">
-					<label for="password" class="field-label">Password</label>
-					<input
-						id="password"
-						type="password"
-						class="field-input"
-						placeholder="••••••••"
-						autocomplete="new-password"
-						required
-						disabled={loading}
-						bind:value={password}
-					/>
-				</div>
-
-				<div class="field">
-					<label for="confirmPassword" class="field-label">Confirm Password</label>
-					<input
-						id="confirmPassword"
-						type="password"
-						class="field-input"
-						placeholder="••••••••"
-						autocomplete="new-password"
-						required
-						disabled={loading}
-						bind:value={confirm_password}
-					/>
-				</div>
-
-				<button
-					id="signup-submit"
-					type="submit"
-					class="btn-primary"
-					disabled={loading}
-				>
-					{#if loading}
-						<span class="spinner" aria-hidden="true"></span>
-						Creating account…
-					{:else}
-						Sign up
-					{/if}
-				</button>
-			</form>
+					>
+						{#if loading}
+							<span class="spinner" aria-hidden="true"></span>
+							Creating account…
+						{:else}
+							Sign up
+						{/if}
+					</button>
+				</form>
+			{/if}
 
 			<div class="divider"><span>or</span></div>
 
@@ -608,6 +617,55 @@
 	.btn-primary:active:not(:disabled) {
 		background: var(--blue-dark);
 		transform: translateY(0);
+	}
+
+	.btn-outline {
+		width: 100%;
+		padding: 12px 24px;
+		background: transparent;
+		color: var(--blue-primary);
+		border: 1.5px solid var(--blue-primary);
+		border-radius: 9999px;
+		font-size: 0.9375rem;
+		font-weight: 700;
+		cursor: pointer;
+		transition: all var(--transition);
+		margin-top: 24px;
+	}
+
+	.btn-outline:hover {
+		background: rgba(29, 161, 242, 0.05);
+	}
+
+	/* Success Card */
+	.success-card {
+		text-align: center;
+		padding: 24px 0;
+		animation: slide-in 300ms ease;
+	}
+
+	.success-icon {
+		width: 64px;
+		height: 64px;
+		margin: 0 auto 20px;
+		color: #10b981;
+		background: #ecfdf5;
+		padding: 12px;
+		border-radius: 50%;
+	}
+
+	.success-title {
+		font-size: 1.5rem;
+		font-weight: 700;
+		margin-bottom: 12px;
+		color: var(--text-black);
+	}
+
+	.success-text {
+		font-size: 1rem;
+		color: var(--gray-dark);
+		line-height: 1.6;
+		margin-bottom: 8px;
 	}
 
 	.btn-primary:disabled {

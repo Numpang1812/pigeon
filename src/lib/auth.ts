@@ -3,6 +3,7 @@ import { createAuthMiddleware, APIError } from 'better-auth/api';
 import { env } from '$env/dynamic/private';
 import { get_auth_db_dialect } from './server/auth-db';
 import { get_client } from './server/db';
+import { send_verification_email } from './server/email';
 
 const max_failed_attempts = 5;
 const lockout_duration_ms = 60 * 60 * 1000; // 1 hour
@@ -193,9 +194,25 @@ export const auth = betterAuth({
 		dialect: get_auth_db_dialect(),
 		type: 'sqlite'
 	},
+	user: {
+		additionalFields: {
+			username: {
+				type: 'string',
+				required: false
+			}
+		}
+	},
 	emailAndPassword: {
 		enabled: true,
-		requireEmailVerification: false
+		requireEmailVerification: true
+	},
+	emailVerification: {
+		sendOnSignUp: true,
+		autoSignInAfterVerification: true,
+		sendVerificationEmail: async ({ user, url }) => {
+			console.info(`[Auth] Triggering verification email to ${user.email}...`);
+			send_verification_email(user.email, url); // Don't await to avoid blocking the response
+		}
 	},
 	socialProviders: {
 		google: google_enabled

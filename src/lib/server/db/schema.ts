@@ -10,29 +10,55 @@
 // ==========================================
 
 export const create_tables_sql = {
-	// BetterAuth manages these tables automatically:
-	// - user
-	// - session
-	// - account
-	// - verification
-
-	// User table modifications (BetterAuth creates the base table)
-	add_username: `
-		ALTER TABLE user ADD COLUMN username TEXT
+	// BetterAuth core tables
+	user: `
+		CREATE TABLE IF NOT EXISTS user (
+			id TEXT PRIMARY KEY,
+			name TEXT NOT NULL,
+			email TEXT NOT NULL UNIQUE,
+			emailVerified INTEGER NOT NULL DEFAULT 0,
+			image TEXT,
+			createdAt DATETIME NOT NULL DEFAULT (datetime('now')),
+			updatedAt DATETIME NOT NULL DEFAULT (datetime('now')),
+			username TEXT UNIQUE,
+			bio TEXT,
+			location TEXT,
+			website TEXT,
+			cover TEXT,
+			failed_login_attempts INTEGER NOT NULL DEFAULT 0,
+			lockout_until TEXT,
+			verified INTEGER NOT NULL DEFAULT 0
+		)
 	`,
-
-	// User profile extensions (BetterAuth doesn't include these)
-	add_bio: `ALTER TABLE user ADD COLUMN bio TEXT`,
-	add_location: `ALTER TABLE user ADD COLUMN location TEXT`,
-	add_website: `ALTER TABLE user ADD COLUMN website TEXT`,
-	add_cover: `ALTER TABLE user ADD COLUMN cover TEXT`,
-
-	// Account lockout for rate limiting
-	add_failed_login_attempts: `ALTER TABLE user ADD COLUMN failed_login_attempts INTEGER NOT NULL DEFAULT 0`,
-	add_lockout_until: `ALTER TABLE user ADD COLUMN lockout_until TEXT`,
-
-	// Verification status
-	add_verified: `ALTER TABLE user ADD COLUMN verified INTEGER NOT NULL DEFAULT 0`,
+	session: `
+		CREATE TABLE IF NOT EXISTS session (
+			id TEXT PRIMARY KEY,
+			expiresAt DATETIME NOT NULL,
+			token TEXT NOT NULL UNIQUE,
+			createdAt DATETIME NOT NULL DEFAULT (datetime('now')),
+			updatedAt DATETIME NOT NULL DEFAULT (datetime('now')),
+			ipAddress TEXT,
+			userAgent TEXT,
+			userId TEXT NOT NULL REFERENCES user(id) ON DELETE CASCADE
+		)
+	`,
+	account: `
+		CREATE TABLE IF NOT EXISTS account (
+			id TEXT PRIMARY KEY,
+			accountId TEXT NOT NULL,
+			providerId TEXT NOT NULL,
+			userId TEXT NOT NULL REFERENCES user(id) ON DELETE CASCADE,
+			accessToken TEXT,
+			refreshToken TEXT,
+			idToken TEXT,
+			accessTokenExpiresAt DATETIME,
+			refreshTokenExpiresAt DATETIME,
+			scope TEXT,
+			password TEXT,
+			createdAt DATETIME NOT NULL DEFAULT (datetime('now')),
+			updatedAt DATETIME NOT NULL DEFAULT (datetime('now'))
+		)
+	`,
 
 	// Application tables - Posts
 	post: `
@@ -154,6 +180,16 @@ export const create_tables_sql = {
 			post_id TEXT NOT NULL REFERENCES post(id) ON DELETE CASCADE,
 			hashtag_id TEXT NOT NULL REFERENCES hashtag(id) ON DELETE CASCADE,
 			PRIMARY KEY (post_id, hashtag_id)
+		)
+	`,
+	verification: `
+		CREATE TABLE IF NOT EXISTS verification (
+			id TEXT PRIMARY KEY,
+			identifier TEXT NOT NULL,
+			value TEXT NOT NULL,
+			expiresAt DATETIME NOT NULL,
+			createdAt DATETIME,
+			updatedAt DATETIME
 		)
 	`
 } as const;
