@@ -5,10 +5,17 @@
 	import { auth_client } from '$lib/auth-client';
 	import { normalize_handle } from '$lib';
 	import './styles/navbar.css';
+	import { currentUserImage } from '$lib/auth-client';
 
-	const { current_user_image = null } = $props<{ current_user_image?: string | null }>();
+	const { current_user_image: initial_user_image = null } = $props<{ current_user_image?: string | null }>();
 
 	const session = auth_client.useSession();
+
+	// Override for user image from store (updated after upload)
+	let current_user_image_override = $state<string | null>(null);
+
+	// Use the override if available, otherwise use the prop
+	const display_user_image = $derived(current_user_image_override || initial_user_image);
 
 	let search = $state('');
 	let results = $state<{ id: string; name: string; username: string; image: string | null; verified?: number | boolean }[]>([]);
@@ -135,6 +142,11 @@
 	const notification_badge_text = $derived(
 		unseen_notifications_count > 99 ? '99+' : `${unseen_notifications_count}`
 	);
+
+	// Update the override when the store changes
+	$effect(() => {
+		current_user_image_override = $currentUserImage;
+	});
 </script>
 
 <header class="navbar">
@@ -215,8 +227,8 @@
 		</button>
 
 		<a class="avatar" href={resolve('/profile')} aria-label="View profile">
-			{#if current_user_image || $session.data?.user?.image}
-				<img src={current_user_image || $session.data?.user?.image} alt="user" />
+			{#if display_user_image || $session.data?.user?.image}
+				<img src={display_user_image || $session.data?.user?.image} alt="user" />
 			{:else}
 				<img src="/default-avatar.svg" alt="Default user avatar" class="avatar-fallback" />
 			{/if}
