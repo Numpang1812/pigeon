@@ -188,8 +188,8 @@ export const create_tables_sql = {
 			identifier TEXT NOT NULL,
 			value TEXT NOT NULL,
 			expiresAt DATETIME NOT NULL,
-			createdAt DATETIME,
-			updatedAt DATETIME
+			createdAt DATETIME DEFAULT (datetime('now')),
+			updatedAt DATETIME DEFAULT (datetime('now'))
 		)
 	`
 } as const;

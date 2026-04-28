@@ -53,3 +53,43 @@ export async function send_verification_email(email: string, url: string) {
 		console.error('[Email] SendGrid Error:', err.response?.body || err.message || err);
 	}
 }
+
+export async function send_verification_code(email: string, code: string) {
+	if (!SENDGRID_API_KEY || !FROM_EMAIL) {
+		console.warn('[Email] SendGrid not configured. Code:', code);
+		return;
+	}
+
+	try {
+		const msg = {
+			to: email,
+			from: FROM_EMAIL,
+			subject: `${code} is your Pigeon verification code`,
+			html: `
+				<div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e1e8ed; border-radius: 12px;">
+					<h1 style="color: #1da1f2; margin-bottom: 24px;">Verify your email</h1>
+					<p style="font-size: 16px; color: #14171a; line-height: 1.5;">
+						Use the following 6-digit code to verify your email address on Pigeon. This code will expire in 10 minutes.
+					</p>
+					<div style="margin: 32px 0; text-align: center;">
+						<div style="background-color: #f8f9fa; color: #1da1f2; font-size: 32px; font-weight: bold; letter-spacing: 8px; padding: 16px; border-radius: 8px; display: inline-block; border: 1px dashed #cbd5e1;">
+							${code}
+						</div>
+					</div>
+					<p style="font-size: 14px; color: #657786; line-height: 1.5;">
+						If you did not request this code, you can safely ignore this email.
+					</p>
+					<hr style="border: 0; border-top: 1px solid #e1e8ed; margin: 24px 0;" />
+					<p style="font-size: 12px; color: #aab8c2; text-align: center;">
+						Pigeon &bull; minimalist microblogging
+					</p>
+				</div>
+			`
+		};
+
+		await sgMail.send(msg);
+		console.info(`[Email] SendGrid: Verification code sent to ${email}`);
+	} catch (err: any) {
+		console.error('[Email] SendGrid Error:', err.response?.body || err.message || err);
+	}
+}

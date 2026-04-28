@@ -8,9 +8,10 @@
 	import Toast from '$lib/components/Toast.svelte';
 	import { invalidateAll } from '$app/navigation';
 	import { navigating, page } from '$app/state';
-	import { auth_client } from '$lib/auth-client';
 	import type { LayoutData } from './$types';
 	import { onMount } from 'svelte';
+	import { auth_client } from '$lib/auth-client';
+	import EmailVerificationModal from '$lib/components/EmailVerificationModal.svelte';
 
 	const { children, data } = $props<{ children: import('svelte').Snippet; data: LayoutData }>();
 
@@ -18,6 +19,16 @@
 
 	const is_shell_visible = $derived(data.is_authenticated && ($session.isPending || !!$session.data));
 	const is_session_lost = $derived(data.is_authenticated && !$session.isPending && !$session.data);
+
+	let show_verification_modal = $state(false);
+	
+	$effect(() => {
+		if (data.is_authenticated && !data.email_verified) {
+			show_verification_modal = true;
+		} else {
+			show_verification_modal = false;
+		}
+	});
 
 	let username = $state('');
 	let username_error = $state<string | null>(null);
@@ -131,6 +142,19 @@
 				</form>
 			</div>
 		</div>
+	{/if}
+
+	{#if show_verification_modal && data.user_email}
+		<EmailVerificationModal 
+			email={data.user_email} 
+			onVerified={async () => {
+				await invalidateAll();
+				show_verification_modal = false;
+			}}
+			onGoBack={() => {
+				show_verification_modal = false;
+			}}
+		/>
 	{/if}
 {:else if is_session_lost}
 	<UnauthenticatedPrompt />
