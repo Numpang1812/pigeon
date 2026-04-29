@@ -3,6 +3,7 @@
 	import favicon from '$lib/assets/favicon.svg';
 	import Navbar from '$lib/components/Navbar.svelte';
 	import Sidebar from '$lib/components/Sidebar.svelte';
+	import BottomNav from '$lib/components/BottomNav.svelte';
 	import UnauthenticatedPrompt from '$lib/components/UnauthenticatedPrompt.svelte';
 	import ProfileLoadingSkeleton from '$lib/components/profile/ProfileLoadingSkeleton.svelte';
 	import Toast from '$lib/components/Toast.svelte';
@@ -111,6 +112,7 @@
 				{@render children()}
 			{/if}
 		</main>
+		<BottomNav />
 	</div>
 
 	{#if data.username_required}
@@ -147,11 +149,8 @@
 	{#if show_verification_modal && data.user_email}
 		<EmailVerificationModal 
 			email={data.user_email} 
-			onVerified={async () => {
+			on_verified={async () => {
 				await invalidateAll();
-				show_verification_modal = false;
-			}}
-			onGoBack={() => {
 				show_verification_modal = false;
 			}}
 		/>
@@ -163,7 +162,7 @@
 {/if}
 
 {#if toast_message}
-	<Toast message={toast_message} type={toast_type} onClose={close_toast} />
+	<Toast message={toast_message} type={toast_type} on_close={close_toast} />
 {/if}
 
 <style>

@@ -7,15 +7,15 @@
 		message: string;
 		type?: 'success' | 'error';
 		duration?: number;
-		onClose: () => void;
+		on_close: () => void;
 	}
 
-	const { message, type = 'success', duration = 5000, onClose }: Props = $props();
+	const { message, type = 'success', duration = 5000, on_close }: Props = $props();
 
 	onMount(() => {
 		if (duration > 0) {
 			const timer = setTimeout(() => {
-				onClose();
+				on_close();
 			}, duration);
 			return () => clearTimeout(timer);
 		}
@@ -36,7 +36,7 @@
 			{/if}
 		</div>
 		<p class="message">{message}</p>
-		<button class="close-btn" onclick={onClose} aria-label="Close notification">
+		<button class="close-btn" onclick={on_close} aria-label="Close notification">
 			<X size={16} />
 		</button>
 	</div>

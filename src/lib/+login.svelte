@@ -578,20 +578,7 @@
 		cursor: not-allowed;
 	}
 
-	/* ---- Forgot link -------------------------------------------------- */
-	.forgot-link {
-		display: inline-block;
-		font-size: 0.8125rem;
-		color: var(--blue-primary);
-		text-decoration: none;
-		margin-bottom: 24px;
-		transition: color var(--transition);
-	}
 
-	.forgot-link:hover {
-		color: var(--blue-secondary);
-		text-decoration: underline;
-	}
 
 	/* ---- Primary button ----------------------------------------------- */
 	.btn-primary {

@@ -5,14 +5,14 @@
 	import { auth_client } from '$lib/auth-client';
 	import { normalize_handle } from '$lib';
 	import './styles/navbar.css';
-	import { currentUserImage } from '$lib/auth-client';
+	import { current_user_image } from '$lib/auth-client';
 
 	const { current_user_image: initial_user_image = null } = $props<{ current_user_image?: string | null }>();
 
 	const session = auth_client.useSession();
 
 	// Override for user image from store (updated after upload)
-	let current_user_image_override = $state<string | null>(null);
+	const current_user_image_override = $derived($current_user_image);
 
 	// Use the override if available, otherwise use the prop
 	const display_user_image = $derived(current_user_image_override || initial_user_image);
@@ -143,10 +143,7 @@
 		unseen_notifications_count > 99 ? '99+' : `${unseen_notifications_count}`
 	);
 
-	// Update the override when the store changes
-	$effect(() => {
-		current_user_image_override = $currentUserImage;
-	});
+
 </script>
 
 <header class="navbar">

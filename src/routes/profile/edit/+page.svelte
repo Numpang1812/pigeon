@@ -1,13 +1,13 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { goto } from '$app/navigation';
-	import type { ActionData, PageData } from './$types';
+	import type { PageData } from './$types';
 	import { resolve } from '$app/paths';
 	import { auth_client } from '$lib/auth-client';
 	import { ArrowLeft, Camera, KeyRound, Trash2, AlertTriangle, Loader2 } from 'lucide-svelte';
 	import AvatarUploader from '$lib/components/AvatarUploader.svelte';
 
-	const { data, form } = $props<{ data: PageData; form: ActionData }>();
+	const { data } = $props<{ data: PageData }>();
 
 	const profile = $state((() => ({ ...data.profile }))());
 	let active_tab = $state<'profile' | 'security'>('profile');
@@ -27,18 +27,13 @@
 	let current_password = $state('');
 	let new_password = $state('');
 	let confirm_password = $state('');
-	let password_error = $state('');
 
 	function handle_password_submit() {
-		password_error = '';
-
 		if (new_password !== confirm_password) {
-			password_error = 'Your passwords don\'t match';
 			return;
 		}
 
 		if (current_password === new_password) {
-			password_error = 'Cannot change into the same password';
 			return;
 		}
 	}
@@ -61,7 +56,7 @@
 
 	// Handle form submission with toasts
 	const handle_enhance = () => {
-		return async ({ result, update }: { result: any; update: any }) => {
+		return async ({ result, update }: { result: import('@sveltejs/kit').ActionResult; update: (options?: { reset?: boolean; invalidateAll?: boolean }) => Promise<void> }) => {
 			if (result.type === 'success') {
 				const message = result.data?.message || 'Profile updated successfully';
 				// Redirect to profile with success toast
@@ -130,9 +125,9 @@
 					method="POST"
 					action="?/profile"
 					use:enhance={() => {
-						return async ({ result, update }) => {
+						return async ({ result, update }: { result: import('@sveltejs/kit').ActionResult; update: (options?: { reset?: boolean; invalidateAll?: boolean }) => Promise<void> }) => {
 							if (result.type === 'success') {
-								const message = result.data?.message || 'Profile updated successfully';
+								const message = String(result.data?.message || 'Profile updated successfully');
 								await goto(resolve(`/profile/${profile.username}?toast=${encodeURIComponent(message)}&toast_type=success`));
 								return;
 							}

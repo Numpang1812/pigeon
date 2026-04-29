@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import { ArrowLeft, Home, Search, Bell, User, Edit, LogOut, Menu } from 'lucide-svelte';
+	import { ArrowLeft, Home, Search, Bell, User, Edit, LogOut, Menu, Info } from 'lucide-svelte';
 	import { fly } from 'svelte/transition';
 	import './styles/sidebar.css';
 	import { auth_client } from '$lib/auth-client';
 
-	type AppRoute = '/' | '/home' | '/explore' | '/profile' | '/notifications' | '/compose';
+	type AppRoute = '/' | '/home' | '/explore' | '/profile' | '/notifications' | '/compose' | '/credits';
 
 	const current_path = $derived(page.url.pathname);
 
@@ -16,7 +16,8 @@
 			path === '/explore' ||
 			path === '/notifications' ||
 			path === '/profile' ||
-			path === '/profile/edit'
+			path === '/profile/edit' ||
+			path === '/credits'
 		);
 	}
 
@@ -45,7 +46,8 @@
 		{ label: 'Home', icon: Home, href: '/home' },
 		{ label: 'Explore', icon: Search, href: '/explore' },
 		{ label: 'Notifications', icon: Bell, href: '/notifications' },
-		{ label: 'Profile', icon: User, href: '/profile' }
+		{ label: 'Profile', icon: User, href: '/profile' },
+		{ label: 'About', icon: Info, href: '/credits' }
 	] as const satisfies ReadonlyArray<{
 		label: string;
 		icon: typeof Home;
@@ -246,7 +248,8 @@
 			<a
 				class="nav-item nav-item-{index}"
 				class:active={is_active(item.href)}
-				href={resolve(item.href)}
+				/* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+				href={resolve(item.href as any)}
 				aria-label={item.label}
 				aria-current={is_active(item.href) ? 'page' : undefined}
 			>

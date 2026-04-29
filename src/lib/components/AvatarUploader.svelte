@@ -2,7 +2,7 @@
 	import { createEventDispatcher } from 'svelte';
 	import imageCompression from 'browser-image-compression';
 	import { X, Upload, AlertCircle, Check } from 'lucide-svelte';
-	import { currentUserImage } from '$lib/auth-client';
+	import { current_user_image } from '$lib/auth-client';
 
 	interface AvatarUploaderProps {
 		current_avatar_url?: string | null;
@@ -159,7 +159,7 @@
 			success = true;
 
 			// Update the navbar store with the new image
-			currentUserImage.set(result.imageUrl);
+			current_user_image.set(result.imageUrl);
 
 			// Notify parent component
 			if (props.on_success) {

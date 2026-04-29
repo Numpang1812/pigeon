@@ -1,0 +1,67 @@
+.bottom-nav {
+	display: none;
+	position: fixed;
+	bottom: 0;
+	left: 0;
+	right: 0;
+	height: 64px;
+	background: rgba(255, 255, 255, 0.85);
+	backdrop-filter: blur(12px);
+	border-top: 1px solid #e1e8ed;
+	z-index: 1000;
+	justify-content: space-around;
+	align-items: center;
+	padding-bottom: env(safe-area-inset-bottom);
+}
+
+@media (max-width: 900px) {
+	.bottom-nav {
+		display: flex;
+	}
+}
+
+.bottom-nav-item {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	color: #64748b;
+	text-decoration: none;
+	flex: 1;
+	height: 100%;
+	gap: 2px;
+	transition: all 0.2s ease;
+}
+
+.bottom-nav-item.active {
+	color: #0ea5e9;
+}
+
+.bottom-nav-item.center-item {
+	color: #0ea5e9;
+	transform: translateY(-2px);
+}
+
+.bottom-nav-item .icon {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.bottom-nav-item .bottom-nav-label {
+	font-size: 10px;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	font-weight: 600;
+}
+
+/* Adjust main content padding to account for bottom nav on mobile */
+:global(.page-content) {
+	padding-bottom: 80px !important;
+}
+
+@media (min-width: 901px) {
+	:global(.page-content) {
+		padding-bottom: 1.5rem !important;
+	}
+}
