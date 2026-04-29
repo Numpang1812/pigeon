@@ -3,6 +3,7 @@
 	import favicon from '$lib/assets/favicon.svg';
 	import Navbar from '$lib/components/Navbar.svelte';
 	import Sidebar from '$lib/components/Sidebar.svelte';
+	import BottomNav from '$lib/components/BottomNav.svelte';
 	import UnauthenticatedPrompt from '$lib/components/UnauthenticatedPrompt.svelte';
 	import ProfileLoadingSkeleton from '$lib/components/profile/ProfileLoadingSkeleton.svelte';
 	import Toast from '$lib/components/Toast.svelte';
@@ -111,6 +112,7 @@
 				{@render children()}
 			{/if}
 		</main>
+		<BottomNav />
 	</div>
 
 	{#if data.username_required}
