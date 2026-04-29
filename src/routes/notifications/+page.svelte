@@ -88,21 +88,11 @@
 			.filter((section) => section.items.length > 0);
 	}
 
-	const virtual_grouped_notifications = $derived.by(() => {
-		const grouped = grouped_notifications_array(filtered_notifications);
+	function get_visible_range(flat_items: Array<{ item: NotificationItem }>) {
 		let current_y = 0;
 		let start_index = -1;
 		let end_index = -1;
-		const flat_items: Array<{ item: NotificationItem; group: GroupedNotification }> = [];
 
-		// Flatten with group references
-		for (const group of grouped) {
-			for (const item of group.items) {
-				flat_items.push({ item, group });
-			}
-		}
-
-		// Find visible range
 		for (let i = 0; i < flat_items.length; i++) {
 			const h = height_cache[flat_items[i].item.id] ?? estimated_height;
 			if (start_index === -1 && current_y + h > scroll_top) {
@@ -115,21 +105,39 @@
 			current_y += h;
 		}
 
-		if (start_index === -1) start_index = 0;
-		if (end_index === -1) end_index = flat_items.length - 1;
+		return {
+			start_index: start_index === -1 ? 0 : start_index,
+			end_index: end_index === -1 ? flat_items.length - 1 : end_index
+		};
+	}
 
-		// Calculate spacers
+	function calculate_spacers(flat_items: Array<{ item: NotificationItem }>, start: number, end: number) {
 		let top_spacer = 0;
-		for (let i = 0; i < start_index; i++) {
+		for (let i = 0; i < start; i++) {
 			top_spacer += height_cache[flat_items[i].item.id] ?? estimated_height;
 		}
 
 		let bottom_spacer = 0;
-		for (let i = end_index + 1; i < flat_items.length; i++) {
+		for (let i = end + 1; i < flat_items.length; i++) {
 			bottom_spacer += height_cache[flat_items[i].item.id] ?? estimated_height;
 		}
 
-		// Rebuild grouped structure for visible items
+		return { top_spacer, bottom_spacer };
+	}
+
+	const virtual_grouped_notifications = $derived.by(() => {
+		const grouped = grouped_notifications_array(filtered_notifications);
+		const flat_items: Array<{ item: NotificationItem; group: GroupedNotification }> = [];
+
+		for (const group of grouped) {
+			for (const item of group.items) {
+				flat_items.push({ item, group });
+			}
+		}
+
+		const { start_index, end_index } = get_visible_range(flat_items);
+		const { top_spacer, bottom_spacer } = calculate_spacers(flat_items, start_index, end_index);
+
 		const visible_flat = flat_items.slice(start_index, end_index + 1);
 		const result_groups: GroupedNotification[] = [];
 		let current_group: GroupedNotification | null = null;
@@ -615,9 +623,7 @@
 		font-weight: 600;
 	}
 
-	.loading-indicator .spinner {
-		animation: spin 1s linear infinite;
-	}
+
 
 	@keyframes spin {
 		from {

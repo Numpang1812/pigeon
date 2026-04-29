@@ -1,27 +1,27 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { fade, scale } from 'svelte/transition';
-	import { Mail, ArrowLeft, RefreshCw, CheckCircle2, AlertCircle, X } from 'lucide-svelte';
+	import { Mail, ArrowLeft, RefreshCw, CheckCircle2, AlertCircle } from 'lucide-svelte';
 	import { auth_client } from '$lib/auth-client';
 
-	let { email, onVerified, onGoBack } = $props<{
+	const { email, on_verified } = $props<{
 		email: string;
-		onVerified: () => void;
-		onGoBack: () => void;
+		on_verified: () => void;
 	}>();
 
-	type State = 'prompt' | 'code' | 'change-email' | 'success';
-	let state = $state<State>('prompt');
+	type VerificationState = 'prompt' | 'code' | 'change-email' | 'success';
+	let current_state = $state<VerificationState>('prompt');
 	let code = $state(['', '', '', '', '', '']);
-	let newEmail = $state(email);
+	// svelte-ignore state_referenced_locally
+	let new_email = $state(email);
 	let loading = $state(false);
 	let error = $state<string | null>(null);
-	let resendCooldown = $state(0);
-	let resendTimer: any;
+	let resend_cooldown = $state(0);
+	let resend_timer: ReturnType<typeof setInterval> | undefined;
 
 	const inputs = $state<HTMLInputElement[]>([]);
 
-	function handleInput(i: number, e: Event) {
+	function handle_input(i: number, e: Event) {
 		const target = e.target as HTMLInputElement;
 		const val = target.value;
 		
@@ -31,8 +31,8 @@
 			digits.forEach((d, idx) => {
 				if (i + idx < 6) code[i + idx] = d;
 			});
-			const nextIdx = Math.min(i + digits.length, 5);
-			inputs[nextIdx]?.focus();
+			const next_idx = Math.min(i + digits.length, 5);
+			inputs[next_idx]?.focus();
 		} else {
 			code[i] = val;
 			if (val && i < 5) {
@@ -41,30 +41,30 @@
 		}
 	}
 
-	function handleKeyDown(i: number, e: KeyboardEvent) {
+	function handle_key_down(i: number, e: KeyboardEvent) {
 		if (e.key === 'Backspace' && !code[i] && i > 0) {
 			inputs[i - 1]?.focus();
 		}
 	}
 
-	async function sendCode() {
+	async function send_code() {
 		loading = true;
 		error = null;
 		try {
 			const res = await fetch('/api/verification', { method: 'POST' });
 			if (!res.ok) throw new Error('Failed to send code');
-			state = 'code';
-			startResendTimer();
-		} catch (err: any) {
-			error = err.message;
+			current_state = 'code';
+			start_resend_timer();
+		} catch (err: unknown) {
+			error = err instanceof Error ? err.message : String(err);
 		} finally {
 			loading = false;
 		}
 	}
 
-	async function verifyCode() {
-		const fullCode = code.join('');
-		if (fullCode.length !== 6) return;
+	async function verify_code() {
+		const full_code = code.join('');
+		if (full_code.length !== 6) return;
 
 		loading = true;
 		error = null;
@@ -72,17 +72,17 @@
 			const res = await fetch('/api/verification', {
 				method: 'PATCH',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ code: fullCode })
+				body: JSON.stringify({ code: full_code })
 			});
 			const data = await res.json();
 			if (!res.ok) throw new Error(data.error || 'Invalid code');
 			
-			state = 'success';
+			current_state = 'success';
 			setTimeout(() => {
-				onVerified();
+				on_verified();
 			}, 1500);
-		} catch (err: any) {
-			error = err.message;
+		} catch (err: unknown) {
+			error = err instanceof Error ? err.message : String(err);
 			code = ['', '', '', '', '', ''];
 			inputs[0]?.focus();
 		} finally {
@@ -90,8 +90,8 @@
 		}
 	}
 
-	async function changeEmail() {
-		if (!newEmail || !newEmail.includes('@')) {
+	async function change_email() {
+		if (!new_email || !new_email.includes('@')) {
 			error = 'Please enter a valid email address';
 			return;
 		}
@@ -102,30 +102,30 @@
 			const res = await fetch('/api/verification', {
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ email: newEmail })
+				body: JSON.stringify({ email: new_email })
 			});
 			const data = await res.json();
 			if (!res.ok) throw new Error(data.error || 'Failed to update email');
 			
-			state = 'code';
-			startResendTimer();
-		} catch (err: any) {
-			error = err.message;
+			current_state = 'code';
+			start_resend_timer();
+		} catch (err: unknown) {
+			error = err instanceof Error ? err.message : String(err);
 		} finally {
 			loading = false;
 		}
 	}
 
-	function startResendTimer() {
-		resendCooldown = 60;
-		if (resendTimer) clearInterval(resendTimer);
-		resendTimer = setInterval(() => {
-			resendCooldown--;
-			if (resendCooldown <= 0) clearInterval(resendTimer);
+	function start_resend_timer() {
+		resend_cooldown = 60;
+		if (resend_timer) clearInterval(resend_timer);
+		resend_timer = setInterval(() => {
+			resend_cooldown--;
+			if (resend_cooldown <= 0) clearInterval(resend_timer);
 		}, 1000);
 	}
 
-	async function handleSignOut() {
+	async function handle_sign_out() {
 		try {
 			await auth_client.signOut();
 			window.location.href = '/';
@@ -136,14 +136,14 @@
 	}
 
 	$effect(() => {
-		if (state === 'code' && inputs[0]) {
+		if (current_state === 'code' && inputs[0]) {
 			setTimeout(() => inputs[0].focus(), 100);
 		}
 	});
 
 	onMount(() => {
 		return () => {
-			if (resendTimer) clearInterval(resendTimer);
+			if (resend_timer) clearInterval(resend_timer);
 		};
 	});
 </script>
@@ -153,94 +153,94 @@
 	
 	<div class="panel" transition:scale={{ duration: 300, start: 0.95, opacity: 0 }}>
 		<div class="content">
-			{#if state === 'prompt'}
+			{#if current_state === 'prompt'}
 				<div class="icon-circle">
 					<Mail size={32} class="icon" />
 				</div>
 				<h2>Verify your email</h2>
 				<p>Your account is currently unverified. Please verify your email to unlock all features.</p>
 				<p class="email-display"><strong>{email}</strong></p>
-
+ 
 				<div class="actions">
-					<button class="btn-primary" onclick={sendCode} disabled={loading}>
+					<button class="btn-primary" onclick={send_code} disabled={loading}>
 						{loading ? 'Sending...' : 'Verify now'}
 					</button>
-					<button class="btn-text" onclick={() => state = 'change-email'}>
+					<button class="btn-text" onclick={() => current_state = 'change-email'}>
 						Change email address
 					</button>
-					<button class="btn-ghost" onclick={handleSignOut}>
+					<button class="btn-ghost" onclick={handle_sign_out}>
 						Back to Login
 					</button>
 				</div>
-			{:else if state === 'code'}
-				<button class="back-btn" onclick={() => state = 'prompt'}>
+			{:else if current_state === 'code'}
+				<button class="back-btn" onclick={() => current_state = 'prompt'}>
 					<ArrowLeft size={20} />
 				</button>
 				<h2>Enter verification code</h2>
-				<p>We sent a 6-digit code to <strong>{newEmail}</strong>. Enter it below to verify.</p>
-
+				<p>We sent a 6-digit code to <strong>{new_email}</strong>. Enter it below to verify.</p>
+ 
 				<div class="code-inputs">
-					{#each code as _, i}
+					{#each code as digit, i (i)}
 						<input
 							bind:this={inputs[i]}
 							type="text"
 							maxlength="6"
 							inputmode="numeric"
 							pattern="[0-9]*"
-							value={code[i]}
-							oninput={(e) => handleInput(i, e)}
-							onkeydown={(e) => handleKeyDown(i, e)}
+							value={digit}
+							oninput={(e) => handle_input(i, e)}
+							onkeydown={(e) => handle_key_down(i, e)}
 							disabled={loading}
 						/>
 					{/each}
 				</div>
-
+ 
 				{#if error}
 					<p class="error-msg"><AlertCircle size={14} /> {error}</p>
 				{/if}
-
+ 
 				<div class="actions">
-					<button class="btn-primary" onclick={verifyCode} disabled={loading || code.join('').length !== 6}>
+					<button class="btn-primary" onclick={verify_code} disabled={loading || code.join('').length !== 6}>
 						{loading ? 'Verifying...' : 'Verify code'}
 					</button>
 					<div class="resend-info">
-						{#if resendCooldown > 0}
-							<p>Resend code in {resendCooldown}s</p>
+						{#if resend_cooldown > 0}
+							<p>Resend code in {resend_cooldown}s</p>
 						{:else}
-							<button class="btn-text" onclick={sendCode} disabled={loading}>
+							<button class="btn-text" onclick={send_code} disabled={loading}>
 								<RefreshCw size={14} /> Resend code
 							</button>
 						{/if}
 					</div>
 				</div>
-			{:else if state === 'change-email'}
-				<button class="back-btn" onclick={() => state = 'prompt'}>
+			{:else if current_state === 'change-email'}
+				<button class="back-btn" onclick={() => current_state = 'prompt'}>
 					<ArrowLeft size={20} />
 				</button>
 				<h2>Change email</h2>
 				<p>Enter the new email address you'd like to use for your account.</p>
-
+ 
 				<div class="input-group">
 					<label for="new-email">New Email Address</label>
 					<input
 						id="new-email"
 						type="email"
-						bind:value={newEmail}
+						bind:value={new_email}
 						placeholder="name@example.com"
 						disabled={loading}
 					/>
 				</div>
-
+ 
 				{#if error}
 					<p class="error-msg"><AlertCircle size={14} /> {error}</p>
 				{/if}
-
+ 
 				<div class="actions">
-					<button class="btn-primary" onclick={changeEmail} disabled={loading || !newEmail}>
+					<button class="btn-primary" onclick={change_email} disabled={loading || !new_email}>
 						{loading ? 'Updating...' : 'Update and send code'}
 					</button>
 				</div>
-			{:else if state === 'success'}
+			{:else if current_state === 'success'}
 				<div class="icon-circle success">
 					<CheckCircle2 size={48} class="icon" />
 				</div>

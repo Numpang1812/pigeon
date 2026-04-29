@@ -4,38 +4,16 @@
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
 	import type { PageData } from './$types';
 	import { onMount } from 'svelte';
-	import {Sparkles} from 'lucide-svelte';
+	import { Sparkles } from 'lucide-svelte';
+	import type { PostData } from '$lib/types';
 
 	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	const { data } = $props<{ data: PageData }>();
 
-	type FeedPost = {
-		id: string;
-		post_tag: string;
-		post_tags?: string[];
-		posted_at: string;
-		content: string;
-		audience?: string;
-		author_name: string;
-		author_handle: string;
-		author_bio?: string;
-		avatar_url?: string;
-		verified?: boolean;
-		metrics?: {
-			likes?: number;
-			dislikes?: number;
-			reposts?: number;
-		};
-		user_liked?: boolean;
-		user_disliked?: boolean;
-		user_reposted?: boolean;
-		is_author?: boolean;
-		is_edited?: boolean;
-		created_at?: string;
-	};
+
 
 	// --- State ---
-	let feed_posts = $state<FeedPost[]>([]);
+	let feed_posts = $state<PostData[]>([]);
 	let loading = $state(true);
 	let fetching_more = $state(false);
 	let has_more = $state(true);
@@ -137,7 +115,7 @@
 				} else {
 					// Deduplicate to prevent Svelte each block crash from shifting DB rows
 					const existing_ids = new Set(feed_posts.map(p => p.id));
-					const unique_new_posts = new_posts.filter((p: FeedPost) => !existing_ids.has(p.id));
+					const unique_new_posts = new_posts.filter((p: PostData) => !existing_ids.has(p.id));
 					feed_posts = [...feed_posts, ...unique_new_posts];
 				}
 
@@ -205,7 +183,7 @@
 		}
 	}
 
-	async function handle_post_submit(_payload: any, post?: any): Promise<void> {
+	async function handle_post_submit(_payload: { content: string; audience: string; post_tag: string; post_tags: string[]; allowed_user_ids: string[] }, post?: PostData): Promise<void> {
 		await load_posts(true);
 		if (post?.id) {
 			window.location.hash = `post-${post.id}`;
@@ -213,7 +191,6 @@
 			setTimeout(() => scroll_to_hash_post(0), 100);
 		}
 	}
-
 	function handle_metric_change(
 		post_id: string,
 		type: 'like' | 'dislike' | 'repost',

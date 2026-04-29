@@ -1,21 +1,21 @@
 import { env } from '$env/dynamic/private';
 import sgMail from '@sendgrid/mail';
 
-const SENDGRID_API_KEY = env.SENDGRID_API_KEY;
-const FROM_EMAIL = env.EMAIL_FROM;
+const sendgrid_api_key = env.SENDGRID_API_KEY;
+const from_email = env.EMAIL_FROM;
 
-if (SENDGRID_API_KEY) {
-	sgMail.setApiKey(SENDGRID_API_KEY);
+if (sendgrid_api_key) {
+	sgMail.setApiKey(sendgrid_api_key);
 }
 
 export async function send_verification_email(email: string, url: string) {
-	if (!SENDGRID_API_KEY) {
+	if (!sendgrid_api_key) {
 		console.warn('[Email] SENDGRID_API_KEY is not set. Email verification will not work.');
 		console.info(`[Email] Verification URL for ${email}: ${url}`);
 		return;
 	}
 
-	if (!FROM_EMAIL) {
+	if (!from_email) {
 		console.error('[Email] EMAIL_FROM is not set. SendGrid requires a verified sender email.');
 		return;
 	}
@@ -23,7 +23,7 @@ export async function send_verification_email(email: string, url: string) {
 	try {
 		const msg = {
 			to: email,
-			from: FROM_EMAIL,
+			from: from_email,
 			subject: 'Verify your email address',
 			html: `
 				<div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e1e8ed; border-radius: 12px;">
@@ -49,13 +49,14 @@ export async function send_verification_email(email: string, url: string) {
 
 		await sgMail.send(msg);
 		console.info(`[Email] SendGrid: Verification email sent successfully to ${email}`);
-	} catch (err: any) {
-		console.error('[Email] SendGrid Error:', err.response?.body || err.message || err);
+	} catch (err: unknown) {
+		const error = err as { response?: { body?: unknown }; message?: string };
+		console.error('[Email] SendGrid Error:', error.response?.body || error.message || error);
 	}
 }
 
 export async function send_verification_code(email: string, code: string) {
-	if (!SENDGRID_API_KEY || !FROM_EMAIL) {
+	if (!sendgrid_api_key || !from_email) {
 		console.warn('[Email] SendGrid not configured. Code:', code);
 		return;
 	}
@@ -63,7 +64,7 @@ export async function send_verification_code(email: string, code: string) {
 	try {
 		const msg = {
 			to: email,
-			from: FROM_EMAIL,
+			from: from_email,
 			subject: `${code} is your Pigeon verification code`,
 			html: `
 				<div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e1e8ed; border-radius: 12px;">
@@ -89,7 +90,8 @@ export async function send_verification_code(email: string, code: string) {
 
 		await sgMail.send(msg);
 		console.info(`[Email] SendGrid: Verification code sent to ${email}`);
-	} catch (err: any) {
-		console.error('[Email] SendGrid Error:', err.response?.body || err.message || err);
+	} catch (err: unknown) {
+		const error = err as { response?: { body?: unknown }; message?: string };
+		console.error('[Email] SendGrid Error:', error.response?.body || error.message || error);
 	}
 }

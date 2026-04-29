@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { invalidateAll } from '$app/navigation';
+
 	import SsoButton from '$lib/components/SsoButton.svelte';
 	import { auth_client } from '$lib/auth-client';
 
@@ -30,7 +30,8 @@
 		loading = true;
 
 		try {
-			const { error: auth_error } = await auth_client.signUp.email({
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const { error: auth_error } = await (auth_client.signUp.email as any)({
 				email: email,
 				password: password,
 				name: name,

@@ -3,33 +3,13 @@
 	import { resolve } from '$app/paths';
 	import { normalize_handle } from '$lib';
 	import { limit_post_tags } from '$lib/post-tags';
-	import { onDestroy } from 'svelte';
+	import { onDestroy, untrack } from 'svelte';
 	import { fly } from 'svelte/transition';
 
-	type PostMetrics = {
-		likes?: number;
-		dislikes?: number;
-		reposts?: number;
-	};
-
-	interface PostProps {
+	import type { PostData } from '$lib/types';
+ 
+	interface PostProps extends Omit<PostData, 'id'> {
 		post_id: string;
-		post_tag: string;
-		post_tags?: string[];
-		posted_at: string;
-		content: string;
-		audience?: string;
-		author_name: string;
-		author_handle: string;
-		author_bio?: string;
-		avatar_url?: string;
-		verified?: boolean;
-		metrics?: PostMetrics;
-		user_liked?: boolean;
-		user_disliked?: boolean;
-		user_reposted?: boolean;
-		is_author?: boolean;
-		is_edited?: boolean;
 		on_metric_change?: (post_id: string, type: 'like' | 'dislike' | 'repost', new_metrics: {
 			likes: number;
 			dislikes: number;
@@ -57,12 +37,19 @@
 	const audience_label = $derived(props.audience ? audience_labels[props.audience] ?? props.audience : '');
 
 	// Local state for optimistic UI updates - initialize from props
-	let local_liked = $state(props.user_liked ?? false);
-	let local_disliked = $state(props.user_disliked ?? false);
-	let local_reposted = $state(props.user_reposted ?? false);
-	let local_like_count = $state(props.metrics?.likes ?? 0);
-	let local_dislike_count = $state(props.metrics?.dislikes ?? 0);
-	let local_repost_count = $state(props.metrics?.reposts ?? 0);
+	const initial_liked = untrack(() => props.user_liked ?? false);
+	const initial_disliked = untrack(() => props.user_disliked ?? false);
+	const initial_reposted = untrack(() => props.user_reposted ?? false);
+	const initial_likes = untrack(() => props.metrics?.likes ?? 0);
+	const initial_dislikes = untrack(() => props.metrics?.dislikes ?? 0);
+	const initial_reposts = untrack(() => props.metrics?.reposts ?? 0);
+
+	let local_liked = $state(initial_liked);
+	let local_disliked = $state(initial_disliked);
+	let local_reposted = $state(initial_reposted);
+	let local_like_count = $state(initial_likes);
+	let local_dislike_count = $state(initial_dislikes);
+	let local_repost_count = $state(initial_reposts);
 
 	const liked = $derived(local_liked);
 	const disliked = $derived(local_disliked);

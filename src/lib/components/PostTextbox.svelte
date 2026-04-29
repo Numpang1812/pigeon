@@ -11,6 +11,8 @@
 	import { tick } from 'svelte';
 	import { extract_post_tags, max_post_tags, strip_detected_tags_from_content } from '$lib/post-tags';
 
+	import type { PostData } from '$lib/types';
+
 	interface PostTextboxProps {
 		placeholder?: string;
 		button_label?: string;
@@ -23,7 +25,7 @@
 				post_tags: string[];
 				allowed_user_ids: string[];
 			},
-			post?: any
+			post?: PostData
 		) => void;
 	}
 

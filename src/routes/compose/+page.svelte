@@ -3,11 +3,14 @@
 	import { PostTextbox } from '$lib';
 	import { PenTool, Sparkles } from 'lucide-svelte';
 
-	async function handle_submit(_payload: any, post?: any) {
+	import type { PostData } from '$lib/types';
+	import { resolve } from '$app/paths';
+
+	async function handle_submit(_payload: { content: string; audience: string; post_tag: string; post_tags: string[]; allowed_user_ids: string[] }, post?: PostData) {
 		if (post?.id) {
-			await goto(`/home#post-${post.id}`);
+			await goto(resolve(`/home#post-${post.id}`));
 		} else {
-			await goto('/home');
+			await goto(resolve('/home'));
 		}
 	}
 </script>

@@ -147,11 +147,8 @@
 	{#if show_verification_modal && data.user_email}
 		<EmailVerificationModal 
 			email={data.user_email} 
-			onVerified={async () => {
+			on_verified={async () => {
 				await invalidateAll();
-				show_verification_modal = false;
-			}}
-			onGoBack={() => {
 				show_verification_modal = false;
 			}}
 		/>
@@ -163,7 +160,7 @@
 {/if}
 
 {#if toast_message}
-	<Toast message={toast_message} type={toast_type} onClose={close_toast} />
+	<Toast message={toast_message} type={toast_type} on_close={close_toast} />
 {/if}
 
 <style>

@@ -9,9 +9,11 @@
 		on_close: () => void;
 	}
 
+	import type { PostData } from '$lib/types';
+
 	const { post_id, on_close }: Props = $props();
 
-	let post_data = $state<any>(null);
+	let post_data = $state<PostData | null>(null);
 	let loading = $state(true);
 	let error = $state<string | null>(null);
 
@@ -52,10 +54,12 @@
 <div
 	class="modal-backdrop"
 	onclick={handle_backdrop_click}
+	onkeydown={(e) => { if (e.key === 'Escape' || e.key === 'Enter') handle_backdrop_click(e as unknown as MouseEvent); }}
 	transition:fade={{ duration: 200 }}
 	role="dialog"
 	aria-modal="true"
 	aria-label="Post details modal"
+	tabindex="-1"
 >
 	<div class="modal-container" transition:scale={{ duration: 200, start: 0.95 }}>
 		<header class="modal-header">
@@ -180,11 +184,6 @@
 		padding: 4rem 2rem;
 		gap: 1rem;
 		color: #64748b;
-	}
-
-	.spinner {
-		animation: spin 1s linear infinite;
-		color: #0ea5e9;
 	}
 
 	@keyframes spin {
