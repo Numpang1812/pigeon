@@ -81,6 +81,7 @@ export async function ensure_schema(): Promise<void> {
 				await handle_index_creation(sql);
 			}
 
+
 			if (is_dev) {
 				console.info('[DB Schema] All indexes verified');
 				console.info('[DB Schema] ========== DATABASE INITIALIZATION COMPLETE ✅ ==========');

@@ -21,7 +21,7 @@
 			fallback_name: 'Sam Chen',
 			fallback_image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBhviNO3_tqFBcKhR20hHa37bIlVbNPvqyfmRHHOHia47xJJfkjzrwHp1UlzCI0s28KR8x3pd3brxZTrMjMI78WwFYwZoD8yKk-NvAjuovK5p0OEf5IBlAzeEKJQaD8iZnzzLg2KTx85P8-jloWTG4WC4CGM9-n1H46O9xLphDXbtcFkAqME90KZU26oHsQTYfqCi-7pJDdaXix9C6HSH2VPCYDCzhJn0xAWf7pawvsP8qwUrlMtWiObd6fd8y8weNg1Y8DZovJLDU',
 			icon: Palette,
-			contributions: ['UI/UX Design', 'Testing', 'Social Features', 'Tags Features', 'Status Posting Features', 'Quality Assurance', 'DevOps', 'Bugs Fixing']
+			contributions: ['UX/UI Design', 'Testing', 'Social Features', 'Tags Features', 'Status Posting Features', 'Quality Assurance', 'DevOps', 'Bugs Fixing']
 		},
 		{
 			username: 'neath',
@@ -29,7 +29,7 @@
 			fallback_name: 'Jordan Smith',
 			fallback_image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuD8H885Ov3ACNKomZLwutH_fpSHYCBNFM9Ph5BBLp6RX1Z02CeYpb05eNvMWXwkX41ORtBqtQ5O4WC9iYj19AZ_Zpgwl6R7UeC001cPrnoRDg_x2AoKQID2Hb0eD2kl59zYxKIV9W9CmjsACxvRZXtwpJLX9G097A5lyqM7O_BfFj-xknf4Dc9EaWYNzKUBwbrKx30chNTAwsvt1g9Pm1fD3stceBtP1_hu5HljgD60dNg_1--SS1rrRmM1e6LHo7iUMAD86H_xyh8',
 			icon: Terminal,
-			contributions: ['UI/UX Design', 'Notifications System', 'Real-time Features', 'Loading States', 'Responsive Design', 'Followers & Following Features']
+			contributions: ['UX/UI Design', 'Notifications System', 'Real-time Features', 'Loading States', 'Responsive Design', 'Followers & Following Features']
 		},
 		{
 			username: 'leak',
@@ -89,7 +89,7 @@
 			<Users size={32} class="text-sky-500" />
 		</div>
 		<div class="header-text">
-			<h1>About Piegon</h1>
+			<h1>About Pigeon</h1>
 			<p>The passionate collective behind Pigeon, building the future of digital conversations.</p>
 		</div>
 	</header>

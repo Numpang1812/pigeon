@@ -113,7 +113,8 @@ const auth_handler: Handle = async ({ event, resolve }) => {
 	const pathname = event.url.pathname;
 	const is_auth_page = pathname === '/' || pathname === '/signup';
 	const is_auth_api = pathname.startsWith('/api/auth');
-	const is_public_route = is_auth_page || is_auth_api;
+	const is_credits_page = pathname === '/credits';
+	const is_public_route = is_auth_page || is_auth_api || is_credits_page;
 	const is_authenticated = !!event.locals.user;
 
 	if (!is_authenticated && !is_public_route) {

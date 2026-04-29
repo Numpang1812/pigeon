@@ -5,7 +5,6 @@
 	import { auth_client } from '$lib/auth-client';
 
 	let name = $state('');
-	let username = $state('');
 	let email = $state('');
 	let password = $state('');
 	let confirm_password = $state('');
@@ -22,10 +21,7 @@
 			return;
 		}
 
-		if (!/^[a-zA-Z0-9_]{2,15}$/.test(username.trim())) {
-			error = 'Username must be 2-15 characters using only letters, numbers, or underscores.';
-			return;
-		}
+
 
 		loading = true;
 
@@ -35,9 +31,7 @@
 				email: email,
 				password: password,
 				name: name,
-				data: {
-					username: username.trim()
-				},
+				data: {},
 				callbackURL: resolve('/')
 			});
 
@@ -263,23 +257,7 @@
 						/>
 					</div>
 
-					<div class="field">
-						<label for="username" class="field-label">Username</label>
-						<input
-							id="username"
-							type="text"
-							class="field-input"
-							placeholder="your_username"
-							autocomplete="username"
-							pattern="[A-Za-z0-9_]+"
-							title="Username must be 2-15 characters using only letters, numbers, or underscores."
-							maxlength="15"
-							minlength="2"
-							required
-							disabled={loading}
-							bind:value={username}
-						/>
-					</div>
+
 
 					<div class="field">
 						<label for="email" class="field-label">Email</label>
