@@ -11,7 +11,9 @@
 		LogOut,
 		Menu,
 		Info,
-		Bird
+		Bird,
+		Map as MapIcon,
+		Settings
 	} from 'lucide-svelte';
 	import { fly } from 'svelte/transition';
 	import './styles/sidebar.css';
@@ -26,7 +28,9 @@
 		| '/notifications'
 		| '/compose'
 		| '/credits'
-		| '/messages';
+		| '/messages'
+		| '/map'
+		| '/settings';
 
 	const current_path = $derived(page.url.pathname);
 
@@ -37,6 +41,8 @@
 			path === '/notifications' ||
 			path === '/profile' ||
 			path === '/profile/edit' ||
+			path === '/map' ||
+			path === '/settings' ||
 			path === '/credits' ||
 			// Keeps Pigeons highlighted while a conversation or the loft is open.
 			path === '/messages' ||
@@ -73,7 +79,9 @@
 		{ label: 'Explore', icon: Search, href: '/explore' },
 		{ label: 'Notifications', icon: Bell, href: '/notifications' },
 		{ label: 'Pigeons', icon: Bird, href: '/messages' },
+		{ label: 'My Map', icon: MapIcon, href: '/map' },
 		{ label: 'Profile', icon: User, href: '/profile' },
+		{ label: 'Settings', icon: Settings, href: '/settings' },
 		{ label: 'About', icon: Info, href: '/credits' }
 	] as const satisfies ReadonlyArray<{
 		label: string;

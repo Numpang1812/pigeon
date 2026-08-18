@@ -2,7 +2,7 @@
 	import { enhance } from '$app/forms';
 	import { goto, invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { ArrowLeft, Calendar, Camera, BadgeCheck } from 'lucide-svelte';
+	import { ArrowLeft, Calendar, Camera, BadgeCheck, Settings } from 'lucide-svelte';
 	import AvatarUploader from '$lib/components/AvatarUploader.svelte';
 	import CoverUploader from '$lib/components/CoverUploader.svelte';
 	import ProfilePostTabs from '$lib/components/profile/ProfilePostTabs.svelte';
@@ -263,6 +263,10 @@
 				<div class="action-buttons">
 					{#if is_owner}
 						<a href={resolve('/profile/edit')} class="btn btn-outline">Edit profile</a>
+						<a href={resolve('/settings')} class="btn btn-outline" title="Settings">
+							<Settings size={16} />
+							<span>Settings</span>
+						</a>
 					{:else if enable_follow_ui}
 						<form method="POST" action="?/toggle_follow" use:enhance={enhance_follow_form}>
 							<button type="submit" class={`btn ${is_following ? 'btn-outline' : 'btn-muted'}`}>

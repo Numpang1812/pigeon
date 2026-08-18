@@ -1405,3 +1405,101 @@ async function attach_deliveries(messages: ThreadMessage[]): Promise<void> {
 		message.deliveries = by_message.get(message.id) ?? [];
 	}
 }
+
+export type ActiveFlightInfo = {
+	flight: FlightSummary;
+	message_id: string;
+	message_body: string;
+	conversation_title: string;
+	conversation_kind: 'direct' | 'group';
+	recipients: Array<{
+		id: string;
+		name: string;
+		handle: string;
+		avatar_url: string | null;
+		deliver_at: string;
+		cancelled_at: string | null;
+	}>;
+};
+
+/**
+ * List all active outgoing flights (in-flight or recalled returning) for a user.
+ */
+export async function list_active_flights(user_id: string): Promise<ActiveFlightInfo[]> {
+	const now = now_sql_timestamp();
+
+	const result = await db.execute({
+		sql: `SELECT f.id AS flight_id, f.conversation_id, f.route_json, f.total_distance_km,
+		             f.departed_at, f.available_at, f.status, f.recalled_at,
+		             m.id AS message_id, m.body AS message_body,
+		             c.kind AS conversation_kind, c.title AS conversation_title
+		      FROM pigeon_flight f
+		      JOIN message m ON m.flight_id = f.id
+		      JOIN conversation c ON c.id = f.conversation_id
+		      WHERE f.sender_id = ?
+		        AND f.status IN ('in_flight', 'recalled')
+		        AND f.available_at > ?
+		      ORDER BY f.departed_at DESC`,
+		args: [user_id, now]
+	});
+
+	if (result.rows.length === 0) return [];
+
+	const flight_ids = result.rows.map((r) => r.flight_id as string);
+	const placeholders = flight_ids.map(() => '?').join(', ');
+
+	const deliveries_result = await db.execute({
+		sql: `SELECT md.message_id, md.recipient_id, md.deliver_at, md.cancelled_at,
+		             u.name, u.username, u.image, m.flight_id
+		      FROM message_delivery md
+		      JOIN message m ON m.id = md.message_id
+		      JOIN user u ON u.id = md.recipient_id
+		      WHERE m.flight_id IN (${placeholders})
+		      ORDER BY md.deliver_at ASC`,
+		args: flight_ids
+	});
+
+	const deliveries_by_flight = new Map<
+		string,
+		ActiveFlightInfo['recipients']
+	>();
+
+	for (const row of deliveries_result.rows) {
+		const f_id = row.flight_id as string;
+		const list = deliveries_by_flight.get(f_id) ?? [];
+		list.push({
+			id: row.recipient_id as string,
+			name: (row.name as string) || 'Unknown',
+			handle: normalize_handle(row.username) || 'user',
+			avatar_url: (row.image as string | null) ?? null,
+			deliver_at: row.deliver_at as string,
+			cancelled_at: (row.cancelled_at as string | null) ?? null
+		});
+		deliveries_by_flight.set(f_id, list);
+	}
+
+	return result.rows.map((row) => {
+		const flight_id = row.flight_id as string;
+		const recipients = deliveries_by_flight.get(flight_id) ?? [];
+		const fallback_title = recipients.map((r) => r.name).join(', ') || 'Conversation';
+
+		return {
+			flight: {
+				id: flight_id,
+				conversation_id: row.conversation_id as string,
+				route: JSON.parse(row.route_json as string) as RouteLeg[],
+				total_distance_km: Number(row.total_distance_km ?? 0),
+				departed_at: row.departed_at as string,
+				available_at: row.available_at as string,
+				status: row.status as string,
+				recalled_at: (row.recalled_at as string | null) ?? null
+			},
+			message_id: row.message_id as string,
+			message_body: row.message_body as string,
+			conversation_title: (row.conversation_title as string) || fallback_title,
+			conversation_kind: (row.conversation_kind as 'direct' | 'group') || 'direct',
+			recipients
+		};
+	});
+}
+

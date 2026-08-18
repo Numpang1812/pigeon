@@ -35,22 +35,34 @@
 
 	const next_available_at_ms = $derived(epoch_from_sql(data.flock.next_available_at));
 
-	/** The newest message still carrying a bird, so the map has something to draw. */
-	const active_flight = $derived.by(() => {
-		const in_flight = data.messages.filter(
-			(message) =>
-				message.is_own &&
-				message.flight !== null &&
-				message.flight.status === 'in_flight' &&
-				(epoch_from_sql(message.flight.available_at) ?? 0) > data.server_now
-		);
+	/** All messages still carrying a bird (in flight or returning), so the map can show all pigeons. */
+	const active_flights = $derived.by(() => {
+		return data.messages
+			.filter(
+				(message) =>
+					message.is_own &&
+					message.flight !== null &&
+					(message.flight.status === 'in_flight' || message.flight.status === 'recalled') &&
+					(epoch_from_sql(message.flight.available_at) ?? 0) > data.server_now
+			)
+			.map((message) => {
+				const fl = message.flight!;
+				const body_snippet = message.body
+					? message.body.length > 20
+						? message.body.slice(0, 20) + '…'
+						: message.body
+					: 'Pigeon';
 
-		return in_flight.at(-1)?.flight ?? null;
+				return {
+					id: fl.id,
+					route: fl.route,
+					departed_at: epoch_from_sql(fl.departed_at) ?? data.server_now,
+					status: fl.status,
+					recalled_at: fl.recalled_at ? epoch_from_sql(fl.recalled_at) : null,
+					label: body_snippet
+				};
+			});
 	});
-
-	const active_flight_departed_ms = $derived(
-		active_flight === null ? null : epoch_from_sql(active_flight.departed_at)
-	);
 
 	type ThreadMessage = PageData['messages'][number];
 
@@ -177,7 +189,7 @@
 		{data.conversation.kind === 'group' ? 'Members' : 'Details'}
 	</button>
 
-	{#if active_flight}
+	{#if active_flights.length > 0}
 		<button
 			type="button"
 			class="thread-head-action"
@@ -188,6 +200,9 @@
 		>
 			<MapIcon size={16} />
 			{showing_map ? 'Hide map' : 'Show map'}
+			{#if active_flights.length > 1}
+				<span class="flight-count-pill">{active_flights.length}</span>
+			{/if}
 		</button>
 	{/if}
 </header>
@@ -206,13 +221,15 @@
 	/>
 {/if}
 
-{#if active_flight && active_flight_departed_ms !== null && showing_map}
+{#if active_flights.length > 0 && showing_map}
 	<div class="thread-map">
 		<FlightMap
-			route={active_flight.route}
-			departed_at={active_flight_departed_ms}
+			flights={active_flights}
 			clock_offset={data.server_now - Date.now()}
 			labels={recipient_names}
+			on_recall={async () => {
+				await invalidateAll();
+			}}
 			compact
 		/>
 	</div>
@@ -329,6 +346,16 @@
 		border-color: #0ea5e9;
 		background: #e0f2fe;
 		color: #0284c7;
+	}
+
+	.flight-count-pill {
+		font-size: 0.68rem;
+		font-weight: 700;
+		background: #0284c7;
+		color: #ffffff;
+		padding: 1px 5px;
+		border-radius: 999px;
+		line-height: 1;
 	}
 
 	.thread-map {

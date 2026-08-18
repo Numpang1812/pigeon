@@ -249,6 +249,7 @@
 	{#if showing_loft_gate}
 		<HomeLocationGate
 			reason="Sharing your location again moves your loft. Every saved distance is recalculated, though pigeons already in the air keep their original arrival time."
+			initial_coords={data.home ? { lat: data.home.lat, lng: data.home.lng } : undefined}
 			on_saved={async () => {
 				showing_loft_gate = false;
 				await invalidateAll();
