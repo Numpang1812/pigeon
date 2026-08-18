@@ -1,12 +1,32 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import { ArrowLeft, Home, Search, Bell, User, Edit, LogOut, Menu, Info } from 'lucide-svelte';
+	import {
+		ArrowLeft,
+		Home,
+		Search,
+		Bell,
+		User,
+		Edit,
+		LogOut,
+		Menu,
+		Info,
+		Bird
+	} from 'lucide-svelte';
 	import { fly } from 'svelte/transition';
 	import './styles/sidebar.css';
 	import { auth_client } from '$lib/auth-client';
+	import { unread_conversations } from '$lib/pigeon/arrivals';
 
-	type AppRoute = '/' | '/home' | '/explore' | '/profile' | '/notifications' | '/compose' | '/credits';
+	type AppRoute =
+		| '/'
+		| '/home'
+		| '/explore'
+		| '/profile'
+		| '/notifications'
+		| '/compose'
+		| '/credits'
+		| '/messages';
 
 	const current_path = $derived(page.url.pathname);
 
@@ -17,7 +37,10 @@
 			path === '/notifications' ||
 			path === '/profile' ||
 			path === '/profile/edit' ||
-			path === '/credits'
+			path === '/credits' ||
+			// Keeps Pigeons highlighted while a conversation or the loft is open.
+			path === '/messages' ||
+			path.startsWith('/messages/')
 		);
 	}
 
@@ -34,6 +57,9 @@
 		if (href === '/profile') {
 			return effective_path === '/profile' || effective_path === '/profile/edit';
 		}
+		if (href === '/messages') {
+			return effective_path.startsWith('/messages');
+		}
 		return effective_path === href;
 	}
 
@@ -46,6 +72,7 @@
 		{ label: 'Home', icon: Home, href: '/home' },
 		{ label: 'Explore', icon: Search, href: '/explore' },
 		{ label: 'Notifications', icon: Bell, href: '/notifications' },
+		{ label: 'Pigeons', icon: Bird, href: '/messages' },
 		{ label: 'Profile', icon: User, href: '/profile' },
 		{ label: 'About', icon: Info, href: '/credits' }
 	] as const satisfies ReadonlyArray<{
@@ -248,12 +275,17 @@
 			<a
 				class="nav-item nav-item-{index}"
 				class:active={is_active(item.href)}
-				/* eslint-disable-next-line @typescript-eslint/no-explicit-any */
-				href={resolve(item.href as any)}
+				href={resolve(item.href)}
 				aria-label={item.label}
 				aria-current={is_active(item.href) ? 'page' : undefined}
 			>
-				<span class="icon"><item.icon size={20} /></span>
+				<span class="icon">
+					<item.icon size={20} />
+					<!-- Keyed off href so the nav_items tuple type stays as it is. -->
+					{#if item.href === '/messages' && $unread_conversations > 0}
+						<span class="nav-badge">{$unread_conversations}</span>
+					{/if}
+				</span>
 
 				<span class="label">{item.label}</span>
 				<span class="hover-label" aria-hidden="true">{item.label}</span>

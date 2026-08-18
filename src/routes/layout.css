@@ -5,11 +5,14 @@
 	--sidebar-offset: 260px;
 }
 
-*, *::before, *::after {
+*,
+*::before,
+*::after {
 	box-sizing: border-box;
 }
 
-html, body {
+html,
+body {
 	overflow-x: hidden;
 	width: 100%;
 	margin: 0;
@@ -36,8 +39,16 @@ html, body {
 	min-width: 0;
 }
 
+/*
+ * Full-height routes (pigeon post) opt out of page padding entirely.
+ *
+ * !important is required rather than sloppy: bottom-nav.css forces
+ * padding-bottom on .page-content with !important of its own, and a plain
+ * declaration here would lose to it and leave 80px of dead space under the
+ * composer.
+ */
 .page-content--flush {
-	padding: 0;
+	padding: 0 !important;
 }
 
 .page-content :global(.navbar) {

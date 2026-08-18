@@ -8,11 +8,30 @@
 		Bell,
 		Palette,
 		Link2,
-		Trash2
+		Trash2,
+		MapPin
 	} from 'lucide-svelte';
 	import UnauthenticatedPrompt from '$lib/components/UnauthenticatedPrompt.svelte';
+	import HomeLocationGate from '$lib/components/pigeon/HomeLocationGate.svelte';
+	import { invalidateAll } from '$app/navigation';
+	import type { PageData } from './$types';
+
+	const { data }: { data: PageData } = $props();
 
 	const session = auth_client.useSession();
+
+	let showing_loft_gate = $state(false);
+
+	const loft_accuracy_label = $derived.by(() => {
+		const accuracy = data.home?.accuracy_m;
+		if (!accuracy) return null;
+		if (accuracy < 1000) return `within ${Math.round(accuracy)} m`;
+		return `within ${Math.round(accuracy / 1000)} km`;
+	});
+
+	const loft_coords_label = $derived(
+		data.home ? `${data.home.lat.toFixed(4)}, ${data.home.lng.toFixed(4)}` : null
+	);
 
 	type ActionItem = {
 		title: string;
@@ -79,11 +98,56 @@
 		<header class="settings-header">
 			<div class="settings-title-block">
 				<h1 class="settings-title">Settings</h1>
-				<p class="settings-sub">Manage your account, security, and preferences. (Design-only for now.)</p>
+				<p class="settings-sub">
+					Manage your account, security, and preferences. (Only Home loft is wired up so far.)
+				</p>
 			</div>
 		</header>
 
 		<div class="settings-grid" role="list">
+			<section class="panel" aria-label="Home loft" role="listitem">
+				<div class="panel-head">
+					<h2 class="panel-title">Home loft</h2>
+					<p class="panel-sub">
+						Where your pigeons fly from. Flight times are measured from here, so moving changes
+						every distance.
+					</p>
+				</div>
+				<div class="panel-body">
+					<button
+						class="action"
+						type="button"
+						aria-label="Update home loft"
+						onclick={() => {
+							showing_loft_gate = true;
+						}}
+					>
+						<span class="action-left">
+							<span class="action-icon" aria-hidden="true"><MapPin size={18} /></span>
+							<span class="action-text">
+								<span class="action-title">
+									{data.home ? 'Update your loft' : 'Set your loft'}
+								</span>
+								<span class="action-desc">
+									{#if data.home}
+										{loft_coords_label}{loft_accuracy_label ? ` · ${loft_accuracy_label}` : ''}
+									{:else}
+										Not set yet. Pigeon post stays locked until you set it.
+									{/if}
+								</span>
+							</span>
+						</span>
+						<span class="action-right">
+							<span class="chev" aria-hidden="true"><ChevronRight size={18} /></span>
+						</span>
+					</button>
+					<p class="loft-privacy">
+						Only you see these coordinates. Friends see the distance between you, and the flight map
+						rounds every position to about a kilometre.
+					</p>
+				</div>
+			</section>
+
 			<section class="panel" aria-label="Account settings" role="listitem">
 				<div class="panel-head">
 					<h2 class="panel-title">Account</h2>
@@ -181,6 +245,19 @@
 			</section>
 		</div>
 	</div>
+
+	{#if showing_loft_gate}
+		<HomeLocationGate
+			reason="Sharing your location again moves your loft. Every saved distance is recalculated, though pigeons already in the air keep their original arrival time."
+			on_saved={async () => {
+				showing_loft_gate = false;
+				await invalidateAll();
+			}}
+			on_dismiss={() => {
+				showing_loft_gate = false;
+			}}
+		/>
+	{/if}
 {:else if !$session.isPending}
 	<UnauthenticatedPrompt />
 {:else}
@@ -190,6 +267,13 @@
 {/if}
 
 <style>
+	.loft-privacy {
+		margin: 0.75rem 0 0;
+		font-size: 0.8rem;
+		line-height: 1.5;
+		color: #64748b;
+	}
+
 	.settings {
 		min-height: 100%;
 		padding: 1.5rem clamp(1rem, 3vw, 2.5rem) 3rem;
@@ -311,7 +395,8 @@
 		width: 2.15rem;
 		height: 2.15rem;
 		border-radius: 0.8rem;
-		background: radial-gradient(circle at 25% 20%, rgba(186, 230, 253, 0.65), transparent 55%),
+		background:
+			radial-gradient(circle at 25% 20%, rgba(186, 230, 253, 0.65), transparent 55%),
 			linear-gradient(180deg, rgba(15, 23, 42, 0.08), rgba(15, 23, 42, 0.02));
 		border: 1px solid rgba(148, 163, 184, 0.35);
 		color: #0f172a;
@@ -370,7 +455,8 @@
 
 	.danger-action .action-icon {
 		border-color: rgba(244, 63, 94, 0.25);
-		background: radial-gradient(circle at 25% 20%, rgba(254, 202, 202, 0.75), transparent 55%),
+		background:
+			radial-gradient(circle at 25% 20%, rgba(254, 202, 202, 0.75), transparent 55%),
 			linear-gradient(180deg, rgba(244, 63, 94, 0.08), rgba(15, 23, 42, 0.02));
 	}
 
@@ -384,7 +470,11 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		font-family: 'Inter', system-ui, -apple-system, sans-serif;
+		font-family:
+			'Inter',
+			system-ui,
+			-apple-system,
+			sans-serif;
 	}
 
 	@media (max-width: 900px) {
@@ -397,4 +487,3 @@
 		}
 	}
 </style>
-

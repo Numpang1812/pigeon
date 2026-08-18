@@ -13,16 +13,19 @@
 	import { onMount } from 'svelte';
 	import { auth_client } from '$lib/auth-client';
 	import EmailVerificationModal from '$lib/components/EmailVerificationModal.svelte';
+	import HomeLocationGate from '$lib/components/pigeon/HomeLocationGate.svelte';
 
 	const { children, data } = $props<{ children: import('svelte').Snippet; data: LayoutData }>();
 
 	const session = auth_client.useSession();
 
-	const is_shell_visible = $derived(data.is_authenticated && ($session.isPending || !!$session.data));
+	const is_shell_visible = $derived(
+		data.is_authenticated && ($session.isPending || !!$session.data)
+	);
 	const is_session_lost = $derived(data.is_authenticated && !$session.isPending && !$session.data);
 
 	let show_verification_modal = $state(false);
-	
+
 	$effect(() => {
 		if (data.is_authenticated && !data.email_verified) {
 			show_verification_modal = true;
@@ -34,6 +37,10 @@
 	let username = $state('');
 	let username_error = $state<string | null>(null);
 	let submitting_username = $state(false);
+
+	// Asked once per visit. Dismissing leaves the rest of the app usable and only
+	// keeps pigeon post locked, so this is not persisted anywhere.
+	let home_gate_dismissed = $state(false);
 
 	async function handle_username_submit(event: SubmitEvent) {
 		event.preventDefault();
@@ -89,7 +96,7 @@
 
 		if (msg) {
 			show_toast(msg, type || 'success');
-			
+
 			// Remove toast from URL without reloading
 			const new_url = new URL(window.location.href);
 			new_url.searchParams.delete('toast');
@@ -105,7 +112,10 @@
 	<Navbar current_user_image={data.current_user_image} />
 	<div class="app-shell">
 		<Sidebar />
-		<main class="page-content">
+		<main
+			class="page-content"
+			class:page-content--flush={page.url.pathname.startsWith('/messages')}
+		>
 			{#if navigating?.to?.url.pathname.startsWith('/profile') && !navigating.to.url.pathname.startsWith('/profile/edit')}
 				<ProfileLoadingSkeleton />
 			{:else}
@@ -116,7 +126,12 @@
 	</div>
 
 	{#if data.username_required}
-		<div class="username-lock" role="dialog" aria-modal="true" aria-labelledby="username-lock-title">
+		<div
+			class="username-lock"
+			role="dialog"
+			aria-modal="true"
+			aria-labelledby="username-lock-title"
+		>
 			<div class="username-lock__backdrop"></div>
 			<div class="username-lock__panel">
 				<h2 id="username-lock-title">Choose your username</h2>
@@ -146,9 +161,20 @@
 		</div>
 	{/if}
 
+	{#if data.home_required && !data.username_required && !home_gate_dismissed}
+		<HomeLocationGate
+			on_saved={async () => {
+				await invalidateAll();
+			}}
+			on_dismiss={() => {
+				home_gate_dismissed = true;
+			}}
+		/>
+	{/if}
+
 	{#if show_verification_modal && data.user_email}
-		<EmailVerificationModal 
-			email={data.user_email} 
+		<EmailVerificationModal
+			email={data.user_email}
 			on_verified={async () => {
 				await invalidateAll();
 				show_verification_modal = false;

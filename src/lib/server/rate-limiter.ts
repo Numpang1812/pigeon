@@ -68,3 +68,10 @@ export const post_edit_limiter = new RateLimiter();
 export const post_reaction_limiter = new RateLimiter();
 export const post_repost_limiter = new RateLimiter();
 export const profile_image_limiter = new RateLimiter();
+
+// Pigeon post. The flock itself is the real spam control — a user physically
+// cannot send without an available bird — so these only blunt scripted abuse.
+export const pigeon_release_limiter = new RateLimiter();
+export const pigeon_home_limiter = new RateLimiter();
+export const conversation_create_limiter = new RateLimiter();
+export const pigeon_attachment_limiter = new RateLimiter();

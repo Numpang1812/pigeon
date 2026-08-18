@@ -1,0 +1,146 @@
+/*
+ * Pigeon post shell.
+ *
+ * Follows the navbar.css / sidebar.css precedent: semantic class names, the
+ * project palette written out, and plain media queries at 900px and 640px.
+ *
+ * The messages routes opt into .page-content--flush (defined in layout.css and
+ * applied in +layout.svelte), so this file owns all of its own spacing.
+ */
+
+.pigeon-shell {
+	display: grid;
+	grid-template-columns: 340px 1fr;
+	height: calc(100vh - var(--navbar-height));
+	background: #ffffff;
+}
+
+.pigeon-list-pane {
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
+	border-right: 1px solid #e2e8f0;
+	background: #f8fbff;
+}
+
+.pigeon-list-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.75rem;
+	padding: 1rem 1rem 0.75rem;
+	border-bottom: 1px solid #e2e8f0;
+}
+
+.pigeon-list-title {
+	margin: 0;
+	font-size: 1.05rem;
+	font-weight: 700;
+	color: #0f172a;
+}
+
+.pigeon-list-scroll {
+	flex: 1;
+	min-height: 0;
+	overflow-y: auto;
+}
+
+.pigeon-thread-pane {
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
+	min-width: 0;
+}
+
+.pigeon-empty {
+	display: grid;
+	place-items: center;
+	height: 100%;
+	padding: 2rem;
+	text-align: center;
+	color: #64748b;
+}
+
+.pigeon-empty h2 {
+	margin: 0 0 0.4rem;
+	font-size: 1.1rem;
+	color: #0f172a;
+}
+
+.pigeon-empty p {
+	margin: 0;
+	max-width: 34ch;
+	font-size: 0.9rem;
+	line-height: 1.55;
+}
+
+/* A pill button used for the new-flight action and the back link. */
+.pigeon-pill {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.4rem;
+	padding: 0.5rem 0.9rem;
+	border: none;
+	border-radius: 999px;
+	background: #0ea5e9;
+	color: #ffffff;
+	font-size: 0.85rem;
+	font-weight: 600;
+	cursor: pointer;
+	text-decoration: none;
+}
+
+.pigeon-pill:hover:not(:disabled) {
+	background: #0284c7;
+}
+
+.pigeon-pill:disabled {
+	opacity: 0.6;
+	cursor: not-allowed;
+}
+
+.pigeon-pill--quiet {
+	background: transparent;
+	border: 1px solid #cbd5e1;
+	color: #475569;
+}
+
+.pigeon-pill--quiet:hover:not(:disabled) {
+	background: #f1f5f9;
+}
+
+/* Unread pill, matching .notify-count in navbar.css. */
+.pigeon-badge {
+	display: inline-grid;
+	place-items: center;
+	min-width: 20px;
+	height: 20px;
+	padding: 0 6px;
+	border-radius: 999px;
+	background: #0ea5e9;
+	color: #ffffff;
+	font-size: 0.7rem;
+	font-weight: 700;
+	line-height: 1;
+}
+
+@media (max-width: 900px) {
+	.pigeon-shell {
+		grid-template-columns: 1fr;
+		/* Room for the bottom nav, whose height is set in bottom-nav.css. */
+		height: calc(100vh - var(--navbar-height) - 64px);
+	}
+
+	.pigeon-list-pane {
+		border-right: none;
+	}
+
+	/* One pane at a time on mobile: the thread replaces the list. */
+	.pigeon-shell--thread-open .pigeon-list-pane {
+		display: none;
+	}
+
+	.pigeon-shell:not(.pigeon-shell--thread-open) .pigeon-thread-pane {
+		display: none;
+	}
+}

@@ -7,6 +7,7 @@
 
 import { v2 as cloudinary } from 'cloudinary';
 import { env } from '$env/dynamic/private';
+import { nanoid } from 'nanoid';
 
 // ==========================================
 // Cloudinary Initialization
@@ -43,7 +44,8 @@ function ensure_configured() {
 async function upload_buffer(
 	buffer: Buffer | Uint8Array,
 	folder: string,
-	public_id?: string
+	public_id?: string,
+	resource_type: 'image' | 'raw' | 'auto' = 'image'
 ): Promise<{ url: string; public_id: string }> {
 	ensure_configured();
 
@@ -52,11 +54,11 @@ async function upload_buffer(
 			{
 				folder,
 				public_id,
-				resource_type: 'image',
+				resource_type,
 				overwrite: true,
-				transformation: [
-					{ quality: 'auto', fetch_format: 'auto' }
-				]
+				// Only meaningful for images; for raw uploads Cloudinary can reject it.
+				transformation:
+					resource_type === 'image' ? [{ quality: 'auto', fetch_format: 'auto' }] : undefined
 			},
 			(error, result) => {
 				if (error) {
@@ -87,11 +89,7 @@ export async function upload_profile_picture(
 	user_id: string,
 	file_buffer: Buffer
 ): Promise<string> {
-	const result = await upload_buffer(
-		file_buffer,
-		'pigeon/avatars',
-		`avatar_${user_id}`
-	);
+	const result = await upload_buffer(file_buffer, 'pigeon/avatars', `avatar_${user_id}`);
 
 	if (process.env.NODE_ENV !== 'production') {
 		console.info('[Cloudinary] Uploaded avatar:', result.url);
@@ -106,15 +104,8 @@ export async function upload_profile_picture(
  * @param file_buffer - Image buffer
  * @returns The public URL of the uploaded cover photo
  */
-export async function upload_cover_photo(
-	user_id: string,
-	file_buffer: Buffer
-): Promise<string> {
-	const result = await upload_buffer(
-		file_buffer,
-		'pigeon/covers',
-		`cover_${user_id}`
-	);
+export async function upload_cover_photo(user_id: string, file_buffer: Buffer): Promise<string> {
+	const result = await upload_buffer(file_buffer, 'pigeon/covers', `cover_${user_id}`);
 
 	if (process.env.NODE_ENV !== 'production') {
 		console.info('[Cloudinary] Uploaded cover:', result.url);
@@ -135,10 +126,31 @@ export async function upload_post_media(
 	file_buffer: Buffer
 ): Promise<{ url: string; key: string }> {
 	const timestamp = Date.now();
+	const result = await upload_buffer(file_buffer, `pigeon/posts/${user_id}`, `post_${timestamp}`);
+
+	return { url: result.url, key: result.public_id };
+}
+
+/**
+ * Upload a pigeon post attachment
+ *
+ * Kept separate from upload_post_media for two reasons: the folder prefix
+ * (pigeon/messages/<user_id>/) is what lets the send endpoint verify the sender
+ * actually uploaded the file, and the nanoid suffix avoids the same-millisecond
+ * public_id collision that overwrite:true would otherwise silently resolve.
+ *
+ * @param user_id - The uploading user's ID
+ * @param file_buffer - Image buffer
+ * @returns Object containing public URL and Cloudinary public_id
+ */
+export async function upload_message_attachment(
+	user_id: string,
+	file_buffer: Buffer
+): Promise<{ url: string; key: string }> {
 	const result = await upload_buffer(
 		file_buffer,
-		`pigeon/posts/${user_id}`,
-		`post_${timestamp}`
+		`pigeon/messages/${user_id}`,
+		`msg_${Date.now()}_${nanoid(8)}`
 	);
 
 	return { url: result.url, key: result.public_id };

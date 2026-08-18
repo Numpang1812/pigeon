@@ -46,6 +46,31 @@
 	display: flex;
 	align-items: center;
 	justify-content: center;
+	position: relative;
+}
+
+/* Unread pigeons. Same look as .notify-count in navbar.css. */
+.bottom-nav-item .bottom-nav-badge {
+	position: absolute;
+	top: -3px;
+	right: -6px;
+
+	min-width: 9px;
+	height: 9px;
+	padding: 0 3px;
+
+	display: flex;
+	align-items: center;
+	justify-content: center;
+
+	border-radius: 999px;
+	background: #ef4444;
+	box-shadow: 0 0 0 1px #ffffff;
+
+	color: #ffffff;
+	font-size: 7px;
+	font-weight: 700;
+	line-height: 1;
 }
 
 .bottom-nav-item .bottom-nav-label {
