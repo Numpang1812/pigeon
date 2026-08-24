@@ -1,10 +1,11 @@
 import { json, type RequestHandler } from '@sveltejs/kit';
 import { auth } from '$lib/auth';
-import { 
-	get_profile_user_by_handle, 
+import {
+	get_profile_user_by_handle,
 	toggle_follow_relationship,
 	create_follow_notification,
-	get_follow_counts
+	get_follow_counts,
+	are_mutual_followers
 } from '$lib/server/profile-helpers';
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -34,8 +35,10 @@ export const POST: RequestHandler = async ({ params, request }) => {
 		}
 
 		const result = await toggle_follow_relationship(session.user.id, target_user_id);
+		let became_friends = false;
 		if (result.is_following) {
 			await create_follow_notification(target_user_id, session.user.id);
+			became_friends = await are_mutual_followers(session.user.id, target_user_id);
 		}
 
 		const counts = await get_follow_counts(target_user_id);
@@ -43,6 +46,7 @@ export const POST: RequestHandler = async ({ params, request }) => {
 		return json({
 			success: true,
 			is_following: result.is_following,
+			became_friends,
 			followers_count: counts.followers
 		});
 	} catch (error) {

@@ -149,6 +149,22 @@ export async function create_follow_notification(target_user_id: string, source_
 	});
 }
 
+/** True once both accounts follow each other, i.e. they are pigeon friends. */
+export async function are_mutual_followers(user_a_id: string, user_b_id: string): Promise<boolean> {
+	if (user_a_id === user_b_id) return false;
+
+	const result = await db.execute({
+		sql: `SELECT 1 FROM follow f1
+		      JOIN follow f2
+		        ON f2.follower_id = f1.following_id AND f2.following_id = f1.follower_id
+		      WHERE f1.follower_id = ? AND f1.following_id = ?
+		      LIMIT 1`,
+		args: [user_a_id, user_b_id]
+	});
+
+	return result.rows.length > 0;
+}
+
 export async function get_access_state(viewer_user_id: string, profile_user_id: string, is_owner: boolean) {
 	if (is_owner) {
 		return {

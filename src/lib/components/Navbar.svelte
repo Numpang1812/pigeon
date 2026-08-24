@@ -162,7 +162,7 @@
 	<div class="right">
 		<div class="search-container" onfocusout={handle_search_focusout}>
 			<div class="search-box">
-				<span class="icon search-icon"><Search /></span>
+				<span class="icon search-icon"><Search size={18} /></span>
 				<input
 					type="text"
 					placeholder="Search Pigeon..."
@@ -215,7 +215,7 @@
 		</div>
 
 		<button class="icon-btn" type="button" aria-label="Notifications" onclick={open_notifications}>
-			<span class="notify-icon"><Bell /></span>
+			<span class="notify-icon"><Bell size={18} /></span>
 			{#if unseen_notifications_count > 0 && !on_notifications_page}
 				<span class="notify-count" aria-label={`${unseen_notifications_count} unread notifications`}>
 					{notification_badge_text}

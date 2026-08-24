@@ -11,7 +11,8 @@ import {
 	get_profile_followers,
 	get_profile_following,
 	toggle_follow_relationship,
-	create_follow_notification
+	create_follow_notification,
+	are_mutual_followers
 } from '$lib/server/profile-helpers';
 import type { Actions } from './$types';
 
@@ -88,8 +89,10 @@ export const actions: Actions = {
 		}
 
 		const result = await toggle_follow_relationship(session.user.id, target_user_id);
+		let became_friends = false;
 		if (result.is_following) {
 			await create_follow_notification(target_user_id, session.user.id);
+			became_friends = await are_mutual_followers(session.user.id, target_user_id);
 		}
 
 		const counts = await get_follow_counts(target_user_id);
@@ -97,6 +100,7 @@ export const actions: Actions = {
 		return {
 			success: true,
 			is_following: result.is_following,
+			became_friends,
 			followers_count: counts.followers,
 			following_count: counts.following
 		};

@@ -211,7 +211,10 @@ export const auth = betterAuth({
 		autoSignInAfterVerification: true,
 		sendVerificationEmail: async ({ user, url }) => {
 			console.info(`[Auth] Triggering verification email to ${user.email}...`);
-			send_verification_email(user.email, url); // Don't await to avoid blocking the response
+			// Must await: nodemailer's SMTP session takes seconds, and an unawaited
+			// promise is suspended when the response returns (silently dropped on
+			// Vercel serverless). Awaiting keeps delivery inside the request lifetime.
+			await send_verification_email(user.email, url);
 		}
 	},
 	socialProviders: {

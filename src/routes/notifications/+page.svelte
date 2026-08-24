@@ -349,10 +349,21 @@
 			});
 
 			if (follow_res.ok) {
+				const payload = await follow_res.json().catch(() => null);
 				const notification_index = notifications.findIndex((n) => n.id === notification_id);
 				if (notification_index !== -1) {
 					notifications[notification_index].is_following_actor = true;
 					mark_as_read(notification_id);
+				}
+
+				if (payload?.became_friends && actor_handle) {
+					window.dispatchEvent(
+						new CustomEvent('pigeon-toast', {
+							detail: {
+								message: `You are now friends with @${normalize_handle(actor_handle)} — you can now send each other Pigeons.`
+							}
+						})
+					);
 				}
 			} else {
 				console.error('Failed to follow user:', follow_res.statusText);

@@ -167,7 +167,9 @@ export async function fetch_activity_notifications_for_user(
 				message = `reposted your post${post_preview ? ` "${post_preview}"` : '.'}`;
 				break;
 			case 'follow':
-				message = 'started following you.';
+				message = item.is_following_actor
+					? 'followed you back. You are now friends — you can send each other Pigeons.'
+					: 'started following you.';
 				break;
 			default:
 				message = 'interacted with your account.';

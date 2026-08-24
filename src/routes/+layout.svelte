@@ -89,6 +89,17 @@
 		toast_message = null;
 	}
 
+	// Components anywhere can raise the global toast (e.g. "you are now friends").
+	function handle_pigeon_toast(event: Event) {
+		const detail = (event as CustomEvent<{ message?: string }>).detail;
+		if (detail?.message) show_toast(detail.message);
+	}
+
+	$effect(() => {
+		window.addEventListener('pigeon-toast', handle_pigeon_toast);
+		return () => window.removeEventListener('pigeon-toast', handle_pigeon_toast);
+	});
+
 	$effect(() => {
 		// Check for toast in URL parameters
 		const msg = page.url.searchParams.get('toast');

@@ -136,13 +136,23 @@
 
 		return async ({ result, update }: { result: { type: string; data?: unknown }; update: () => Promise<void> }) => {
 			if (result.type === 'success') {
-				const data = result.data as { is_following?: boolean; followers_count?: number } | undefined;
+				const data = result.data as { is_following?: boolean; followers_count?: number; became_friends?: boolean } | undefined;
 				if (typeof data?.is_following === 'boolean') {
 					is_following_override = data.is_following;
 				}
 
 				if (typeof data?.followers_count === 'number') {
 					followers_count_override = data.followers_count;
+				}
+
+				if (data?.became_friends) {
+					window.dispatchEvent(
+						new CustomEvent('pigeon-toast', {
+							detail: {
+								message: `You are now friends with @${profile.handle} — you can now send each other Pigeons.`
+							}
+						})
+					);
 				}
 
 				return;
@@ -561,6 +571,8 @@
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
+		gap: 8px;
+		flex-shrink: 0;
 		transition: background-color 0.2s;
 		text-decoration: none;
 	}
