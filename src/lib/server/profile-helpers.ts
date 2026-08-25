@@ -165,6 +165,77 @@ export async function are_mutual_followers(user_a_id: string, user_b_id: string)
 	return result.rows.length > 0;
 }
 
+// ==========================================
+// Notification preferences
+// ==========================================
+
+export type NotificationPrefKey = 'follow' | 'like' | 'dislike' | 'repost' | 'pigeon';
+
+export type NotificationPrefs = Record<NotificationPrefKey, boolean>;
+
+const notification_pref_keys: NotificationPrefKey[] = [
+	'follow',
+	'like',
+	'dislike',
+	'repost',
+	'pigeon'
+];
+
+export function default_notification_prefs(): NotificationPrefs {
+	return {
+		follow: true,
+		like: true,
+		dislike: true,
+		repost: true,
+		pigeon: true
+	};
+}
+
+/** Stored JSON → full record. Anything missing or malformed falls back to on. */
+export function normalize_notification_prefs(raw: unknown): NotificationPrefs {
+	const prefs = default_notification_prefs();
+	if (typeof raw !== 'string' || raw.length === 0) return prefs;
+
+	try {
+		const parsed = JSON.parse(raw) as Record<string, unknown>;
+		for (const key of notification_pref_keys) {
+			if (typeof parsed[key] === 'boolean') prefs[key] = parsed[key];
+		}
+	} catch {
+		// Corrupt JSON behaves like "never configured".
+	}
+
+	return prefs;
+}
+
+export async function get_notification_prefs(user_id: string): Promise<NotificationPrefs> {
+	const result = await db.execute({
+		sql: 'SELECT notification_prefs FROM user WHERE id = ? LIMIT 1',
+		args: [user_id]
+	});
+
+	return normalize_notification_prefs(result.rows[0]?.notification_prefs);
+}
+
+export async function set_notification_prefs(
+	user_id: string,
+	patch: Partial<NotificationPrefs>
+): Promise<NotificationPrefs> {
+	const current = await get_notification_prefs(user_id);
+	const merged = { ...current };
+
+	for (const key of notification_pref_keys) {
+		if (typeof patch[key] === 'boolean') merged[key] = patch[key];
+	}
+
+	await db.execute({
+		sql: 'UPDATE user SET notification_prefs = ? WHERE id = ?',
+		args: [JSON.stringify(merged), user_id]
+	});
+
+	return merged;
+}
+
 export async function get_access_state(viewer_user_id: string, profile_user_id: string, is_owner: boolean) {
 	if (is_owner) {
 		return {

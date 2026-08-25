@@ -1,6 +1,8 @@
 import { db } from '$lib/server/db';
+import { epoch_from_sql, format_eta } from '$lib/pigeon/clock';
+import type { NotificationPrefs } from '$lib/server/profile-helpers';
 
-export type ActivityNotificationType = 'like' | 'dislike' | 'repost' | 'follow';
+export type ActivityNotificationType = 'like' | 'dislike' | 'repost' | 'follow' | 'pigeon';
 
 export type ActivityNotificationItem = {
 	id: string;
@@ -16,11 +18,14 @@ export type ActivityNotificationItem = {
 	day_group: 'Today' | 'Earlier this week' | 'Older';
 	unread: boolean;
 	post_id: string | null;
+	conversation_id: string | null;
 };
 
 type FetchNotificationsOptions = {
 	limit?: number;
 	offset?: number;
+	/** Types the viewer switched off in Settings; missing keys count as on. */
+	prefs?: NotificationPrefs;
 };
 
 type DbNotificationRow = {
@@ -35,6 +40,8 @@ type DbNotificationRow = {
 	is_following_actor: number | boolean | null;
 	post_id: string | null;
 	post_content: string | null;
+	conversation_id: string | null;
+	deliver_at: string | null;
 };
 
 export async function fetch_activity_notifications_for_user(
@@ -43,6 +50,11 @@ export async function fetch_activity_notifications_for_user(
 ): Promise<ActivityNotificationItem[]> {
 	const limit = Number.isFinite(options.limit) ? Math.min(Math.max(options.limit ?? 30, 1), 100) : 30;
 	const offset = Number.isFinite(options.offset) ? Math.max(options.offset ?? 0, 0) : 0;
+
+	const prefs = options.prefs;
+	const gate = (key: keyof NotificationPrefs): number => (prefs && !prefs[key] ? 1 : 0);
+	const gate_args = [gate('like'), gate('dislike'), gate('repost'), gate('follow'), gate('pigeon')];
+	const now_ms = Date.now();
 
 	const result = await db.execute({
 		sql: `
@@ -63,11 +75,14 @@ export async function fetch_activity_notifications_for_user(
 						WHERE f2.follower_id = ? AND f2.following_id = u.id
 					) AS is_following_actor,
 					p.id AS post_id,
-					p.content AS post_content
+					p.content AS post_content,
+					NULL AS conversation_id,
+					NULL AS deliver_at
 				FROM like l
 				JOIN post p ON p.id = l.post_id
 				JOIN user u ON u.id = l.user_id
 				WHERE p.author_id = ? AND l.user_id != ?
+				  AND (? = 0)
 
 				UNION ALL
 
@@ -86,11 +101,14 @@ export async function fetch_activity_notifications_for_user(
 						WHERE f2.follower_id = ? AND f2.following_id = u.id
 					) AS is_following_actor,
 					p.id AS post_id,
-					p.content AS post_content
+					p.content AS post_content,
+					NULL AS conversation_id,
+					NULL AS deliver_at
 				FROM dislike d
 				JOIN post p ON p.id = d.post_id
 				JOIN user u ON u.id = d.user_id
 				WHERE p.author_id = ? AND d.user_id != ?
+				  AND (? = 0)
 
 				UNION ALL
 
@@ -109,11 +127,14 @@ export async function fetch_activity_notifications_for_user(
 						WHERE f2.follower_id = ? AND f2.following_id = u.id
 					) AS is_following_actor,
 					p.id AS post_id,
-					p.content AS post_content
+					p.content AS post_content,
+					NULL AS conversation_id,
+					NULL AS deliver_at
 				FROM repost r
 				JOIN post p ON p.id = r.post_id
 				JOIN user u ON u.id = r.user_id
 				WHERE p.author_id = ? AND r.user_id != ?
+				  AND (? = 0)
 
 				UNION ALL
 
@@ -132,19 +153,57 @@ export async function fetch_activity_notifications_for_user(
 						WHERE f2.follower_id = ? AND f2.following_id = u.id
 					) AS is_following_actor,
 					NULL AS post_id,
-					NULL AS post_content
+					NULL AS post_content,
+					NULL AS conversation_id,
+					NULL AS deliver_at
 				FROM follow f
 				JOIN user u ON u.id = f.follower_id
 				WHERE f.following_id = ? AND f.follower_id != ?
+				  AND (? = 0)
+
+				UNION ALL
+
+				SELECT
+					m.id || '-' || md.id AS event_id,
+					'pigeon' AS type,
+					m.departed_at AS created_at,
+					u.id AS actor_id,
+					u.name AS actor_name,
+					u.username AS actor_handle,
+					u.image AS avatar_url,
+					u.verified AS actor_verified,
+					EXISTS(
+						SELECT 1
+						FROM follow f2
+						WHERE f2.follower_id = ? AND f2.following_id = u.id
+					) AS is_following_actor,
+					NULL AS post_id,
+					NULL AS post_content,
+					m.conversation_id AS conversation_id,
+					md.deliver_at AS deliver_at
+				FROM message_delivery md
+				JOIN message m ON m.id = md.message_id
+				JOIN user u ON u.id = m.sender_id
+				WHERE md.recipient_id = ?
+				  AND md.cancelled_at IS NULL
+				  AND md.deliver_at > ?
+				  AND m.deleted_at IS NULL
+				  AND (? = 0)
 			)
 			ORDER BY created_at DESC
 			LIMIT ? OFFSET ?
 		`,
 		args: [
-			user_id, user_id, user_id,
-			user_id, user_id, user_id,
-			user_id, user_id, user_id,
-			user_id, user_id, user_id,
+			// like arm
+			user_id, user_id, user_id, gate_args[0],
+			// dislike arm
+			user_id, user_id, user_id, gate_args[1],
+			// repost arm
+			user_id, user_id, user_id, gate_args[2],
+			// follow arm
+			user_id, user_id, user_id, gate_args[3],
+			// pigeon arm
+			user_id, user_id, now_ms, gate_args[4],
 			limit, offset
 		]
 	});
@@ -171,6 +230,12 @@ export async function fetch_activity_notifications_for_user(
 					? 'followed you back. You are now friends — you can send each other Pigeons.'
 					: 'started following you.';
 				break;
+			case 'pigeon': {
+				const deliver_at_ms = epoch_from_sql(item.deliver_at);
+				const eta = format_eta(deliver_at_ms, now_ms);
+				message = eta && eta !== 'arrived' ? `sent you a pigeon. It will ${eta}.` : 'sent you a pigeon.';
+				break;
+			}
 			default:
 				message = 'interacted with your account.';
 		}
@@ -188,7 +253,8 @@ export async function fetch_activity_notifications_for_user(
 			time_ago: format_time_ago(item.created_at),
 			day_group: get_day_group(item.created_at),
 			unread: false,
-			post_id: item.post_id
+			post_id: item.post_id,
+			conversation_id: item.conversation_id
 		};
 	});
 }

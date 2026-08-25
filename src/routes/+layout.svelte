@@ -91,8 +91,8 @@
 
 	// Components anywhere can raise the global toast (e.g. "you are now friends").
 	function handle_pigeon_toast(event: Event) {
-		const detail = (event as CustomEvent<{ message?: string }>).detail;
-		if (detail?.message) show_toast(detail.message);
+		const detail = (event as CustomEvent<{ message?: string; type?: 'success' | 'error' }>).detail;
+		if (detail?.message) show_toast(detail.message, detail.type ?? 'success');
 	}
 
 	$effect(() => {

@@ -3,14 +3,12 @@
 	import { goto } from '$app/navigation';
 	import type { PageData } from './$types';
 	import { resolve } from '$app/paths';
-	import { auth_client } from '$lib/auth-client';
-	import { ArrowLeft, Camera, KeyRound, Trash2, AlertTriangle, Loader2 } from 'lucide-svelte';
+	import { ArrowLeft, Camera } from 'lucide-svelte';
 	import AvatarUploader from '$lib/components/AvatarUploader.svelte';
 
 	const { data } = $props<{ data: PageData }>();
 
 	const profile = $state((() => ({ ...data.profile }))());
-	let active_tab = $state<'profile' | 'security'>('profile');
 
 	// Avatar uploader
 	let show_avatar_uploader = $state(false);
@@ -18,40 +16,6 @@
 	function handle_avatar_success(newUrl: string) {
 		profile.avatar = newUrl;
 		show_avatar_uploader = false;
-	}
-
-	// Security tab state
-	let show_password_form = $state(false);
-
-	// Password form state
-	let current_password = $state('');
-	let new_password = $state('');
-	let confirm_password = $state('');
-
-	function handle_password_submit() {
-		if (new_password !== confirm_password) {
-			return;
-		}
-
-		if (current_password === new_password) {
-			return;
-		}
-	}
-
-	// Delete account state
-	let is_deleting = $state(false);
-	let show_delete_modal = $state(false);
-	let delete_confirmation = $state('');
-	const delete_confirmation_text = 'IWANTTODELETEMYACCOUNT';
-
-	function open_delete_modal() {
-		show_delete_modal = true;
-		delete_confirmation = '';
-	}
-
-	function cancel_delete() {
-		show_delete_modal = false;
-		delete_confirmation = '';
 	}
 
 	// Handle form submission with toasts
@@ -68,11 +32,6 @@
 				url.searchParams.set('toast', message);
 				url.searchParams.set('toast_type', 'error');
 				window.history.replaceState({}, '', url.toString());
-				// Trigger the layout's effect by re-dispatching a popstate or just manually if I had access,
-				// but since layout is listening to page.url, this should work if I trigger a change.
-				// However, window.location.assign might be better if I want a refresh.
-				// The user said "refresh back to main profile page" for SUCCESS.
-				// For failure, they didn't specify refresh, but "red for edit failed".
 				window.location.href = window.location.pathname + `?toast=${encodeURIComponent(message)}&toast_type=error`;
 			} else {
 				await update();
@@ -95,199 +54,91 @@
 		</div>
 
 		<div class="tabs">
-			<button
-				class="tab"
-				class:active={active_tab === 'profile'}
-				onclick={() => (active_tab = 'profile')}
-			>
+			<button class="tab active" type="button">
 				Profile Information
-				{#if active_tab === 'profile'}
-					<div class="tab-indicator"></div>
-				{/if}
-			</button>
-			<button
-				class="tab"
-				class:active={active_tab === 'security'}
-				onclick={() => (active_tab = 'security')}
-			>
-				Security
-				{#if active_tab === 'security'}
-					<div class="tab-indicator"></div>
-				{/if}
+				<div class="tab-indicator"></div>
 			</button>
 		</div>
 
-		<!-- Old alert removed, now using global Toast system -->
-
 		<div class="form-container">
-			{#if active_tab === 'profile'}
-				<form
-					method="POST"
-					action="?/profile"
-					use:enhance={() => {
-						return async ({ result, update }: { result: import('@sveltejs/kit').ActionResult; update: (options?: { reset?: boolean; invalidateAll?: boolean }) => Promise<void> }) => {
-							if (result.type === 'success') {
-								const message = String(result.data?.message || 'Profile updated successfully');
-								await goto(resolve(`/profile/${profile.username}?toast=${encodeURIComponent(message)}&toast_type=success`));
-								return;
-							}
-							await update();
-						};
-					}}
-					class="edit-form"
-				>
+			<form
+				method="POST"
+				action="?/profile"
+				use:enhance={() => {
+					return async ({ result, update }: { result: import('@sveltejs/kit').ActionResult; update: (options?: { reset?: boolean; invalidateAll?: boolean }) => Promise<void> }) => {
+						if (result.type === 'success') {
+							const message = String(result.data?.message || 'Profile updated successfully');
+							await goto(resolve(`/profile/${profile.username}?toast=${encodeURIComponent(message)}&toast_type=success`));
+							return;
+						}
+						await update();
+					};
+				}}
+				class="edit-form"
+			>
 
-					<!-- Avatar Edit -->
-					<div class="avatar-section">
-						<span class="section-label">Profile Picture</span>
-						<!-- svelte-ignore a11y_click_events_have_key_events -->
-						<!-- svelte-ignore a11y_no_static_element_interactions -->
-						<div class="avatar-container" onclick={() => (show_avatar_uploader = true)}>
-							{#if profile.avatar}
-								<img src={profile.avatar} alt="Avatar" class="avatar-image" />
-							{:else}
-								<img src="/default-avatar.svg" alt="Default profile avatar" class="avatar-image" />
-							{/if}
-							<div class="avatar-overlay">
-								<Camera size={24} />
-							</div>
+				<!-- Avatar Edit -->
+				<div class="avatar-section">
+					<span class="section-label">Profile Picture</span>
+					<!-- svelte-ignore a11y_click_events_have_key_events -->
+					<!-- svelte-ignore a11y_no_static_element_interactions -->
+					<div class="avatar-container" onclick={() => (show_avatar_uploader = true)}>
+						{#if profile.avatar}
+							<img src={profile.avatar} alt="Avatar" class="avatar-image" />
+						{:else}
+							<img src="/default-avatar.svg" alt="Default profile avatar" class="avatar-image" />
+						{/if}
+						<div class="avatar-overlay">
+							<Camera size={24} />
 						</div>
 					</div>
+				</div>
 
-					<div class="form-group">
-						<label for="name">Name</label>
+				<div class="form-group">
+					<label for="name">Name</label>
+					<input
+						type="text"
+						id="name"
+						name="name"
+						bind:value={profile.name}
+						maxlength="50"
+						required
+					/>
+				</div>
+
+				<div class="form-group">
+					<label for="username">Username</label>
+					<div class="input-with-prefix">
+						<span class="prefix">@</span>
 						<input
 							type="text"
-							id="name"
-							name="name"
-							bind:value={profile.name}
-							maxlength="50"
+							id="username"
+							name="username"
+							bind:value={profile.username}
+							pattern="[a-zA-Z0-9_]+"
+							title="Only letters, numbers, and underscores are allowed"
+							maxlength="15"
 							required
 						/>
 					</div>
-
-					<div class="form-group">
-						<label for="username">Username</label>
-						<div class="input-with-prefix">
-							<span class="prefix">@</span>
-							<input
-								type="text"
-								id="username"
-								name="username"
-								bind:value={profile.username}
-								pattern="[a-zA-Z0-9_]+"
-								title="Only letters, numbers, and underscores are allowed"
-								maxlength="15"
-								required
-							/>
-						</div>
-					</div>
-
-					<div class="form-group">
-						<label for="bio">Bio</label>
-						<textarea
-							id="bio"
-							name="bio"
-							bind:value={profile.bio}
-							rows="4"
-							maxlength="160"
-						></textarea>
-						<div class="char-count">{(profile.bio || '').length} / 160</div>
-					</div>
-
-					<div class="form-actions">
-						<button type="submit" class="btn btn-primary">Save changes</button>
-					</div>
-				</form>
-			{:else if show_password_form}
-				<div class="security-section">
-					<button class="security-back-btn" onclick={() => (show_password_form = false)}>
-						<ArrowLeft size={16} /> Back to Security
-					</button>
-
-					<form
-						method="POST"
-						action="?/password"
-						use:enhance={handle_enhance}
-						onsubmit={handle_password_submit}
-						class="edit-form"
-					>
-						<div class="security-intro">
-							<KeyRound size={20} />
-							<p>Update your password to keep your account secure.</p>
-						</div>
-
-						<!-- Old password error removed, now using global Toast system -->
-
-						<div class="form-group">
-							<label for="currentPassword">Current password</label>
-							<input
-								type="password"
-								id="currentPassword"
-								name="currentPassword"
-								bind:value={current_password}
-								required
-							/>
-						</div>
-
-						<div class="form-group">
-							<label for="newPassword">New password</label>
-							<input
-								type="password"
-								id="newPassword"
-								name="newPassword"
-								bind:value={new_password}
-								required
-								minlength="8"
-							/>
-						</div>
-
-						<div class="form-group">
-							<label for="confirmPassword">Confirm new password</label>
-							<input
-								type="password"
-								id="confirmPassword"
-								name="confirmPassword"
-								bind:value={confirm_password}
-								required
-								minlength="8"
-							/>
-						</div>
-
-						<div class="form-actions">
-							<button type="submit" class="btn btn-primary">Update password</button>
-						</div>
-					</form>
 				</div>
-			{:else}
-				<div class="security-options">
-					<div class="security-option">
-						<div class="security-option-content">
-							<KeyRound size={24} />
-							<div class="security-option-text">
-								<h3>Change Password</h3>
-								<p>Update your password to keep your account secure</p>
-							</div>
-						</div>
-						<button class="btn btn-outline" onclick={() => (show_password_form = true)}>
-							Change
-						</button>
-					</div>
 
-					<div class="security-option danger">
-						<div class="security-option-content">
-							<AlertTriangle size={24} />
-							<div class="security-option-text">
-								<h3>Delete Account</h3>
-								<p>Permanently delete your account and all your data</p>
-							</div>
-						</div>
-						<button class="btn btn-danger" onclick={open_delete_modal}>
-							Delete
-						</button>
-					</div>
+				<div class="form-group">
+					<label for="bio">Bio</label>
+					<textarea
+						id="bio"
+						name="bio"
+						bind:value={profile.bio}
+						rows="4"
+						maxlength="160"
+					></textarea>
+					<div class="char-count">{(profile.bio || '').length} / 160</div>
 				</div>
-			{/if}
+
+				<div class="form-actions">
+					<button type="submit" class="btn btn-primary">Save changes</button>
+				</div>
+			</form>
 		</div>
 	</div>
 
@@ -302,90 +153,6 @@
 					on_success={handle_avatar_success}
 					on_close={() => (show_avatar_uploader = false)}
 				/>
-			</div>
-		</div>
-	{/if}
-
-	<!-- Delete Account Modal -->
-	{#if show_delete_modal}
-		<!-- svelte-ignore a11y_click_events_have_key_events -->
-        <!-- svelte-ignore a11y_no_static_element_interactions -->
-		<div class="modal-backdrop" onclick={cancel_delete}>
-			<div class="modal-content modal-delete" onclick={(e) => e.stopPropagation()}>
-				<form
-					method="POST"
-					action="?/delete"
-					use:enhance={() => {
-						is_deleting = true;
-						return async ({ result }) => {
-							if (result.type === 'success' && result.data?.deleted) {
-								await auth_client.signOut();
-								window.location.href = '/';
-								return;
-							}
-							is_deleting = false;
-							if (result.type === 'error' || result.type === 'failure') {
-								show_delete_modal = false;
-							}
-						};
-					}}
-				>
-					<div class="modal-header danger">
-						<Trash2 size={20} />
-						<h2>Delete Account</h2>
-					</div>
-					<div class="modal-body">
-						<p>This action is <strong>irreversible</strong>. Deleting your account will:</p>
-						<ul class="delete-consequences">
-							<li>Remove your profile permanently</li>
-							<li>Delete all your posts and data</li>
-							<li>Remove you from all notifications</li>
-						</ul>
-						<p>
-							To confirm, type <code>{delete_confirmation_text}</code> in the field below:
-						</p>
-						<input
-							type="text"
-							name="deleteConfirmation"
-							class="delete-input"
-							placeholder="Type here..."
-							bind:value={delete_confirmation}
-							required
-						/>
-						{#if delete_confirmation && delete_confirmation !== delete_confirmation_text}
-							<p class="delete-hint">
-								{#if delete_confirmation.length < delete_confirmation_text.length}
-									Keep typing...
-								{:else}
-									Confirmation text does not match
-								{/if}
-							</p>
-						{/if}
-					</div>
-					<div class="modal-footer">
-						<button type="button" class="btn btn-outline" onclick={cancel_delete}>
-							Cancel
-						</button>
-						<button
-							type="submit"
-							class="btn btn-danger"
-							disabled={delete_confirmation !== delete_confirmation_text}
-						>
-							Delete my account
-						</button>
-					</div>
-				</form>
-			</div>
-		</div>
-	{/if}
-
-	<!-- Deleting Overlay -->
-	{#if is_deleting}
-		<div class="deleting-overlay">
-			<div class="deleting-content">
-				<Loader2 class="spin-icon" size={48} />
-				<h2>Deleting account...</h2>
-				<p>Setting things right. Please wait a moment.</p>
 			</div>
 		</div>
 	{/if}
@@ -467,10 +234,6 @@
 		font-family: inherit;
 	}
 
-	.tab:hover {
-		background-color: #F5F8FA;
-	}
-
 	.tab.active {
 		font-weight: 700;
 		color: #14171A;
@@ -486,8 +249,6 @@
 		border-radius: 9999px;
 		background-color: #1DA1F2;
 	}
-
-	/* Unused alert CSS removed */
 
 	.form-container {
 		padding: 16px;
@@ -561,7 +322,6 @@
 	}
 
 	input[type="text"],
-	input[type="password"],
 	textarea {
 		font-family: inherit;
 		font-size: 15px;
@@ -574,7 +334,6 @@
 	}
 
 	input[type="text"]:focus,
-	input[type="password"]:focus,
 	textarea:focus {
 		outline: none;
 		border-color: #1DA1F2;
@@ -614,21 +373,6 @@
 		text-align: right;
 	}
 
-	.security-intro {
-		display: flex;
-		align-items: center;
-		gap: 12px;
-		padding: 16px;
-		background-color: #F5F8FA;
-		border-radius: 8px;
-		color: #657786;
-		font-size: 15px;
-	}
-
-	.security-intro :global(svg) {
-		color: #14171A;
-	}
-
 	.form-actions {
 		display: flex;
 		justify-content: flex-end;
@@ -663,35 +407,6 @@
 
     .btn-primary:active {
 		background-color: #167CB8;
-	}
-
-	.btn-outline {
-		background-color: transparent;
-		color: #1DA1F2;
-		border: 2px solid #1DA1F2;
-	}
-
-	.btn-outline:hover {
-		background-color: #F0F8FF;
-	}
-
-	.btn-danger {
-		background-color: #DC3545;
-		color: white;
-	}
-
-	.btn-danger:hover {
-		background-color: #C82333;
-	}
-
-	.btn-danger:active {
-		background-color: #BD2130;
-	}
-
-	.btn-danger:disabled {
-		background-color: #F5C6CB;
-		color: #6C757D;
-		cursor: not-allowed;
 	}
 
 	@media (max-width: 600px) {
@@ -732,243 +447,5 @@
 			opacity: 1;
 			transform: translateY(0);
 		}
-	}
-
-	/* Security Options */
-	.security-section {
-		display: flex;
-		flex-direction: column;
-		gap: 24px;
-	}
-
-	.security-back-btn {
-		display: inline-flex;
-		align-items: center;
-		gap: 6px;
-		background: none;
-		border: none;
-		color: #657786;
-		font-size: 14px;
-		font-weight: 500;
-		cursor: pointer;
-		font-family: inherit;
-		padding: 8px 0;
-		transition: color 0.2s;
-	}
-
-	.security-back-btn:hover {
-		color: #14171A;
-	}
-
-	.security-options {
-		display: flex;
-		flex-direction: column;
-		gap: 16px;
-	}
-
-	.security-option {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		padding: 16px;
-		border-radius: 12px;
-		border: 1px solid #E1E8ED;
-		background-color: #F5F8FA;
-	}
-
-	.security-option.danger {
-		border-color: #FFCDD2;
-		background-color: #FFF8F8;
-	}
-
-	.security-option-content {
-		display: flex;
-		align-items: center;
-		gap: 16px;
-		color: #657786;
-		flex: 1;
-	}
-
-	.security-option.danger .security-option-content {
-		color: #C62828;
-	}
-
-	.security-option-text h3 {
-		font-size: 15px;
-		font-weight: 700;
-		color: #14171A;
-		margin: 0 0 2px;
-	}
-
-	.security-option.danger .security-option-text h3 {
-		color: #C62828;
-	}
-
-	.security-option-text p {
-		font-size: 13px;
-		color: #657786;
-		margin: 0;
-	}
-
-	.security-option.danger .security-option-text p {
-		color: #A94442;
-	}
-
-	/* Delete Modal */
-	.modal-delete {
-		background-color: white;
-		border-radius: 16px;
-		overflow: hidden;
-	}
-
-	.modal-header {
-		display: flex;
-		align-items: center;
-		gap: 12px;
-		padding: 20px 24px;
-		background-color: #F5F8FA;
-		border-bottom: 1px solid #E1E8ED;
-	}
-
-	.modal-header h2 {
-		margin: 0;
-		font-size: 18px;
-		font-weight: 800;
-		color: #14171A;
-	}
-
-	.modal-header.danger {
-		background-color: #FFF8F8;
-		border-bottom-color: #FFCDD2;
-	}
-
-	.modal-header.danger :global(svg) {
-		color: #DC3545;
-	}
-
-	/* Deleting Overlay */
-	.deleting-overlay {
-		position: fixed;
-		inset: 0;
-		z-index: 9999;
-		background: rgba(255, 255, 255, 0.95);
-		backdrop-filter: blur(8px);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		text-align: center;
-		animation: fadeIn 0.3s ease-out;
-	}
-
-	.deleting-content {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		gap: 1.5rem;
-		color: #0f172a;
-	}
-
-	.deleting-content h2 {
-		margin: 0;
-		font-size: 1.5rem;
-		font-weight: 800;
-		letter-spacing: -0.025em;
-	}
-
-	.deleting-content p {
-		margin: 0;
-		color: #64748b;
-		font-size: 1.05rem;
-	}
-
-	:global(.spin-icon) {
-		color: #0ea5e9;
-		animation: spin 2s linear infinite;
-	}
-
-	@keyframes spin {
-		from {
-			transform: rotate(0deg);
-		}
-		to {
-			transform: rotate(360deg);
-		}
-	}
-
-	@keyframes fadeIn {
-		from {
-			opacity: 0;
-		}
-		to {
-			opacity: 1;
-		}
-	}
-
-	.modal-body {
-		padding: 24px;
-	}
-
-	.modal-body p {
-		font-size: 14px;
-		color: #657786;
-		margin: 0 0 12px;
-		line-height: 1.5;
-	}
-
-	.modal-body p strong {
-		color: #C62828;
-	}
-
-	.modal-body code {
-		background-color: #F5F8FA;
-		padding: 2px 6px;
-		border-radius: 4px;
-		font-size: 13px;
-		font-weight: 600;
-		color: #14171A;
-	}
-
-	.delete-consequences {
-		margin: 12px 0;
-		padding-left: 20px;
-		font-size: 14px;
-		color: #657786;
-	}
-
-	.delete-consequences li {
-		margin-bottom: 4px;
-	}
-
-	.delete-input {
-		width: 100%;
-		padding: 12px 16px;
-		border-radius: 8px;
-		border: 1px solid #E1E8ED;
-		background-color: #F5F8FA;
-		font-family: inherit;
-		font-size: 14px;
-		transition: all 0.2s;
-		box-sizing: border-box;
-	}
-
-	.delete-input:focus {
-		outline: none;
-		border-color: #DC3545;
-		background-color: white;
-		box-shadow: 0 0 0 1px #DC3545;
-	}
-
-	.delete-hint {
-		font-size: 13px !important;
-		color: #C62828 !important;
-		margin-top: 8px !important;
-	}
-
-	.modal-footer {
-		display: flex;
-		justify-content: flex-end;
-		gap: 12px;
-		padding: 16px 24px;
-		border-top: 1px solid #E1E8ED;
 	}
 </style>

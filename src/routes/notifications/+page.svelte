@@ -15,7 +15,7 @@
 
 	const session = auth_client.useSession();
 
-	type NotificationType = 'like' | 'dislike' | 'repost' | 'follow';
+	type NotificationType = 'like' | 'dislike' | 'repost' | 'follow' | 'pigeon';
 	type NotificationFilter = 'all' | 'unread';
 
 	type NotificationItem = {
@@ -30,6 +30,7 @@
 		day_group: 'Today' | 'Earlier this week' | 'Older';
 		unread: boolean;
 		post_id?: string | null;
+		conversation_id?: string | null;
 		actor_verified?: boolean;
 	};
 
@@ -337,6 +338,16 @@
 		await goto(resolve('/profile/[handle]', { handle: normalized }));
 	}
 
+	/** Pigeon in flight → open the conversation. Content stays hidden until landing. */
+	async function view_conversation(
+		notification_id: string,
+		conversation_id?: string | null
+	): Promise<void> {
+		if (!conversation_id) return;
+		mark_as_read(notification_id);
+		await goto(resolve(`/messages/${conversation_id}`));
+	}
+
 	async function follow_back(notification_id: string, actor_handle?: string): Promise<void> {
 		if (!actor_handle) return;
 
@@ -441,11 +452,13 @@
 									time_ago={item.time_ago}
 									unread={item.unread}
 									post_id={item.post_id}
+									conversation_id={item.conversation_id}
 									on_height_change={handle_height_change}
 									on_view_profile={view_profile}
 									on_view_post={view_post}
 									on_mark_as_read={mark_as_read}
 									on_follow_back={follow_back}
+									on_open_conversation={view_conversation}
 									following_back={following_back.has(item.id)}
 								/>
 							{/each}

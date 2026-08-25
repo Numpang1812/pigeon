@@ -37,6 +37,10 @@ export const create_tables_sql = {
 	user_home_lng: `ALTER TABLE user ADD COLUMN home_lng REAL`,
 	user_home_accuracy_m: `ALTER TABLE user ADD COLUMN home_accuracy_m REAL`,
 	user_home_set_at: `ALTER TABLE user ADD COLUMN home_set_at TEXT`,
+	// Per-type notification switches as JSON, e.g. {"follow":true,"like":false}.
+	// NULL means every type is on. Validated in TypeScript, not CHECK — see the
+	// notification table comment below for why CHECK columns are a trap.
+	user_notification_prefs: `ALTER TABLE user ADD COLUMN notification_prefs TEXT`,
 
 	session: `
 		CREATE TABLE IF NOT EXISTS session (

@@ -1,9 +1,9 @@
 <script lang="ts">
-	import { Heart, Repeat2, UserPlus, Bell, ThumbsDown, BadgeCheck } from 'lucide-svelte';
+	import { Heart, Repeat2, UserPlus, Bell, ThumbsDown, BadgeCheck, Bird } from 'lucide-svelte';
 
 	interface Props {
 		id: string;
-		type: 'like' | 'dislike' | 'repost' | 'follow';
+		type: 'like' | 'dislike' | 'repost' | 'follow' | 'pigeon';
 		actor_name: string;
 		actor_handle?: string;
 		avatar_url: string;
@@ -13,11 +13,13 @@
 		time_ago: string;
 		unread: boolean;
 		post_id?: string | null;
+		conversation_id?: string | null;
 		on_height_change: (id: string, height: number) => void;
 		on_view_profile: (notification_id: string, actor_handle?: string) => void;
 		on_view_post: (notification_id: string, post_id?: string | null) => void;
 		on_mark_as_read: (notification_id: string) => void;
 		on_follow_back: (notification_id: string, actor_handle?: string) => void;
+		on_open_conversation: (notification_id: string, conversation_id?: string | null) => void;
 		following_back: boolean;
 	}
 
@@ -33,11 +35,13 @@
 		time_ago,
 		unread,
 		post_id,
+		conversation_id,
 		on_height_change,
 		on_view_profile,
 		on_view_post,
 		on_mark_as_read,
 		on_follow_back,
+		on_open_conversation,
 		following_back
 	}: Props = $props();
 
@@ -63,6 +67,10 @@
 		return (type === 'like' || type === 'dislike' || type === 'repost') && !!post_id;
 	}
 
+	function should_show_open_chat(): boolean {
+		return type === 'pigeon' && !!conversation_id;
+	}
+
 	function should_show_follow_actions(): boolean {
 		return type === 'follow';
 	}
@@ -79,6 +87,8 @@
 				return 'View post';
 			case 'follow':
 				return 'Follow back';
+			case 'pigeon':
+				return 'Open chat';
 			default:
 				return 'View';
 		}
@@ -100,6 +110,8 @@
 			<Repeat2 size={14} />
 		{:else if type === 'follow'}
 			<UserPlus size={14} />
+		{:else if type === 'pigeon'}
+			<Bird size={14} />
 		{:else}
 			<Bell size={14} />
 		{/if}
@@ -152,6 +164,15 @@
 			{/if}
 			{#if should_show_view_post_action()}
 				<button type="button" class="inline-action" onclick={() => on_view_post(id, post_id)}>
+					{action_label()}
+				</button>
+			{/if}
+			{#if should_show_open_chat()}
+				<button
+					type="button"
+					class="inline-action"
+					onclick={() => on_open_conversation(id, conversation_id)}
+				>
 					{action_label()}
 				</button>
 			{/if}
