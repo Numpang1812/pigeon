@@ -20,7 +20,7 @@ export const GET: RequestHandler = async ({ request }) => {
 			get_flock_state(user.id),
 			db.execute({
 				sql: `SELECT f.id, f.conversation_id, f.route_json, f.total_distance_km,
-				             f.departed_at, f.available_at, f.status,
+				             f.departed_at, f.available_at, f.status, f.speed_multiplier,
 				             m.id AS message_id, m.body
 				      FROM pigeon_flight f
 				      LEFT JOIN message m ON m.flight_id = f.id
@@ -42,7 +42,8 @@ export const GET: RequestHandler = async ({ request }) => {
 				total_distance_km: Number(row.total_distance_km ?? 0),
 				departed_at: row.departed_at as string,
 				available_at: row.available_at as string,
-				status: row.status as string
+				status: row.status as string,
+				speed_multiplier: Number(row.speed_multiplier ?? 1)
 			}))
 		});
 	} catch (error) {

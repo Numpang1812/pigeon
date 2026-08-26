@@ -164,7 +164,7 @@ export async function fetch_activity_notifications_for_user(
 				UNION ALL
 
 				SELECT
-					m.id || '-' || md.id AS event_id,
+					m.id || '-' || md.recipient_id AS event_id,
 					'pigeon' AS type,
 					m.departed_at AS created_at,
 					u.id AS actor_id,

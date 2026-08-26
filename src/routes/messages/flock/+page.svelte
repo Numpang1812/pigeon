@@ -98,6 +98,7 @@
 				<FlightMap
 					route={flight.route}
 					departed_at={epoch_from_sql(flight.departed_at) ?? data.server_now}
+					speed_multiplier={flight.speed_multiplier}
 					{clock_offset}
 					compact
 				/>

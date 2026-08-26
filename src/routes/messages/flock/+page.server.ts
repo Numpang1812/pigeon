@@ -19,7 +19,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 		get_flock_state(user_id),
 		db.execute({
 			sql: `SELECT f.id, f.conversation_id, f.route_json, f.total_distance_km,
-			             f.departed_at, f.available_at, f.status, m.body
+			             f.departed_at, f.available_at, f.status, f.speed_multiplier, m.body
 			      FROM pigeon_flight f
 			      LEFT JOIN message m ON m.flight_id = f.id
 			      WHERE f.sender_id = ? AND f.available_at > ?
@@ -39,7 +39,8 @@ export const load: PageServerLoad = async ({ locals }) => {
 			total_distance_km: Number(row.total_distance_km ?? 0),
 			departed_at: row.departed_at as string,
 			available_at: row.available_at as string,
-			status: row.status as string
+			status: row.status as string,
+			speed_multiplier: Number(row.speed_multiplier ?? 1)
 		}))
 	};
 };

@@ -6,7 +6,8 @@ const config = {
 		adapter: adapter(),
 		csp: {
 			directives: {
-				'script-src': ['self', 'unsafe-eval', 'unsafe-inline']
+				'script-src': ['self', 'unsafe-eval', 'unsafe-inline'],
+				'worker-src': ['self', 'blob:']
 			}
 		}
 	},

@@ -5,6 +5,7 @@
 	import {
 		position_at,
 		progress_at,
+		pigeon_speed_kmh,
 		route_total_km,
 		flight_ms_for_km,
 		haversine_km,
@@ -13,6 +14,8 @@
 		type RouteLeg,
 		type Coords
 	} from '$lib/pigeon/flight';
+	import { describe_multiplier, slowdown_percent } from '$lib/pigeon/weather';
+	import { attach_weather_overlay } from '$lib/pigeon/weather-overlay';
 	import { format_duration, format_distance } from '$lib/pigeon/clock';
 	import {
 		Maximize2,
@@ -32,6 +35,7 @@
 		status?: string; // 'in_flight' | 'recalled' | 'delivered'
 		recalled_at?: number | null;
 		label?: string;
+		speed_multiplier?: number;
 	};
 
 	type Props = {
@@ -43,6 +47,8 @@
 		recalled_at?: number | null;
 		/** Multi-flight array */
 		flights?: FlightItem[];
+		/** Weather speed factor for the single-route form (1 = clear) */
+		speed_multiplier?: number;
 		/** Difference between server clock and browser clock */
 		clock_offset?: number;
 		/** Loft display names keyed by recipient id */
@@ -60,6 +66,7 @@
 		status = 'in_flight',
 		recalled_at = null,
 		flights,
+		speed_multiplier,
 		clock_offset = 0,
 		labels = {},
 		origin_label = 'Your loft',
@@ -70,7 +77,15 @@
 	// Normalize normalized flight items
 	const all_flights = $derived.by<FlightItem[]>(() => {
 		if (flights && flights.length > 0) {
-			return flights;
+			const seen = new Set<string>();
+			const unique: FlightItem[] = [];
+			for (const f of flights) {
+				const key = f.id ?? JSON.stringify(f.route);
+				if (seen.has(key)) continue;
+				seen.add(key);
+				unique.push(f);
+			}
+			return unique;
 		}
 		if (route && departed_at !== undefined) {
 			return [
@@ -80,7 +95,8 @@
 					departed_at,
 					status,
 					recalled_at,
-					label: 'Current Flight'
+					label: 'Current Flight',
+					speed_multiplier
 				}
 			];
 		}
@@ -96,8 +112,9 @@
 	let map_element: HTMLDivElement | null = $state(null);
 	let now = $state(Date.now());
 
-	let leaflet_module = $state<typeof import('leaflet') | null>(null);
-	let map_instance = $state<import('leaflet').Map | null>(null);
+	let leaflet_module: typeof import('leaflet') | null = null;
+	let map_instance: import('leaflet').Map | null = null;
+	let remove_weather_overlay: (() => void) | null = null;
 
 	// Leaflet layer collections per flight
 	type FlightLayers = {
@@ -171,18 +188,25 @@
 		formatted_eta: string;
 		flown_points: [number, number][];
 		remaining_points: [number, number][];
+		speed_multiplier: number;
 	};
+
+	/** Speed this bird flies at — cruise constant scaled by locked-in weather. */
+	function flight_speed_kmh(fl: FlightItem): number {
+		return pigeon_speed_kmh * (fl.speed_multiplier ?? 1);
+	}
 
 	function compute_recalled_flight_dynamic(
 		fl: FlightItem,
 		origin: Coords,
 		server_time: number
 	): FlightDynamic {
+		const speed_kmh = flight_speed_kmh(fl);
 		const recall_time = fl.recalled_at ?? server_time;
-		const recall_snapshot = position_at(fl.route, fl.departed_at, recall_time);
+		const recall_snapshot = position_at(fl.route, fl.departed_at, recall_time, speed_kmh);
 		const recall_origin = recall_snapshot.coords;
 		const return_km = haversine_km(recall_origin, origin);
-		const return_total_ms = flight_ms_for_km(return_km);
+		const return_total_ms = flight_ms_for_km(return_km, speed_kmh);
 		const elapsed_return_ms = Math.max(0, server_time - recall_time);
 
 		const return_fraction =
@@ -220,7 +244,8 @@
 			remaining_points: [
 				[pigeon_coords.lat, pigeon_coords.lng],
 				[origin.lat, origin.lng]
-			]
+			],
+			speed_multiplier: fl.speed_multiplier ?? 1
 		};
 	}
 
@@ -230,16 +255,17 @@
 		loft_labels: Record<string, string>
 	): FlightDynamic {
 		const route = fl.route;
+		const speed_kmh = flight_speed_kmh(fl);
 		const total_km = route_total_km(route);
-		const schedule = delivery_schedule(route, fl.departed_at);
+		const schedule = delivery_schedule(route, fl.departed_at, speed_kmh);
 		const next_pending_stop = schedule.find((s) => s.deliver_at > server_time);
-		const total_round_trip_ms = flight_ms_for_km(total_km);
+		const total_round_trip_ms = flight_ms_for_km(total_km, speed_kmh);
 		const available_at_ms = fl.departed_at + total_round_trip_ms;
 
 		const is_delivered = !next_pending_stop;
 		const is_returned_home = server_time >= available_at_ms;
 
-		const current_pos = position_at(route, fl.departed_at, server_time);
+		const current_pos = position_at(route, fl.departed_at, server_time, speed_kmh);
 		const pigeon_coords = current_pos.coords;
 
 		const leg = route[current_pos.leg_index] ?? route[0];
@@ -257,7 +283,7 @@
 
 		if (!is_delivered && next_pending_stop) {
 			const remaining_to_deliver_ms = Math.max(0, next_pending_stop.deliver_at - server_time);
-			const total_leg_ms = flight_ms_for_km(next_pending_stop.distance_km);
+			const total_leg_ms = flight_ms_for_km(next_pending_stop.distance_km, speed_kmh);
 			const elapsed_ms = Math.max(0, server_time - fl.departed_at);
 			progress = total_leg_ms <= 0 ? 1 : Math.min(1, elapsed_ms / total_leg_ms);
 
@@ -304,7 +330,8 @@
 			formatted_distance,
 			formatted_eta,
 			flown_points: passed_points,
-			remaining_points: future_points
+			remaining_points: future_points,
+			speed_multiplier: fl.speed_multiplier ?? 1
 		};
 	}
 
@@ -323,7 +350,8 @@
 					formatted_distance: '0 km',
 					formatted_eta: 'Delivered',
 					flown_points: [],
-					remaining_points: []
+					remaining_points: [],
+					speed_multiplier: fl.speed_multiplier ?? 1
 				};
 			}
 
@@ -340,6 +368,15 @@
 		flights_dynamics[selected_flight_idx] ?? flights_dynamics[0] ?? null
 	);
 
+	/** Weather effect of the selected flight, or null when skies are clear. */
+	const active_weather = $derived.by(() => {
+		const dyn = active_dynamic;
+		if (!dyn || dyn.speed_multiplier >= 1) return null;
+		// Regional variants (Polar Blizzard…) decode to their exact label+penalty.
+		const { effect } = describe_multiplier(dyn.speed_multiplier);
+		return { effect, percent: slowdown_percent(dyn.speed_multiplier) };
+	});
+
 	// Palette for multiple pigeons
 	const flight_colors = [
 		{ stroke: '#0284c7', glow: 'rgba(2, 132, 199, 0.28)', dot: '#0284c7', fill: '#38bdf8' },
@@ -348,7 +385,7 @@
 		{ stroke: '#d97706', glow: 'rgba(217, 119, 6, 0.28)', dot: '#d97706', fill: '#fbbf24' }
 	];
 
-	// Animation frame loop
+	// Animation frame loop & Leaflet Map Initialization
 	onMount(() => {
 		let frame = 0;
 		const tick = () => {
@@ -357,10 +394,6 @@
 		};
 		frame = requestAnimationFrame(tick);
 
-		import('leaflet').then((mod) => {
-			leaflet_module = mod.default || mod;
-		});
-
 		const on_key_down = (e: KeyboardEvent) => {
 			if (e.key === 'Escape' && is_fullscreen) {
 				toggle_fullscreen();
@@ -368,43 +401,63 @@
 		};
 		window.addEventListener('keydown', on_key_down);
 
-		return () => {
-			if (frame) cancelAnimationFrame(frame);
-			window.removeEventListener('keydown', on_key_down);
-		};
-	});
+		let destroyed = false;
 
-	// Initialize Leaflet Map
-	$effect(() => {
-		if (!browser || !map_element || !leaflet_module || map_instance) return;
+		import('leaflet').then((mod) => {
+			if (destroyed || !map_element) return;
+			const leaflet_lib = mod.default || mod;
+			leaflet_module = leaflet_lib;
 
-		const leaflet_lib = leaflet_module;
-		const map = leaflet_lib.map(map_element, {
-			zoomControl: false,
-			attributionControl: false,
-			scrollWheelZoom: true,
-			touchZoom: true
+			const map = leaflet_lib.map(map_element, {
+				zoomControl: false,
+				attributionControl: false,
+				scrollWheelZoom: true,
+				touchZoom: true,
+				minZoom: 2,
+				maxBounds: [
+					[-85, -100000],
+					[85, 100000]
+				],
+				maxBoundsViscosity: 1.0,
+				worldCopyJump: true
+			});
+
+			leaflet_lib.tileLayer(
+				'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+				{
+					minZoom: 2,
+					maxZoom: 19,
+					subdomains: 'abcd',
+					noWrap: false
+				}
+			).addTo(map);
+
+			leaflet_lib.control.zoom({ position: 'topright' }).addTo(map);
+			map_instance = map;
+
+			build_all_layers(leaflet_lib, map);
+			remove_weather_overlay = attach_weather_overlay(map, leaflet_lib);
 		});
 
-		leaflet_lib.tileLayer(
-			'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-			{
-				maxZoom: 19,
-				subdomains: 'abcd'
-			}
-		).addTo(map);
-
-		leaflet_lib.control.zoom({ position: 'topright' }).addTo(map);
-		map_instance = map;
-
-		build_all_layers(leaflet_lib, map);
-
 		return () => {
+			destroyed = true;
+			if (frame) cancelAnimationFrame(frame);
+			window.removeEventListener('keydown', on_key_down);
+			if (remove_weather_overlay) {
+				remove_weather_overlay();
+				remove_weather_overlay = null;
+			}
 			if (map_instance) {
 				map_instance.remove();
 				map_instance = null;
 			}
+			flight_layers.forEach((fl) => {
+				fl.flown_line.remove();
+				fl.remaining_line.remove();
+				fl.pigeon_marker.remove();
+			});
 			flight_layers.clear();
+			loft_markers.forEach((m) => m.remove());
 			loft_markers = [];
 		};
 	});
@@ -539,7 +592,10 @@
 		});
 
 		const bounds = leaflet_lib.latLngBounds(waypoints_list);
-		map_instance.fitBounds(bounds, { padding: [55, 55], maxZoom: 16 });
+		map_instance.fitBounds(bounds, { padding: [55, 55], maxZoom: 14 });
+		if (map_instance.getZoom() < 2) {
+			map_instance.setZoom(2);
+		}
 	}
 
 	function focus_flight(idx: number) {
@@ -555,7 +611,10 @@
 			[origin.lat, origin.lng],
 			[dyn.pigeon_coords.lat, dyn.pigeon_coords.lng]
 		]);
-		map_instance.fitBounds(bounds, { padding: [60, 60], maxZoom: 16 });
+		map_instance.fitBounds(bounds, { padding: [60, 60], maxZoom: 14 });
+		if (map_instance.getZoom() < 2) {
+			map_instance.setZoom(2);
+		}
 	}
 
 	function toggle_fullscreen() {
@@ -634,6 +693,15 @@
 						{active_dynamic.status_title}
 					</span>
 					<span class="status-badge">{active_dynamic.formatted_distance}</span>
+					{#if active_weather}
+						<span
+							class="status-badge weather-badge"
+							style={`color: ${active_weather.effect.color}; background: ${active_weather.effect.color}1f;`}
+							title={`Weather slows this pigeon by ${active_weather.percent}%`}
+						>
+							{active_weather.effect.label} −{active_weather.percent}%
+						</span>
+					{/if}
 				</div>
 			{/if}
 		</div>
@@ -927,6 +995,10 @@
 		background: #ffedd5;
 	}
 
+	.weather-badge {
+		font-weight: 700;
+	}
+
 	.tool-btn {
 		display: inline-flex;
 		align-items: center;
@@ -984,7 +1056,7 @@
 		position: relative;
 		width: 100%;
 		height: 300px;
-		background: #f8fafc;
+		background: #d8e8f0;
 		flex: 1;
 	}
 
@@ -1001,6 +1073,11 @@
 		width: 100%;
 		height: 100%;
 		z-index: 1;
+		background: #d8e8f0;
+	}
+
+	:global(.leaflet-container) {
+		background: #d8e8f0 !important;
 	}
 
 	.multi-pigeon-floating-badge {

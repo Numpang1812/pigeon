@@ -238,8 +238,15 @@ export const create_tables_sql = {
 			departed_at TEXT NOT NULL,
 			available_at TEXT NOT NULL,
 			status TEXT NOT NULL DEFAULT 'in_flight',
-			recalled_at TEXT
+			recalled_at TEXT,
+			speed_multiplier REAL NOT NULL DEFAULT 1
 		)
+	`,
+
+	// Migration for databases created before weather-adjusted speeds existed.
+	// Duplicate-column errors are tolerated by ensure_schema.
+	pigeon_flight_speed_multiplier: `
+		ALTER TABLE pigeon_flight ADD COLUMN speed_multiplier REAL NOT NULL DEFAULT 1
 	`,
 
 	message: `

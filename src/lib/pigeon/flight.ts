@@ -77,9 +77,17 @@ export function haversine_km(a: Coords, b: Coords): number {
 	return 2 * earth_radius_km * Math.asin(Math.min(1, Math.sqrt(chord)));
 }
 
-/** Flight duration in milliseconds for a given distance. */
-export function flight_ms_for_km(distance_km: number): number {
-	return (distance_km / pigeon_speed_kmh) * ms_per_hour;
+/**
+ * Flight duration in milliseconds for a given distance.
+ *
+ * speed_kmh defaults to the cruise constant; flights released into bad weather
+ * lock in a reduced value at departure (see $lib/pigeon/weather).
+ */
+export function flight_ms_for_km(
+	distance_km: number,
+	speed_kmh: number = pigeon_speed_kmh
+): number {
+	return (distance_km / speed_kmh) * ms_per_hour;
 }
 
 // ==========================================
@@ -148,8 +156,12 @@ export function route_total_km(route: RouteLeg[]): number {
 }
 
 /** When the bird is back in the loft and rejoins the flock. */
-export function available_at_for(route: RouteLeg[], departed_at: number): number {
-	return departed_at + flight_ms_for_km(route_total_km(route));
+export function available_at_for(
+	route: RouteLeg[],
+	departed_at: number,
+	speed_kmh: number = pigeon_speed_kmh
+): number {
+	return departed_at + flight_ms_for_km(route_total_km(route), speed_kmh);
 }
 
 // ==========================================
@@ -164,7 +176,11 @@ export type DeliveryStop = {
 	deliver_at: number;
 };
 
-export function delivery_schedule(route: RouteLeg[], departed_at: number): DeliveryStop[] {
+export function delivery_schedule(
+	route: RouteLeg[],
+	departed_at: number,
+	speed_kmh: number = pigeon_speed_kmh
+): DeliveryStop[] {
 	const schedule: DeliveryStop[] = [];
 	let cumulative_km = 0;
 	let leg_order = 0;
@@ -178,7 +194,7 @@ export function delivery_schedule(route: RouteLeg[], departed_at: number): Deliv
 			recipient_id: leg.recipient_id,
 			leg_order,
 			distance_km: cumulative_km,
-			deliver_at: departed_at + flight_ms_for_km(cumulative_km)
+			deliver_at: departed_at + flight_ms_for_km(cumulative_km, speed_kmh)
 		});
 		leg_order += 1;
 	}
@@ -204,13 +220,18 @@ export type FlightPosition = {
 	fraction: number;
 };
 
-export function position_at(route: RouteLeg[], departed_at: number, now: number): FlightPosition {
+export function position_at(
+	route: RouteLeg[],
+	departed_at: number,
+	now: number,
+	speed_kmh: number = pigeon_speed_kmh
+): FlightPosition {
 	if (route.length === 0) {
 		return { coords: { lat: 0, lng: 0 }, leg_index: 0, fraction: 1 };
 	}
 
 	const elapsed_hours = Math.max(0, (now - departed_at) / ms_per_hour);
-	const flown_km = elapsed_hours * pigeon_speed_kmh;
+	const flown_km = elapsed_hours * speed_kmh;
 	const total_km = route_total_km(route);
 
 	if (flown_km >= total_km) {
@@ -241,11 +262,16 @@ export function position_at(route: RouteLeg[], departed_at: number, now: number)
 }
 
 /** Fraction of the whole round trip completed, for a progress readout. */
-export function progress_at(route: RouteLeg[], departed_at: number, now: number): number {
+export function progress_at(
+	route: RouteLeg[],
+	departed_at: number,
+	now: number,
+	speed_kmh: number = pigeon_speed_kmh
+): number {
 	const total_km = route_total_km(route);
 	if (total_km === 0) return 1;
 
-	const flown_km = Math.max(0, (now - departed_at) / ms_per_hour) * pigeon_speed_kmh;
+	const flown_km = Math.max(0, (now - departed_at) / ms_per_hour) * speed_kmh;
 	return Math.min(1, flown_km / total_km);
 }
 
@@ -269,18 +295,19 @@ export function plan_recall(
 	route: RouteLeg[],
 	departed_at: number,
 	recalled_at: number,
-	origin: Coords
+	origin: Coords,
+	speed_kmh: number = pigeon_speed_kmh
 ): RecallPlan {
-	const current = position_at(route, departed_at, recalled_at);
+	const current = position_at(route, departed_at, recalled_at, speed_kmh);
 	const return_distance_km = haversine_km(current.coords, origin);
 
-	const cancelled_recipient_ids = delivery_schedule(route, departed_at)
+	const cancelled_recipient_ids = delivery_schedule(route, departed_at, speed_kmh)
 		.filter((stop) => stop.deliver_at > recalled_at)
 		.map((stop) => stop.recipient_id);
 
 	return {
 		return_distance_km,
-		available_at: recalled_at + flight_ms_for_km(return_distance_km),
+		available_at: recalled_at + flight_ms_for_km(return_distance_km, speed_kmh),
 		cancelled_recipient_ids
 	};
 }

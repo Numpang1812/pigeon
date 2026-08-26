@@ -37,6 +37,7 @@
 
 	/** All messages still carrying a bird (in flight or returning), so the map can show all pigeons. */
 	const active_flights = $derived.by(() => {
+		const seen_ids = new Set<string>();
 		return data.messages
 			.filter(
 				(message) =>
@@ -45,6 +46,12 @@
 					(message.flight.status === 'in_flight' || message.flight.status === 'recalled') &&
 					(epoch_from_sql(message.flight.available_at) ?? 0) > data.server_now
 			)
+			.filter((message) => {
+				const id = message.flight!.id;
+				if (seen_ids.has(id)) return false;
+				seen_ids.add(id);
+				return true;
+			})
 			.map((message) => {
 				const fl = message.flight!;
 				const body_snippet = message.body
@@ -59,7 +66,8 @@
 					departed_at: epoch_from_sql(fl.departed_at) ?? data.server_now,
 					status: fl.status,
 					recalled_at: fl.recalled_at ? epoch_from_sql(fl.recalled_at) : null,
-					label: body_snippet
+					label: body_snippet,
+					speed_multiplier: fl.speed_multiplier
 				};
 			});
 	});

@@ -35,6 +35,18 @@ vi.mock('./db', () => ({
 	db: { execute: mock_execute, batch: mock_batch }
 }));
 
+/**
+ * Weather is climatology-based and month-dependent, which would make flight
+ * timing assertions drift with the calendar. Pin it to clear skies; weather
+ * behaviour has its own tests in weather-climate.test.ts.
+ */
+vi.mock('$lib/server/weather-cache', () => ({
+	get_route_weather: vi.fn(async () => ({ condition: 'clear', multiplier: 1 }))
+}));
+vi.mock('./weather-cache', () => ({
+	get_route_weather: vi.fn(async () => ({ condition: 'clear', multiplier: 1 }))
+}));
+
 const {
 	are_mutual_follows,
 	assert_can_send,

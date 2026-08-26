@@ -21,12 +21,14 @@ import {
 	fuzz_for_map,
 	haversine_km,
 	is_valid_coords,
+	pigeon_speed_kmh,
 	plan_recall,
 	plan_route,
 	route_total_km,
 	type Coords,
 	type RouteLeg
 } from '$lib/pigeon/flight';
+import { get_route_weather } from './weather-cache';
 
 // ==========================================
 // Errors
@@ -734,6 +736,8 @@ export type FlightSummary = {
 	available_at: string;
 	status: string;
 	recalled_at: string | null;
+	/** Weather speed factor locked in at departure (1 = clear conditions). */
+	speed_multiplier: number;
 };
 
 export type MessageSummary = {
@@ -812,10 +816,20 @@ export async function release_pigeon(
 
 	const departed_at_ms = Date.now();
 	const departed_at = sql_timestamp_from_epoch(departed_at_ms);
-	const available_at_ms = available_at_for(route, departed_at_ms);
+
+	// Weather is sampled once at release and locked into the row: every later
+	// computation (deliveries, recall, map animation) replays the same speed.
+	const flight_weather = await get_route_weather([
+		...route.map((leg) => leg.from),
+		route[route.length - 1].to
+	]);
+	const speed_multiplier = flight_weather.multiplier;
+	const flight_speed_kmh = pigeon_speed_kmh * speed_multiplier;
+
+	const available_at_ms = available_at_for(route, departed_at_ms, flight_speed_kmh);
 	const available_at = sql_timestamp_from_epoch(available_at_ms);
 	const total_distance_km = route_total_km(route);
-	const schedule = delivery_schedule(route, departed_at_ms);
+	const schedule = delivery_schedule(route, departed_at_ms, flight_speed_kmh);
 
 	const flight_id = crypto.randomUUID();
 	const message_id = crypto.randomUUID();
@@ -825,8 +839,9 @@ export async function release_pigeon(
 		[
 			{
 				sql: `INSERT INTO pigeon_flight (id, sender_id, conversation_id, route_json,
-				                                total_distance_km, departed_at, available_at, status)
-				      VALUES (?, ?, ?, ?, ?, ?, ?, 'in_flight')`,
+				                                total_distance_km, departed_at, available_at, status,
+				                                speed_multiplier)
+				      VALUES (?, ?, ?, ?, ?, ?, ?, 'in_flight', ?)`,
 				args: [
 					flight_id,
 					sender_id,
@@ -834,7 +849,8 @@ export async function release_pigeon(
 					JSON.stringify(fuzzed_route),
 					total_distance_km,
 					departed_at,
-					available_at
+					available_at,
+					speed_multiplier
 				]
 			},
 			{
@@ -911,7 +927,8 @@ export async function release_pigeon(
 			departed_at,
 			available_at,
 			status: 'in_flight',
-			recalled_at: null
+			recalled_at: null,
+			speed_multiplier
 		},
 		deliveries: schedule.map((stop) => ({
 			recipient_id: stop.recipient_id,
@@ -943,7 +960,7 @@ export type RecallResult = {
  */
 export async function recall_pigeon(flight_id: string, sender_id: string): Promise<RecallResult> {
 	const result = await db.execute({
-		sql: `SELECT id, sender_id, route_json, departed_at, available_at, status
+		sql: `SELECT id, sender_id, route_json, departed_at, available_at, status, speed_multiplier
 		      FROM pigeon_flight WHERE id = ? LIMIT 1`,
 		args: [flight_id]
 	});
@@ -961,7 +978,18 @@ export async function recall_pigeon(flight_id: string, sender_id: string): Promi
 		throw new PigeonError(409, 'nothing_to_recall');
 	}
 
-	const recall = plan_recall(route, departed_at_ms, recalled_at_ms, route[0].from);
+	// The bird keeps the speed it was released with — weather is part of the
+	// flight's history, not re-rolled mid-air.
+	const flight_speed_kmh =
+		pigeon_speed_kmh * Number(row.speed_multiplier ?? 1);
+
+	const recall = plan_recall(
+		route,
+		departed_at_ms,
+		recalled_at_ms,
+		route[0].from,
+		flight_speed_kmh
+	);
 
 	if (recall.cancelled_recipient_ids.length === 0) {
 		// Every recipient already has it; the bird is only flying home now.
@@ -1277,7 +1305,8 @@ export async function get_thread(
 		db.execute({
 			sql: `SELECT m.id, m.sender_id, m.body, m.attachment_count, m.departed_at AS visible_at,
 			             f.id AS flight_id, f.route_json, f.total_distance_km,
-			             f.departed_at AS flight_departed_at, f.available_at, f.status, f.recalled_at
+			             f.departed_at AS flight_departed_at, f.available_at, f.status, f.recalled_at,
+			             f.speed_multiplier
 			      FROM message m
 			      JOIN pigeon_flight f ON f.id = m.flight_id
 			      WHERE m.conversation_id = ? AND m.sender_id = ? AND m.deleted_at IS NULL
@@ -1317,7 +1346,8 @@ export async function get_thread(
 				departed_at: row.flight_departed_at as string,
 				available_at: row.available_at as string,
 				status: row.status as string,
-				recalled_at: (row.recalled_at as string | null) ?? null
+				recalled_at: (row.recalled_at as string | null) ?? null,
+				speed_multiplier: Number(row.speed_multiplier ?? 1)
 			},
 			deliveries: []
 		}))
@@ -1430,7 +1460,7 @@ export async function list_active_flights(user_id: string): Promise<ActiveFlight
 
 	const result = await db.execute({
 		sql: `SELECT f.id AS flight_id, f.conversation_id, f.route_json, f.total_distance_km,
-		             f.departed_at, f.available_at, f.status, f.recalled_at,
+		             f.departed_at, f.available_at, f.status, f.recalled_at, f.speed_multiplier,
 		             m.id AS message_id, m.body AS message_body,
 		             c.kind AS conversation_kind, c.title AS conversation_title
 		      FROM pigeon_flight f
@@ -1439,6 +1469,7 @@ export async function list_active_flights(user_id: string): Promise<ActiveFlight
 		      WHERE f.sender_id = ?
 		        AND f.status IN ('in_flight', 'recalled')
 		        AND f.available_at > ?
+		      GROUP BY f.id
 		      ORDER BY f.departed_at DESC`,
 		args: [user_id, now]
 	});
@@ -1492,7 +1523,8 @@ export async function list_active_flights(user_id: string): Promise<ActiveFlight
 				departed_at: row.departed_at as string,
 				available_at: row.available_at as string,
 				status: row.status as string,
-				recalled_at: (row.recalled_at as string | null) ?? null
+				recalled_at: (row.recalled_at as string | null) ?? null,
+				speed_multiplier: Number(row.speed_multiplier ?? 1)
 			},
 			message_id: row.message_id as string,
 			message_body: row.message_body as string,
