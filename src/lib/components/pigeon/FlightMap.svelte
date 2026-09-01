@@ -16,6 +16,7 @@
 	} from '$lib/pigeon/flight';
 	import { describe_multiplier, slowdown_percent } from '$lib/pigeon/weather';
 	import { attach_weather_overlay } from '$lib/pigeon/weather-overlay';
+	import { add_basemap } from '$lib/pigeon/map-basemap';
 	import { format_duration, format_distance } from '$lib/pigeon/clock';
 	import {
 		Maximize2,
@@ -422,15 +423,7 @@
 				worldCopyJump: true
 			});
 
-			leaflet_lib.tileLayer(
-				'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-				{
-					minZoom: 2,
-					maxZoom: 19,
-					subdomains: 'abcd',
-					noWrap: false
-				}
-			).addTo(map);
+			add_basemap(leaflet_lib, map);
 
 			leaflet_lib.control.zoom({ position: 'topright' }).addTo(map);
 			map_instance = map;

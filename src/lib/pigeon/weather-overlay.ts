@@ -79,7 +79,7 @@ const CELL_STYLES: Partial<Record<WeatherCondition, CellStyle>> = {
 	heavy_rain: { fill_opacity: 0.22, radius_scale: 1.0, css_class: '' },
 	thunderstorm: { fill_opacity: 0.25, radius_scale: 1.0, css_class: 'pigeon-weather-cell--storm' },
 	blizzard: { fill_opacity: 0.24, radius_scale: 1.0, css_class: 'pigeon-weather-cell--storm' },
-	hurricane: { fill_opacity: 0.3, radius_scale: 1.0, css_class: 'pigeon-weather-cell--hurricane' }
+	hurricane: { fill_opacity: 0.42, radius_scale: 1.0, css_class: 'pigeon-weather-cell--hurricane' }
 };
 
 const STYLE_TAG_ID = 'pigeon-weather-overlay-styles';
@@ -324,6 +324,8 @@ function build_legend(container: HTMLElement): {
 }
 
 const WEATHER_PANE_NAME = 'pigeon-weather-pane';
+/** Crisp pane for small markers — the weather pane's 30px blur erases them. */
+const WEATHER_MARK_PANE_NAME = 'pigeon-weather-mark-pane';
 
 /**
  * Attach the overlay. Returns a cleanup function that removes listeners,
@@ -345,7 +347,13 @@ export function attach_weather_overlay(
 		weather_pane.style.transition = 'opacity 0.25s ease';
 	}
 	// Applied every attach so restyles reach pre-existing panes too.
-	weather_pane.style.opacity = '0.85';
+	weather_pane.style.opacity = '0.92';
+
+	let mark_pane = map.getPane(WEATHER_MARK_PANE_NAME);
+	if (!mark_pane) {
+		mark_pane = map.createPane(WEATHER_MARK_PANE_NAME);
+		mark_pane.style.zIndex = '360';
+	}
 
 	const container = map.getContainer();
 	const legend = build_legend(container);
@@ -378,7 +386,7 @@ export function attach_weather_overlay(
 			const lat_stretch = 1 / Math.max(Math.abs(Math.cos((cell.lat * Math.PI) / 180)), 0.3);
 			const radius = cell.radius_m * style.radius_scale * lat_stretch;
 
-			// Severe weather core circle (subtle inner glow)
+			// Severe weather core circle — hurricanes get a hot solid eye.
 			if (cell.condition === 'hurricane' || cell.condition === 'thunderstorm' || cell.condition === 'blizzard') {
 				next_group.addLayer(
 					leaflet_lib.circle([cell.lat, cell.lng], {
@@ -386,10 +394,54 @@ export function attach_weather_overlay(
 						radius: radius * 0.5,
 						stroke: false,
 						fillColor: effect.color,
-						fillOpacity: 0.16,
+						fillOpacity: cell.condition === 'hurricane' ? 0.38 : 0.16,
 						className: style.css_class
 					})
 				);
+			}
+
+			// Hurricanes alone get a crisp spinning danger ring (blur-resistant).
+			if (cell.condition === 'hurricane') {
+				next_group.addLayer(
+					leaflet_lib.circle([cell.lat, cell.lng], {
+						pane: WEATHER_PANE_NAME,
+						radius: radius * 0.85,
+						stroke: true,
+						color: effect.color,
+						weight: 3,
+						opacity: 0.9,
+						dashArray: '12 10',
+						fill: false,
+						className: 'pigeon-weather-cell--hurricane-ring'
+					})
+				);
+
+				// World-view visibility: metric circles shrink below perception at
+				// low zoom — and the pane blur erases what's left — so draw a
+				// crisp pixel-space dot in the un-blurred mark pane.
+				const zoom = map.getZoom();
+				const m_per_px =
+					(40075016.686 * Math.cos((cell.lat * Math.PI) / 180)) / (256 * 2 ** zoom);
+				const px_radius = cell.radius_m / Math.max(m_per_px, 1);
+				if (px_radius < 14) {
+					const marker_slowdown = slowdown_percent(cell.multiplier);
+					const marker = leaflet_lib.circleMarker([cell.lat, cell.lng], {
+						pane: WEATHER_MARK_PANE_NAME,
+						radius: 7,
+						stroke: true,
+						color: '#ffffff',
+						weight: 1.5,
+						opacity: 0.9,
+						fillColor: effect.color,
+						fillOpacity: 0.85
+					});
+					marker.bindTooltip(
+						`<strong style="font-size:12px;">${weather_icons.hurricane} ${effect.label}</strong><br/>` +
+							`<span style="color:${effect.color};font-size:11px;font-weight:700;">Pigeon speed −${marker_slowdown}%</span>`,
+						{ sticky: true, opacity: 0.95 }
+					);
+					next_group.addLayer(marker);
+				}
 			}
 
 			const circle = leaflet_lib.circle([cell.lat, cell.lng], {

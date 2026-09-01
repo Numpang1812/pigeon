@@ -127,7 +127,10 @@ function build_event_name(effect_label: string, lat: number, lng: number, seed: 
 	const region = region_tag(lat, lng);
 	const descriptors = ['System', 'Cell', 'Mass', 'Belt', 'Zone'];
 	const desc = descriptors[seed % descriptors.length];
-	return `${region} ${effect_label} ${desc}`;
+	// Regional labels already carry their climate ("Polar Blizzard") — don't
+	// double the tag ("Polar Polar Blizzard").
+	const tag = effect_label.toLowerCase().startsWith(region.toLowerCase()) ? null : region;
+	return `${tag ? `${tag} ` : ''}${effect_label} ${desc}`;
 }
 
 /**

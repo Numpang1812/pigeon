@@ -11,6 +11,7 @@
 		AlertCircle
 	} from 'lucide-svelte';
 	import 'leaflet/dist/leaflet.css';
+	import { add_basemap } from '$lib/pigeon/map-basemap';
 
 	type Props = {
 		/** Whether the user may close the gate and keep using the rest of the app. */
@@ -75,10 +76,7 @@
 			attributionControl: false
 		});
 
-		L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-			maxZoom: 19,
-			subdomains: 'abcd'
-		}).addTo(map);
+		add_basemap(L, map);
 
 		L.control.zoom({ position: 'topright' }).addTo(map);
 

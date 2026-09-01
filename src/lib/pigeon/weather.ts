@@ -69,7 +69,7 @@ export const weather_effects: Record<WeatherCondition, WeatherEffect> = {
 	thunderstorm: { label: 'Thunderstorm', speed_multiplier: 0.72, color: '#7c3aed' },
 	sandstorm: { label: 'Sandstorm', speed_multiplier: 0.65, color: '#ea580c' },
 	blizzard: { label: 'Blizzard', speed_multiplier: 0.55, color: '#7dd3fc' },
-	hurricane: { label: 'Hurricane', speed_multiplier: 0.2, color: '#dc2626' }
+	hurricane: { label: 'Hurricane', speed_multiplier: 0.2, color: '#ff2b2b' }
 };
 
 /**
